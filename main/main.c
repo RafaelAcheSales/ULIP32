@@ -70,8 +70,8 @@ static void buttonPressed(int intr, void *user_data) {
         //gpio_set_level(GPIO_OUTPUT, 1);
         qrcode_init(true, true,
                     1000000,
-                    1000,
-                    false,
+                    100,
+                    true,
                     30,
                     qrcode_event, NULL);
         printf("writing\n");
