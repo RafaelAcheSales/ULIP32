@@ -1,0 +1,25 @@
+# menu "QRCODE Configuration"
+
+#     config QRCODE_LED
+#         bool "QRCODE led"
+#         help
+#             Set if led is enable in qrcode
+
+#     config QRCODE_TIMEOUT
+#         int "QRCODE timeout"
+#         help
+#             Set QRCODE timeout value uint32.
+#     config QRCODE_PANIC_TIMEOUT
+#         int "QRCODE panic timeout"
+#         help
+#             Set QRCODE panic timeout value uint32.
+#     config QRCODE_DYNAMIC
+#         bool "QRCODE dynamic"
+#         help
+#             Set if qrcode is dynamic.
+#     config QRCODE_VALIDITY
+#         int "QRCODE validity"
+#         help
+#             Set qrcode validity uint16.
+    
+# endmenu
