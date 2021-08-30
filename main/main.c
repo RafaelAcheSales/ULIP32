@@ -13,15 +13,39 @@
 #include "ctl.h"
 #include "qrcode.h"
 #include "config.h"
+#include "fpm.h"
 #define GPIO_INPUT 16
 #define GPIO_INPUT_PIN_SEL (1ULL<<GPIO_INPUT)
-#define GPIO_OUTPUT 5
+#define GPIO_OUTPUT -1
 #define GPIO_OUTPUT_PIN_SEL (1ULL<<GPIO_OUTPUT)
 #define BITBANG 3
 #define UART_TTY 2
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
 
+
+
+
+void ulip_core_capture_finger(bool status, int index)
+{
+    if (status)
+        fpm_set_enroll(index);
+    else
+        fpm_cancel_enroll();
+}
+static void ctl_event(int event, int status) {
+    printf("event rolou ctl");
+}
+static void fingerprint_event(int event, int index,
+                              uint8_t *data, int len,
+                              int error, void *user_data)
+{
+    printf("event rolou fingerprint of len: %d\n", len);
+    for (int i = 0; i < len; i++)
+    {
+        printf("%02X", data[i]);
+    }
+}
 int cnt = 0;
 static int qrcode_event(int event, const char *data,
                         int len, void *user_data)
@@ -60,23 +84,7 @@ static void buttonPressed(int intr, void *user_data) {
     
 
     if (intr == 4) {
-        
-        // if (cnt%2 == 0) {
-        //     ctl_qrcode_on();
-        // } else {
-        //     ctl_qrcode_off();
-        // }
-        // cnt++;
-        //gpio_set_level(GPIO_OUTPUT, 1);
-        qrcode_init(true, true,
-                    1000000,
-                    100,
-                    true,
-                    30,
-                    qrcode_event, NULL);
-        printf("writing\n");
-        // tty_write(UART_TTY, data, 2);
-        //tty_write(BITBANG, data, 10);
+        ulip_core_capture_finger(true, 0);
     }
 }
 void app_main(void)
@@ -98,8 +106,8 @@ void app_main(void)
 
     // gpio_set_level(GPIO_OUTPUT, 1);
 
-    ctl_init();
-    // //start_eth();
+    // ctl_init(CTL_MODE_NORMAL, ctl_event);
+    // start_eth();
     // // CFG_Load();
     tty_init();
     // qrcode_init(CFG_get_qrcode_led(), true,
@@ -111,8 +119,12 @@ void app_main(void)
     
     //tty_open(UART_TTY,test_event, NULL);
 
-    
+    fpm_init(0,
+                 2,
+                 2,
+                 fingerprint_event, NULL);
     gpio_interrupt_open(4, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
     printf("Hello world!\n");
     
 }
+

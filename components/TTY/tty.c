@@ -16,8 +16,8 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        11
-#define UART1_TX_PIN        12
+#define UART1_RX_PIN        5
+#define UART1_TX_PIN        2
 
 #define UART2               2
 #define UART2_RX_PIN        4
@@ -28,8 +28,8 @@
 #define UART3_TX_PIN        2
 #define UART3_RX_INTR       3
 
-#define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN)
-#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN)
+#define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN) | (1ULL<<UART2_RX_PIN) | (1ULL<<UART1_RX_PIN)
+#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN)
 
 
 #define TTY_FIFO_CNT(head,tail,size) \
@@ -126,6 +126,8 @@ static void tty_hw_timeout(void)
     /* Only receive */
     // p = &tty_dev[UART1];
     // if (p->func) {
+        
+    // }
     //     if (!(hw_timer_counter & 1)) {
     //         if (p->recv_bits > 0) {
     //             p->recv_bits--;
@@ -261,7 +263,17 @@ static void tty_task(void)
     int size;
     int len;
     //int i;
-    
+    p = &tty_dev[UART1];
+    if (p->func) {
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART1, (size_t*)&len));
+        size = uart_read_bytes(UART1, buf, len, 50);
+        if (size) {
+            ESP_LOGI("TTY", "read %d bytes from UART%d", size, UART1);
+
+        }
+        if (size)
+            p->func(UART1, buf, len, p->user_data);
+    }
     p = &tty_dev[UART2];
     if (p->func) {
         ESP_ERROR_CHECK(uart_get_buffered_data_len(UART2, (size_t*)&len));
@@ -290,6 +302,20 @@ static void tty_task(void)
 int tty_init(void)
 {
     ESP_LOGI("TTY", "TTY init");
+    uart_dev uart1_dev = {
+        .baud_rate = BIT_RATE_9600,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bit = UART_STOP_BITS_1,
+        .flow_control = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_APB,
+        .uart_id = UART1,
+        .tx_pin = UART1_TX_PIN,
+        .rx_pin = UART1_RX_PIN,
+        .cts = -1,
+        .rts = -1,
+    };
+
     uart_dev uart2_dev = {
         .baud_rate = BIT_RATE_9600,
         .data_bits = UART_DATA_8_BITS,
@@ -303,7 +329,9 @@ int tty_init(void)
         .cts = -1,
         .rts = -1,
     };
+    uart_initialize(&uart1_dev);
     uart_initialize(&uart2_dev);
+
     ESP_LOGI("tty", "initialized uarts");
     // tty_event.sig = 1;
     // tty_event.par = 0;
@@ -367,9 +395,7 @@ int tty_open(int tty, tty_func_t func,
                 //uart_rx_intr_enable(UART0);
                 break;
             case UART1:
-                // gpio_interrupt_open(UART1_RX_INTR, UART1_RX_PIN,
-                //                     GPIO_PIN_INTR_NEGEDGE, GPIO_INTR_DISABLED,
-                //                     tty_gpio_interrupt, p); 
+                uart_open(UART1);
                 break;
             case UART2:
                 uart_open(UART2);
@@ -408,10 +434,10 @@ int tty_close(int tty)
             // uart_rx_intr_disable(UART0);
             break;
         case UART1:
-            // gpio_interrupt_close(0);
+            uart_close(tty);
             break;
         case UART2:
-            uart_close(UART2);
+            uart_close(tty);
             break;
         case UART3:
             gpio_interrupt_close(UART3);
@@ -452,16 +478,10 @@ int tty_write(int tty, unsigned char *data, int len)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;
         case UART1:
-            // rc = tty_write_fifo(tty, data, len);
-            // if (!rc) {
-            //     size = TTY_FIFO_CNT(p->xmit_head, p->xmit_tail, TTY_BSIZE);
-            //     len = UART_FIFO_LEN - ((READ_PERI_REG(UART_STATUS(tty)) >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
-            //     if (size > len) size = len;
-            //     for (i = 0; i < size; i++) {
-            //         WRITE_PERI_REG(UART_FIFO(tty), p->xmit_buf[p->xmit_head]);
-            //         p->xmit_head = ++p->xmit_head & (TTY_BSIZE - 1);
-            //     }
-            // }
+            // ESP_LOGI("TTY", "writing bytes to tty: %d ", tty);
+
+            
+            rc = uart_write_bytes(tty, data, len);
             break;
         case UART2:
             rc = uart_write_bytes(tty, data, len);

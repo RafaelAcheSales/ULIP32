@@ -1,6 +1,7 @@
 
 
-
+#include <sys/time.h>
+#include <string.h>
 #include "tty.h"
 #include "ctl.h"
 #include "stdbool.h"
@@ -8,11 +9,12 @@
 #include "esp_timer.h"
 #include "esp_log.h"
 
-#undef DEBUG
+// #undef DEBUG
+#define DEBUG 1
 
 #define FPM_TTY                     1
 #define FPM_BFSIZE                  1024
-#define FPM_TIMEOUT                 1000  /* msec */
+#define FPM_TIMEOUT                 1000000  /* usec */
 #define FPM_SECURITY_LEVEL          3
 #define FPM_TEMPSIZE                498
 
@@ -531,7 +533,8 @@ static void fpm_event(int tty, const char *event,
                             /* Check identify retries */
                             if (++fpm_identify_counter >= fpm_identify_retries) {
                                 /* Debounce */
-                                now = system_get_time();
+                                gettimeofday(&tv_now, NULL);
+                                now = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
                                 if (fpm_timestamp) {
                                     d = (now - fpm_timestamp) / 1000;
                                     if (d <= ((fpm_timeout << 1) + 1000)) {

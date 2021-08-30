@@ -1,4 +1,8 @@
 {
+    "terminal.integrated.env.linux": {
+        
+        "terminal.integrated.scrollback": 100000000,
+    },
     "files.associations": {
         "esp_intr_alloc.h": "c",
         "tty.h": "c",
@@ -29,7 +33,14 @@
         "tuple": "c",
         "type_traits": "c",
         "utility": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "stdio.h": "c",
+        "array": "c",
+        "bitset": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "regex": "c",
+        "valarray": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "C_Cpp.dimInactiveRegions": true
