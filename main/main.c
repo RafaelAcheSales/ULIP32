@@ -14,6 +14,8 @@
 #include "qrcode.h"
 #include "config.h"
 #include "fpm.h"
+// #include "freertos/FreeRTOS.h"
+// #include "freertos/task.h"
 #define GPIO_INPUT 16
 #define GPIO_INPUT_PIN_SEL (1ULL<<GPIO_INPUT)
 #define GPIO_OUTPUT -1
@@ -84,7 +86,18 @@ static void buttonPressed(int intr, void *user_data) {
     
 
     if (intr == 4) {
-        ulip_core_capture_finger(true, 0);
+        fpm_delete_all();
+        ulip_core_capture_finger(true, 3);
+        // if (cnt%2==0) {
+        //     printf("buz on\n");
+        //     ctl_beep(3);
+
+        // } else {
+        //     printf("buz off\n");
+        //     gpio_set_level(GPIO_NUM_13, 0);
+
+        // }
+        // cnt++;
     }
 }
 void app_main(void)
@@ -106,23 +119,20 @@ void app_main(void)
 
     // gpio_set_level(GPIO_OUTPUT, 1);
 
-    // ctl_init(CTL_MODE_NORMAL, ctl_event);
-    // start_eth();
+    ctl_init(CTL_MODE_NORMAL, ctl_event);
+    start_eth();
     // // CFG_Load();
     tty_init();
-    // qrcode_init(CFG_get_qrcode_led(), true,
-    //                 CFG_get_qrcode_timeout(),
-    //                 CFG_get_qrcode_panic_timeout(),
-    //                 CFG_get_qrcode_dynamic(),
-    //                 CFG_get_qrcode_validity(),
-    //                 qrcode_event, NULL);
+    qrcode_init(false, true,
+                    1000000,
+                    2000000,
+                    true,
+                    30,
+                    qrcode_event, NULL);
     
     //tty_open(UART_TTY,test_event, NULL);
 
-    fpm_init(0,
-                 2,
-                 2,
-                 fingerprint_event, NULL);
+    fpm_init(0,2,2,fingerprint_event, NULL);
     gpio_interrupt_open(4, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
     printf("Hello world!\n");
     

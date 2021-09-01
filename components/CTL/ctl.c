@@ -137,7 +137,7 @@ int ctl_init(int mode, ctl_event_func_t func) {
             .callback = &ctl_timeout,
             .name = "ctl_timeout"
     };
-    
+    gpio_set_level(BUZZER_PIN, 0);
     ESP_ERROR_CHECK(esp_timer_create(&ctl_timer_args, &ctl_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(ctl_timer, CTL_TIMEOUT));
     return 1;

@@ -695,7 +695,7 @@ int fpm_init(int timeout, int security, int identify_retries,
              fpm_handler_t func, void *user_data)
 {
     ESP_LOGI("FPM", "Initialize FPM");
-
+    
     /* Open tty */
     if (tty_open(FPM_TTY, fpm_event, NULL)) {
         ESP_LOGW("FPM", "Failed to initialize FPM!");
