@@ -268,8 +268,7 @@ static void tty_task(void)
         ESP_ERROR_CHECK(uart_get_buffered_data_len(UART1, (size_t*)&len));
         size = uart_read_bytes(UART1, buf, len, 50);
         if (size) {
-            ESP_LOGI("TTY", "read %d bytes from UART%d", size, UART1);
-
+            ESP_LOGI("TTY", "read %d bytes from UART %d  --  %02X", size, UART1, buf[8]);
         }
         if (size)
             p->func(UART1, buf, len, p->user_data);
@@ -478,7 +477,7 @@ int tty_write(int tty, unsigned char *data, int len)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;
         case UART1:
-            // ESP_LOGI("TTY", "writing bytes to tty: %d ", tty);
+            ESP_LOGE("TTY", "writing command to fingerprint: %02X", data[8]);
 
             
             rc = uart_write_bytes(tty, data, len);

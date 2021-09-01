@@ -40,7 +40,7 @@ static void fingerprint_event(int event, int index,
                               uint8_t *data, int len,
                               int error, void *user_data)
 {
-    printf("event rolou fingerprint of len: %d\n", len);
+    printf("event rolou fingerprint of len: %d erro %X\n", len, event);
     for (int i = 0; i < len; i++)
     {
         printf("%02X", data[i]);

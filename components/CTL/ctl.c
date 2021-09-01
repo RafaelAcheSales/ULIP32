@@ -4,7 +4,7 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #define QRCODE_PIN      32
-#define BUZZER_PIN      6
+#define BUZZER_PIN      13
 #define OUTPUT_MASK     (1ULL<<QRCODE_PIN) | (1ULL<<BUZZER_PIN)
 #define FPM_PIN         12
 #define INPUT_MASK      (1ULL<<FPM_PIN)
@@ -135,14 +135,11 @@ int ctl_init(int mode, ctl_event_func_t func) {
     ctl_event_func = func;
     const esp_timer_create_args_t ctl_timer_args = {
             .callback = &ctl_timeout,
-            /* name is optional, but may help identify the timer when debugging */
             .name = "ctl_timeout"
     };
     
     ESP_ERROR_CHECK(esp_timer_create(&ctl_timer_args, &ctl_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(ctl_timer, CTL_TIMEOUT));
-    // os_timer_setfn(&ctl_timer, (os_timer_func_t *)ctl_timeout, NULL);
-    // os_timer_arm(&ctl_timer, CTL_TIMEOUT, TRUE);
     return 1;
 }
 void ctl_release(void)
