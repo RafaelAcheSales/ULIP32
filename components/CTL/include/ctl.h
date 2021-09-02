@@ -1,5 +1,5 @@
 #pragma once
-
+#include "stdbool.h"
 
 #define CTL_MODE_NORMAL     0
 #define CTL_MODE_ALT        1
@@ -36,3 +36,21 @@ int ctl_fpm_get(void);
 void ctl_beep(uint8_t beep);
 void ctl_buzzer_on(uint32_t time);
 void ctl_buzzer_off(void);
+
+void ctl_relay_on(uint32_t time);
+void ctl_relay_off(void);
+
+bool ctl_check_ap_mode(void);
+
+uint8_t ctl_relay_status(void);
+uint8_t ctl_sensor_status(void);
+// uint8_t clt_alarm_status(void);
+// uint8_t ctl_panic_status(void);
+// uint8_t ctl_breakin_status(void);
+
+
+void ctl_relay_ext_on(uint32_t time);
+
+void ctl_relay_ext_off(void);
+
+uint8_t ctl_relay_ext_status(void);

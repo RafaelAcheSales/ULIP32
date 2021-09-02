@@ -16,7 +16,7 @@
 #include "fpm.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
-#define GPIO_INPUT 16
+#define GPIO_INPUT -1
 #define GPIO_INPUT_PIN_SEL (1ULL<<GPIO_INPUT)
 #define GPIO_OUTPUT -1
 #define GPIO_OUTPUT_PIN_SEL (1ULL<<GPIO_OUTPUT)
@@ -24,6 +24,9 @@
 #define UART_TTY 2
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
+int cnt = 0;
+
+
 
 
 
@@ -48,7 +51,6 @@ static void fingerprint_event(int event, int index,
         printf("%02X", data[i]);
     }
 }
-int cnt = 0;
 static int qrcode_event(int event, const char *data,
                         int len, void *user_data)
 {
@@ -56,18 +58,6 @@ static int qrcode_event(int event, const char *data,
     return 1;
 }
 
-static tty_func_t bitbang_event(int tty, char *data,
-                      int len, void *user_data)
-{
-    printf("event bitbang rolou: ");
-    for (int i = 0; i < len; i++)
-    {
-        printf("%c",data[i]);
-    }
-    printf("\n");
-    tty_func_t t = NULL;
-    return t;
-}
 
 static tty_func_t test_event(int tty, char *data,
                       int len, void *user_data)
@@ -120,20 +110,20 @@ void app_main(void)
     // gpio_set_level(GPIO_OUTPUT, 1);
 
     ctl_init(CTL_MODE_NORMAL, ctl_event);
-    start_eth();
+    // start_eth();
     // // CFG_Load();
     tty_init();
-    qrcode_init(false, true,
-                    1000000,
-                    2000000,
-                    true,
-                    30,
-                    qrcode_event, NULL);
+    // qrcode_init(false, true,
+    //                 1000000,
+    //                 2000000,
+    //                 true,
+    //                 30,
+    //                 qrcode_event, NULL);
     
     //tty_open(UART_TTY,test_event, NULL);
 
-    fpm_init(0,2,2,fingerprint_event, NULL);
-    gpio_interrupt_open(4, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
+    // fpm_init(0,2,2,fingerprint_event, NULL);
+    // gpio_interrupt_open(4, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
     printf("Hello world!\n");
     
 }
