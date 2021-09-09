@@ -24,8 +24,8 @@
 #define UART2_TX_PIN        15
 
 #define UART3               3
-#define UART3_RX_PIN        1
-#define UART3_TX_PIN        2
+#define UART3_RX_PIN        -1
+#define UART3_TX_PIN        -1
 #define UART3_RX_INTR       3
 
 #define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN) | (1ULL<<UART2_RX_PIN) | (1ULL<<UART1_RX_PIN)
@@ -372,9 +372,15 @@ int tty_init(void)
 
 void tty_release(void)
 {
-    gpio_drv_release();
+    ESP_LOGI("tty", "releasing");
+    tty_close(UART0);
+    tty_close(UART1);
+    tty_close(UART2);
+    // tty_close(UART3);
     hw_timer_disarm(TIMER_GROUP_0);
     hw_timer_disarm(TIMER_GROUP_1);
+    gpio_drv_release();
+    ESP_LOGI("tty", "released");
 }
 
 

@@ -737,6 +737,7 @@ int fpm_init(int timeout, int security, int identify_retries,
 void fpm_release(void)
 {
     tty_close(FPM_TTY);
+    ESP_LOGI("FPM", "released\n");
     ESP_ERROR_CHECK(esp_timer_stop(fpm_timer));
     fpm_timeout = FPM_TIMEOUT;
     fpm_security_level = FPM_SECURITY_LEVEL;

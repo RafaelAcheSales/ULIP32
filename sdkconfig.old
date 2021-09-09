@@ -127,9 +127,18 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# Example Configuration
+#
+CONFIG_ESP_WIFI_SSID="myssid"
+CONFIG_ESP_WIFI_PASSWORD="mypassword"
+CONFIG_ESP_WIFI_CHANNEL=1
+CONFIG_ESP_MAX_STA_CONN=4
+# end of Example Configuration
+
+#
 # ETH Configuration
 #
-# CONFIG_USE_DHCP is not set
+CONFIG_USE_DHCP=y
 CONFIG_IP="10.0.0.243"
 CONFIG_GATEWAY="10.0.0.1"
 CONFIG_NETMASK="255.255.255.0"

@@ -48,7 +48,7 @@ uint8_t ctl_sensor_status(void);
 // uint8_t ctl_panic_status(void);
 // uint8_t ctl_breakin_status(void);
 
-
+void ctl_set_sensor_mode(uint8_t mode);
 void ctl_relay_ext_on(uint32_t time);
 
 void ctl_relay_ext_off(void);

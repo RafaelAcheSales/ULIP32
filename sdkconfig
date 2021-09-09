@@ -127,6 +127,15 @@ CONFIG_PARTITION_TABLE_MD5=y
 # end of Partition Table
 
 #
+# Example Configuration
+#
+CONFIG_ESP_WIFI_SSID="myssid"
+CONFIG_ESP_WIFI_PASSWORD="mypassword"
+CONFIG_ESP_WIFI_CHANNEL=1
+CONFIG_ESP_MAX_STA_CONN=4
+# end of Example Configuration
+
+#
 # ETH Configuration
 #
 CONFIG_USE_DHCP=y
@@ -750,7 +759,9 @@ CONFIG_LWIP_DHCP_DOES_ARP_CHECK=y
 #
 # DHCP server
 #
-# CONFIG_LWIP_DHCPS is not set
+CONFIG_LWIP_DHCPS=y
+CONFIG_LWIP_DHCPS_LEASE_UNIT=60
+CONFIG_LWIP_DHCPS_MAX_STATION_NUM=8
 # end of DHCP server
 
 # CONFIG_LWIP_AUTOIP is not set
