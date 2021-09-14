@@ -40,8 +40,25 @@
         "string_view": "c",
         "initializer_list": "c",
         "regex": "c",
-        "valarray": "c"
+        "valarray": "c",
+        "esp_partition.h": "c",
+        "qrcode2.h": "c",
+        "stdint.h": "c",
+        "ctl.h": "c",
+        "esp_log.h": "c",
+        "stdbool.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
-    "C_Cpp.dimInactiveRegions": true
+    "C_Cpp.dimInactiveRegions": true,
+    
+
+    // "files.exclude": {
+    //     "**/.git": true,         // this is a default value
+    //     "**/.DS_Store": true,    // this is a default value
+
+    //     "/home/rafael/esp/esp-idf/components/esp_timer/include/esp_timer.h": true, // this excludes all folders 
+    //     "/home/rafael/esp/esp-idf/components/esp_timer/include": true, // this excludes all folders 
+    // }
+
+    
 }

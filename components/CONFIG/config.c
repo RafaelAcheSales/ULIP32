@@ -6,14 +6,16 @@
 */
 #include <stdint.h>
 #include <string.h>
-#include <esp_spi_flash.h>
 #include "config.h"
 #include "stdbool.h"
 #include "esp_log.h"
 #include "esp_system.h" 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+#include "nvs_flash.h"
+#include "nvs.h"
+const char * PARTITION_NAME = "storage";
+const char * NAMESPACE = "nvs_nameespace";
 typedef struct {
     uint32_t cfg_holder;
     uint8_t ethaddr[18];
@@ -181,23 +183,31 @@ typedef struct {
 static SYSENV sysEnv;
 static SYSCFG sysCfg;
 static SAVE_FLAG saveFlag;
-static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
+size_t sysEnvSize = sizeof(SYSENV);
+size_t sysCfgSize = sizeof(SYSCFG);
+size_t saveFlagSize = sizeof(SAVE_FLAG);
+// static portMUX_TYPE myMutex = portMUX_INITIALIZER_UNLOCKED;
 const char *CFG_version = CFG_RELEASE;
 
 
 static void
 CFG_ENV_Save(void)
 {
-    taskENTER_CRITICAL(&myMutex);
-    spi_flash_erase_sector(CFG_ENV);
-    spi_flash_write(CFG_ENV * SPI_FLASH_SEC_SIZE, (uint32_t *)&sysEnv, sizeof(SYSENV));
-    taskEXIT_CRITICAL(&myMutex);
-
+    nvs_handle_t my_handle;
+    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
+    // ESP_LOGI("CONFIG", "cfg_env_save");
+    // ESP_ERROR_CHECK(nvs_erase_key(my_handle, SYSENV_KEY));
+    // ESP_ERROR_CHECK(nvs_commit(my_handle));
+    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SYSENV_KEY,&sysEnv, sizeof(SYSENV)));
+    ESP_ERROR_CHECK(nvs_commit(my_handle));
+    // ESP_LOGI("CONFIG", "sysenv erase and write");
+    nvs_close(my_handle);
 }
 
 void
 CFG_ENV_Default(void)
 {
+    // ESP_LOGI("CONFIG", "CFG_ENV_DEFAULOT");
     memset(&sysCfg, 0, sizeof(sysCfg));
     strcpy((char *)sysEnv.ethaddr, CFG_ETHADDR);
     strcpy((char *)sysEnv.serialnum, CFG_SERIALNUM);
@@ -209,9 +219,21 @@ CFG_ENV_Default(void)
 static void
 CFG_ENV_Init(void)
 {
-    taskENTER_CRITICAL(&myMutex);
-    spi_flash_read(CFG_ENV * SPI_FLASH_SEC_SIZE, (uint32_t *)&sysEnv, sizeof(SYSENV));
-    taskEXIT_CRITICAL(&myMutex);
+    nvs_handle_t my_handle;
+    esp_err_t err = nvs_flash_init_partition(PARTITION_NAME);
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        // NVS partition was truncated and needs to be erased
+        // Retry nvs_flash_init
+        ESP_ERROR_CHECK(nvs_flash_erase_partition(PARTITION_NAME));
+        err = nvs_flash_init_partition(PARTITION_NAME);
+    }
+    ESP_ERROR_CHECK( err );
+    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE ,NVS_READWRITE, &my_handle));
+    // ESP_LOGI("CONFIG", "handler is %d", my_handle);
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(my_handle, SYSENV_KEY, &sysEnv, &sysEnvSize));
+    // ESP_ERROR_CHECK(nvs_commit(my_handle));
+    nvs_close(my_handle);
+
     if (sysEnv.cfg_holder == CFG_HOLDER) {
         /* Update environment */
         if (strcmp(sysEnv.release, CFG_version)) {
@@ -219,6 +241,7 @@ CFG_ENV_Init(void)
             CFG_ENV_Save();
         }
     } else {
+        // ESP_LOGI("CONFIG", "default env");
         /* Default environment */
         CFG_ENV_Default();
     }
@@ -327,33 +350,63 @@ CFG_Default(void)
 
     CFG_Save();
 }
+void CFG_reset_all_flash(void) {
+    nvs_handle_t my_handle;
+    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
+    // ESP_ERROR_CHECK(nvs_erase_all(my_handle));
+    ESP_ERROR_CHECK(nvs_flash_erase_partition(PARTITION_NAME));
+}
+uint16_t CFG_Get_blobs(void) {
+    nvs_handle_t my_handle;
+    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
+    SYSCFG test_config;
+    
+    ESP_ERROR_CHECK(nvs_get_blob(my_handle,SYSCFG_KEY, &test_config, &sysCfgSize));
+    return test_config.server_port;
+}
 
 void
 CFG_Save(void)
 {
+    nvs_handle_t my_handle;
+    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
     ESP_LOGI("CONFIG", "Save configuration to flash ...");
 
-    taskENTER_CRITICAL(&myMutex);
-    spi_flash_read((CFG_LOCATION + 2) * SPI_FLASH_SEC_SIZE, (uint32_t *)&saveFlag, sizeof(SAVE_FLAG));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(my_handle, "saveflag", &saveFlag, &saveFlagSize));
+    // ESP_LOGI("CONFIG", "read save flag: %d", saveFlag.flag);
+
     saveFlag.flag = (saveFlag.flag == 0) ? 1 : 0;
-    spi_flash_erase_sector(CFG_LOCATION + saveFlag.flag);
-    spi_flash_write((CFG_LOCATION + saveFlag.flag) * SPI_FLASH_SEC_SIZE, (uint32_t *)&sysCfg, sizeof(SYSCFG));
-    spi_flash_erase_sector(CFG_LOCATION + 2);
-    spi_flash_write((CFG_LOCATION + 2) * SPI_FLASH_SEC_SIZE, (uint32_t *)&saveFlag, sizeof(SAVE_FLAG));
-    taskEXIT_CRITICAL(&myMutex);
+
+    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SYSENV_KEY, &sysEnv, sizeof(SYSENV)));
+    // ESP_LOGI("CONFIG", "write sysenv");
+    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SYSCFG_KEY, &sysCfg, sizeof(SYSCFG)));
+    // ESP_LOGI("CONFIG", "write syscfg");
+    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SAVEFLAG_KEY, &saveFlag, sizeof(SAVE_FLAG)));
+    // ESP_LOGI("CONFIG", "write save flag");
+    ESP_ERROR_CHECK(nvs_commit(my_handle));
+    nvs_close(my_handle);
 }
 
 void
 CFG_Load(void)
 {
+    // ESP_ERROR_CHECK(nvs_flash_erase_partition(PARTITION_NAME));
     ESP_LOGI("CONFIG", "Load configuration from flash ...");
 
     CFG_ENV_Init();
 
-    taskENTER_CRITICAL(&myMutex);
-    spi_flash_read((CFG_LOCATION + 2) * SPI_FLASH_SEC_SIZE, (uint32_t *)&saveFlag, sizeof(SAVE_FLAG));
-    spi_flash_read((CFG_LOCATION + saveFlag.flag) * SPI_FLASH_SEC_SIZE, (uint32_t *)&sysCfg, sizeof(SYSCFG));
-    taskEXIT_CRITICAL(&myMutex);
+    nvs_handle_t load_handler;
+    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE,NVS_READWRITE, &load_handler));
+    // ESP_LOGI("CONFIG", "handler is %d", load_handler);
+
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(load_handler, SAVEFLAG_KEY, &saveFlag, &saveFlagSize));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(load_handler, SYSCFG_KEY, &sysCfg, &sysCfgSize));
+
+    // ESP_LOGI("CONFIG", "holder %x, port %d", sysCfg.cfg_holder, sysCfg.server_port);
+    nvs_close(load_handler);
+    // spi_flash_read((CFG_LOCATION + 2) * SPI_FLASH_SEC_SIZE, (uint32_t *)&saveFlag, sizeof(SAVE_FLAG));
+    // spi_flash_read((CFG_LOCATION + saveFlag.flag) * SPI_FLASH_SEC_SIZE, (uint32_t *)&sysCfg, sizeof(SYSCFG));
+    // taskEXIT_CRITICAL(&myMutex);
     if (sysCfg.cfg_holder != CFG_HOLDER)
         CFG_Default();
 }

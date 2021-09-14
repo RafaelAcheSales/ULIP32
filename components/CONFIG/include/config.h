@@ -1,8 +1,9 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
-
-#define CFG_LOCATION            0xF7
-#define CFG_ENV                 0xFA
+#include "stdbool.h"
+#define SYSENV_KEY              "sysenv"
+#define SYSCFG_KEY              "syscfg"
+#define SAVEFLAG_KEY            "saveflag"
 #define CFG_HOLDER              0x12345678
 
 #define CFG_FIRMWARE            "ulip1.bin"
@@ -15,9 +16,9 @@
 #define CFG_WIFI_SSID           "uTech-AP"
 #define CFG_WIFI_PASSWD         "adminutech"
 
-#define CFG_IP_ADDRESS          "10.0.0.1"
+#define CFG_IP_ADDRESS          "10.0.0.222"
 #define CFG_NETMASK             "255.255.255.0"
-#define CFG_GATEWAY             "10.0.0.2"
+#define CFG_GATEWAY             "10.0.0.1"
 #define CFG_HOSTNAME            "ulip"
 
 #define CFG_NTP                 "pool.ntp.br"
@@ -29,7 +30,7 @@
 #define CFG_RFID_TIMEOUT        1000
 #define CFG_QRCODE_TIMEOUT      1000
 #define CFG_QRCODE_VALIDITY     30
-#define CFG_FPM_TIMEOUT         200
+#define CFG_FPM_TIMEOUT         200000
 #define CFG_DHT_TIMEOUT         60000
 #define CFG_MQ2_TIMEOUT         60000
 #define CFG_PIR_TIMEOUT         30000
@@ -80,8 +81,8 @@ const char *CFG_get_serialnum(void);
 const char *CFG_get_board(void);
 
 const char *CFG_get_release(void);
-
-
+uint16_t CFG_Get_blobs(void);
+void CFG_reset_all_flash(void);
 void CFG_set_wifi_disable(bool disable);
 
 bool CFG_get_wifi_disable(void);

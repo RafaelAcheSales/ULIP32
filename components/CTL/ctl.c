@@ -9,10 +9,10 @@
 #include "ap.h"
 #define QRCODE_PIN      32
 #define BUZZER_PIN      13
-#define RELAY_POW_PIN   -1
-#define RELAY_PIN       -1
-#define LED_PIN         -1
-#define RELAY_EXT_PIN   35
+#define RELAY_POW_PIN   32
+#define RELAY_PIN       32
+#define LED_PIN         32
+#define RELAY_EXT_PIN   32
 #define OUTPUT_MASK     ((1ULL<<QRCODE_PIN) | (1ULL<<RELAY_EXT_PIN))
 #define FPM_PIN         12
 #define SENSOR_PIN      14

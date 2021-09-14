@@ -9,7 +9,7 @@
 #include "tty.h"
 #include "ctl.h"
 #include "esp_timer.h"
-#include "qrcode.h"
+#include "qrcode2.h"
 #include "sdkconfig.h"
 #undef DEBUG
 
@@ -221,14 +221,12 @@ static void qrcode_led_blink(void)
         qrcode_led_disable();
     else
         qrcode_led_enable();
-    const esp_timer_create_args_t led_timer_args = {
-            .callback = &qrcode_led_timeout,
-            /* name is optional, but may help identify the timer when debugging */
-            .name = "led timeout"
-    };
+    // if (esp_timer_is_active(led_timer))
+    // {
+    //     ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, QRCODE_LED_TIMEOUT));
+    //     /* code */
+    // }
     
-    ESP_ERROR_CHECK(esp_timer_create(&led_timer_args, &led_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, QRCODE_LED_TIMEOUT));
     // os_timer_setfn(&qrcode_led_timer, (os_timer_func_t *)qrcode_led_timeout, NULL);
     // os_timer_arm(&qrcode_led_timer, QRCODE_LED_TIMEOUT, true);
 }
@@ -276,6 +274,7 @@ static void qrcode_event(int tty, const char *event,
         qrcode_buflen = 0;
         return;
     }
+    
     memcpy(qrcode_buf + qrcode_buflen, event, len);
     qrcode_buflen += len;
 
@@ -473,6 +472,13 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
     ESP_ERROR_CHECK(esp_timer_create(&polling_timer_args, &polling_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(polling_timer, (qrcode_timeout>>1)));
     ESP_LOGI("QRCODE", "poling timer started");
+    const esp_timer_create_args_t led_timer_args = {
+            .callback = &qrcode_led_timeout,
+            /* name is optional, but may help identify the timer when debugging */
+            .name = "led timeout"
+    };
+    
+    ESP_ERROR_CHECK(esp_timer_create(&led_timer_args, &led_timer));
     // os_timer_setfn(&qrcode_timer, (os_timer_func_t *)qrcode_polling_timeout, NULL);
     // os_timer_arm(&qrcode_timer, qrcode_timeout >> 1, true);
 

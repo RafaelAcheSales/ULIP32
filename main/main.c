@@ -11,7 +11,7 @@
 #include "gpio_drv.h"
 #include "eth.h"
 #include "ctl.h"
-#include "qrcode.h"
+#include "qrcode2.h"
 #include "config.h"
 #include "fpm.h"
 #include "ap.h"
@@ -35,7 +35,7 @@ void ulip_core_capture_finger(bool status, int index)
         fpm_cancel_enroll();
 }
 static void ctl_event(int event, int status) {
-    printf("event rolou ctl");
+    printf("event rolou ctl: %d status %d\n", event, status);
 //     tty_release();
 //     ctl_release();
 //     fpm_release();
@@ -75,29 +75,42 @@ static void buttonPressed(int intr, void *user_data) {
     
 
     if (intr == 1) {
-        printf("event rolou ctl\n");
+        if (cnt == 0) {
+            // printf("reading %d port\n", CFG_Get_blobs());
+            // CFG_set_server_port(34);
+            // CFG_Save();
+            // printf("reading2 %d port\n", CFG_Get_blobs());
+        } else if (cnt == 1){
+            // CFG_reset_all_flash();
+            // printf("reseted flash\n");
+
+        } else if (cnt == 2)
+        {
+            printf("reading3 %d port\n", CFG_Get_blobs());
+            /* code */
+        }
+        
+        
+        // // CFG_Load();
+        // printf("reading %d port", CFG_get_server_port());
+
         // tty_release();
         // ctl_release();
         // printf("ctl released\n");
-        ctl_beep(3);
+        // ctl_beep(3);
         
         // fpm_release();
         
         // fpm_delete_all();
-        // ulip_core_capture_finger(true, 3);
-        // if (cnt%2==0) {
-        //     printf("buz on\n");
-
-        // } else {
-        //     printf("buz off\n");
-        //     gpio_set_level(GPIO_NUM_13, 0);
-
-        // }
+        ulip_core_capture_finger(true, 3);
         cnt++;
     }
 }
 void app_main(void)
 {
+    CFG_Load();
+    CFG_set_dhcp(true);
+    CFG_set_qrcode_led(true);
     gpio_config_t io_conf;
     //disable interrupt
     io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -112,21 +125,27 @@ void app_main(void)
     //configure GPIO with the given settings
     gpio_config(&io_conf);
 
+    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     ctl_init(CTL_MODE_NORMAL, ctl_event);
-    // start_eth();
-    // CFG_Load();
     tty_init();
-    // ctl_set_sensor_mode(1);
+    ctl_set_sensor_mode(1);
     // qrcode_init(false, true,
     //                 1000000,
     //                 2000000,
     //                 true,
     //                 30,
     //                 qrcode_event, NULL);
-    
+    qrcode_init(CFG_get_qrcode_led(), true,
+                    CFG_get_qrcode_timeout(),
+                    CFG_get_qrcode_panic_timeout(),
+                    CFG_get_qrcode_dynamic(),
+                    CFG_get_qrcode_validity(),
+                    qrcode_event, NULL);
     // tty_open(BITBANG,test_event, NULL);
-
     // fpm_init(0,2,2,fingerprint_event, NULL);
+    printf("fpm setup timeout: %d, security: %d, retry: %d\n", CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries());
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     gpio_interrupt_open(1, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
     
     printf("Hello world!\n");

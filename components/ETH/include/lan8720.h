@@ -70,7 +70,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "~~~~~~~~~~~");
 }
 
-void eth_start(void)
+void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask)
 {
     set_pin_17(1);
     vTaskDelay(100);
@@ -179,24 +179,18 @@ void eth_start(void)
     ESP_ERROR_CHECK(esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handle)));
     /* start Ethernet driver state machine */
     ESP_ERROR_CHECK(esp_eth_start(eth_handle));
-#if CONFIG_USE_DHCP
-    esp_netif_dhcpc_start(eth_netif);
-#else
-        //not dhcp
-    ESP_ERROR_CHECK(esp_netif_dhcpc_stop(eth_netif));
-    vTaskDelay(200);
-    char* ip = CONFIG_IP;
-    char* gateway = CONFIG_GATEWAY;
-    char* netmask = CONFIG_NETMASK;
-    esp_netif_ip_info_t info_t;
-    memset(&info_t, 0, sizeof(esp_netif_ip_info_t));
-    esp_netif_str_to_ip4((const char *)ip, (esp_ip4_addr_t *) &info_t.ip.addr);
-    esp_netif_str_to_ip4((const char *)gateway,(esp_ip4_addr_t *) &info_t.gw.addr);
-    esp_netif_str_to_ip4((const char *)netmask,(esp_ip4_addr_t *) &info_t.netmask.addr);
-    esp_netif_set_ip_info(eth_netif, &info_t);
-#endif
-    
-
-    
+    if (dhcp)
+    {
+        esp_netif_dhcpc_start(eth_netif);
+    } else {
+        ESP_ERROR_CHECK(esp_netif_dhcpc_stop(eth_netif));
+        vTaskDelay(200);
+        esp_netif_ip_info_t info_t;
+        memset(&info_t, 0, sizeof(esp_netif_ip_info_t));
+        esp_netif_str_to_ip4((const char *)ip_address, (esp_ip4_addr_t *) &info_t.ip.addr);
+        esp_netif_str_to_ip4((const char *)gateway,(esp_ip4_addr_t *) &info_t.gw.addr);
+        esp_netif_str_to_ip4((const char *)netmask,(esp_ip4_addr_t *) &info_t.netmask.addr);
+        esp_netif_set_ip_info(eth_netif, &info_t);
+    }
 }
 #endif
