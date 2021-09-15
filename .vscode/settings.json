@@ -1,64 +1,13 @@
 {
-    "terminal.integrated.env.linux": {
-        
-        "terminal.integrated.scrollback": 100000000,
-    },
     "files.associations": {
-        "esp_intr_alloc.h": "c",
         "tty.h": "c",
-        "hw_timer.h": "c",
-        "queue.h": "c",
-        "gpio.h": "c",
-        "*.ipp": "c",
-        "timer.h": "c",
-        "uart_drv.h": "c",
-        "task.h": "c",
-        "uart.h": "c",
-        "esp_timer.h": "c",
-        "qrcode.h": "c",
-        "sdkconfig.h": "c",
-        "esp_system.h": "c",
-        "*.inc": "c",
-        "*.contiki": "c",
-        "ctime": "c",
-        "*.tcc": "c",
-        "chrono": "c",
-        "future": "c",
-        "iomanip": "c",
-        "limits": "c",
-        "numeric": "c",
-        "ranges": "c",
-        "ratio": "c",
-        "streambuf": "c",
-        "tuple": "c",
-        "type_traits": "c",
-        "utility": "c",
-        "freertos.h": "c",
-        "stdio.h": "c",
-        "array": "c",
-        "bitset": "c",
-        "string_view": "c",
-        "initializer_list": "c",
-        "regex": "c",
-        "valarray": "c",
-        "esp_partition.h": "c",
-        "qrcode2.h": "c",
-        "stdint.h": "c",
         "ctl.h": "c",
         "esp_log.h": "c",
-        "stdbool.h": "c"
-    },
-    "C_Cpp.errorSquiggles": "Disabled",
-    "C_Cpp.dimInactiveRegions": true,
-    
-
-    // "files.exclude": {
-    //     "**/.git": true,         // this is a default value
-    //     "**/.DS_Store": true,    // this is a default value
-
-    //     "/home/rafael/esp/esp-idf/components/esp_timer/include/esp_timer.h": true, // this excludes all folders 
-    //     "/home/rafael/esp/esp-idf/components/esp_timer/include": true, // this excludes all folders 
-    // }
-
-    
+        "esp_system.h": "c",
+        "esp_timer.h": "c",
+        "stdint.h": "c",
+        "config.h": "c",
+        "fpm.h": "c",
+        "qrcode2.h": "c"
+    }
 }

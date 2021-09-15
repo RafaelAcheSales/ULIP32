@@ -221,12 +221,11 @@ static void qrcode_led_blink(void)
         qrcode_led_disable();
     else
         qrcode_led_enable();
-    // if (esp_timer_is_active(led_timer))
-    // {
-    //     ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, QRCODE_LED_TIMEOUT));
-    //     /* code */
-    // }
-    
+    if (!esp_timer_is_active(led_timer))
+    {
+        ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, QRCODE_LED_TIMEOUT));
+    }
+
     // os_timer_setfn(&qrcode_led_timer, (os_timer_func_t *)qrcode_led_timeout, NULL);
     // os_timer_arm(&qrcode_led_timer, QRCODE_LED_TIMEOUT, true);
 }
@@ -257,7 +256,6 @@ static void qrcode_event(int tty, const char *event,
              len, qrcode_buflen);
 
     for (i = 0; i < len; i++) {
-
         //ESP_LOGD("QRCODE", "%c", (uint8_t)event[i]);
     }
 // #endif

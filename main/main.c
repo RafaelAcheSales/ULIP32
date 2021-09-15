@@ -110,7 +110,8 @@ void app_main(void)
 {
     CFG_Load();
     CFG_set_dhcp(true);
-    CFG_set_qrcode_led(true);
+    CFG_set_qrcode_led(false);
+    CFG_Save();
     gpio_config_t io_conf;
     //disable interrupt
     io_conf.intr_type = GPIO_INTR_DISABLE;
