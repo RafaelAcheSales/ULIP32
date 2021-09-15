@@ -68,7 +68,7 @@ static void gpio_task_example(void* arg)
     for(;;) {
         if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
             //taskENTER_CRITICAL(&my_mutex);
-            printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
+            // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
             gpio_intr_t *p;
             int status;
             int i;

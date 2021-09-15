@@ -9,13 +9,11 @@
 #include "ap.h"
 #define QRCODE_PIN      32
 #define BUZZER_PIN      13
-#define RELAY_POW_PIN   32
-#define RELAY_PIN       32
-#define LED_PIN         32
-#define RELAY_EXT_PIN   32
+#define LED_PIN         35
+#define RELAY_EXT_PIN   14
 #define OUTPUT_MASK     ((1ULL<<QRCODE_PIN) | (1ULL<<RELAY_EXT_PIN))
 #define FPM_PIN         12
-#define SENSOR_PIN      14
+#define SENSOR_PIN      35
 #define SENSOR_INTR     4
 #define INPUT_MASK      (1ULL<<FPM_PIN | 1ULL<<SENSOR_PIN | 1ULL<<BUZZER_PIN ) 
 #define CTL_BEEP_TIME   100000
@@ -104,21 +102,17 @@ static void ctl_timeout(void *arg)
         if (ctl_relay_time > 0) {
             ctl_relay_time -= CTL_TIMEOUT;
             if (ctl_relay_time <= 0) {
-#ifndef SONOFF
-                gpio_set_direction(RELAY_POW_PIN, GPIO_MODE_INPUT);
-#else
-                ctl_relay_off();
-#endif
+
             }
         }
 
-        /* RELAY EXT */
-        if (ctl_relay_ext_time > 0) {
-            ctl_relay_ext_time -= CTL_TIMEOUT;
-            if (ctl_relay_ext_time <= 0) {
-                ctl_relay_ext_off();
-            }
-        }
+        // /* RELAY EXT */
+        // if (ctl_relay_ext_time > 0) {
+        //     ctl_relay_ext_time -= CTL_TIMEOUT;
+        //     if (ctl_relay_ext_time <= 0) {
+        //         ctl_relay_ext_off();
+        //     }
+        // }
 
         /* LED */
         // if (ctl_led_timeout) {
@@ -216,21 +210,6 @@ int ctl_init(int mode, ctl_event_func_t func) {
         /* PANIC */
         ctl_panic_state = CTL_PANIC_OFF;
     } else {
-        /* RELAY */
-// #ifndef SONOFF
-//         gpio_set_direction(RELAY_POW_PIN, GPIO_MODE_INPUT);
-//         gpio_pullup_dis(RELAY_POW_PIN);
-//         // GPIO_DIS_OUTPUT(RELAY_POW_PIN);
-//         // PIN_PULLUP_DIS(RELAY_POW_MUX);
-// #else
-//         // PIN_FUNC_SELECT(RELAY_MUX, RELAY_FUNC);
-//         gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
-//         gpio_set_level(RELAY_PIN, 0);
-// #endif
-
-        /* RELAY EXT */
-        // gpio16_output_conf();
-        // gpio16_output_set(1);
 
         /* SENSOR */
         gpio_set_direction(SENSOR_PIN, GPIO_MODE_INPUT);
@@ -261,7 +240,6 @@ void ctl_release(void)
     ESP_ERROR_CHECK(esp_timer_delete(ctl_timer));
     gpio_set_level(QRCODE_PIN, 1);
     gpio_set_level(RELAY_EXT_PIN, 1);
-    // gpio16_output_set(1);
     gpio_set_level(BUZZER_PIN, 0);
     ctl_alarm_state = CTL_ALARM_OFF;
     ctl_panic_state = CTL_PANIC_OFF;
@@ -308,42 +286,23 @@ void ctl_buzzer_off(void)
 }
 void ctl_relay_on(uint32_t time)
 {
-    if (ctl_mode == CTL_MODE_NORMAL) {
-        gpio_set_level(RELAY_EXT_PIN, 0);
-        ctl_relay_time = time;
-    } else {
-// #ifndef SONOFF
-//         if (ctl_relay_time)
-//             return;
-//         gpio_set_level(RELAY_POW_PIN, 0);
-//         ctl_relay_pin = 1;
-//         ctl_relay_time = CTL_RELAY_PULSE;
-// #else
-//         gpio_set_level(RELAY_PIN, 1);
-//         ctl_relay_time = time;
-// #endif
-    }
+    ESP_LOGI("ctl", "relay on\n");
+
+    gpio_set_level(RELAY_EXT_PIN, 0);
+    ctl_relay_time = time;
+
+    
     if (ctl_event_func)
         ctl_event_func(CTL_EVT_RELAY, CTL_RELAY_ON);
 }
 
 void ctl_relay_off(void)
 {
-    if (ctl_mode == CTL_MODE_NORMAL) {
-        gpio_set_level(RELAY_EXT_PIN, 1);
-        ctl_relay_time = 0;
-    } else {
-// #ifndef SONOFF
-//         if (ctl_relay_time)
-//             return;
-//         gpio_set_level(RELAY_POW_PIN, 1);
-//         ctl_relay_pin = 0;
-//         ctl_relay_time = CTL_RELAY_PULSE;
-// #else
-//         gpio_set_level(RELAY_PIN, 0);
-//         ctl_relay_time = 0;
-// #endif
-    }
+    ESP_LOGI("ctl", "relay off\n");
+
+    gpio_set_level(RELAY_EXT_PIN, 1);
+    ctl_relay_time = 0;
+   
     if (ctl_event_func)
         ctl_event_func(CTL_EVT_RELAY, CTL_RELAY_OFF);
 }
@@ -357,22 +316,6 @@ void ctl_set_sensor_mode(uint8_t mode)
                             GPIO_INTR_POSEDGE, GPIO_INTR_DISABLED,
                             ctl_interrupt_handler, NULL);
     }
-}
-
-void ctl_relay_ext_on(uint32_t time)
-{
-    gpio_set_level(RELAY_EXT_PIN, 0);
-    ctl_relay_ext_time = time;
-    if (ctl_event_func)
-        ctl_event_func(CTL_EVT_RELAY_EXT, CTL_RELAY_ON);
-}
-
-void ctl_relay_ext_off(void)
-{
-    gpio_set_level(RELAY_EXT_PIN, 1);
-    ctl_relay_ext_time = 0;
-    if (ctl_event_func)
-        ctl_event_func(CTL_EVT_RELAY_EXT, CTL_RELAY_OFF);
 }
 
 uint8_t ctl_relay_ext_status(void)
