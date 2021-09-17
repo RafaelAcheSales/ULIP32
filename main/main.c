@@ -15,6 +15,8 @@
 #include "config.h"
 #include "fpm.h"
 #include "ap.h"
+#include "http.h"
+#include  "esp_log.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define GPIO_INPUT 16
@@ -34,12 +36,6 @@ void ulip_core_capture_finger(bool status, int index)
     else
         fpm_cancel_enroll();
 }
-static void ctl_event(int event, int status) {
-    // printf("event rolou ctl: %d status %d\n", event, status);
-//     tty_release();
-//     ctl_release();
-//     fpm_release();
-}
 static void fingerprint_event(int event, int index,
                               uint8_t *data, int len,
                               int error, void *user_data)
@@ -56,7 +52,9 @@ static int qrcode_event(int event, const char *data,
     printf(RED "%s\n", data);
     return 1;
 }
-
+static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
+    printf("%s", response_body);
+}
 
 static tty_func_t test_event(int tty, char *data,
                       int len, void *user_data)
@@ -70,17 +68,42 @@ static tty_func_t test_event(int tty, char *data,
     tty_func_t t = NULL;
     return t;
 }
+
+static void ctl_event(int event, int status) {
+    printf("event rolou ctl: %d status %d\n", event, status);
+    switch (event)
+    {
+    case CTL_EVT_RELAY:
+
+        
+        break;
+    case CTL_EVT_BUZZER:
+
+        
+        break;
+    case CTL_EVT_SENSOR:
+        // http://www.ibam.org.br
+        http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/css/externo.css", NULL, "", "", 5, http_event);
+        http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/js/externo.js", NULL, "", "", 5, http_event);
+        
+        break;
+    default:
+        printf("ctl event not supoorted\n");
+        break;
+    }
+}
+
 unsigned char * data = (unsigned char *)"\x88";
 static void buttonPressed(int intr, void *user_data) {
     
 
     if (intr == 2) {
 
-        ctl_relay_on(500000);
-            // printf("reading %d port\n", CFG_Get_blobs());
-            // CFG_set_server_port(34);
-            // CFG_Save();
-            // printf("reading2 %d port\n", CFG_Get_blobs());
+        // ctl_relay_on(500000);
+        // printf("reading %d port\n", CFG_Get_blobs());
+        // CFG_set_server_port(34);
+        // CFG_Save();
+        // printf("reading2 %d port\n", CFG_Get_blobs());
 
         
         
@@ -115,12 +138,12 @@ void app_main(void)
     //disable pull-up mode
     io_conf.pull_up_en = 0;
     //configure GPIO with the given settings
-    gpio_config(&io_conf);
+    // gpio_config(&io_conf);
 
-    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     ctl_init(CTL_MODE_NORMAL, ctl_event);
     tty_init();
-    // ctl_set_sensor_mode(1);
+    ctl_set_sensor_mode(1);
     // qrcode_init(false, true,
     //                 1000000,
     //                 2000000,
@@ -138,9 +161,8 @@ void app_main(void)
     // printf("fpm setup timeout: %d, security: %d, retry: %d\n", CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries());
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-    gpio_interrupt_open(2, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
+    // gpio_interrupt_open(2, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
     
     printf("Hello world!\n");
     // start_ap();
 }
-

@@ -1,15 +1,5 @@
-// /*
-//  * ----------------------------------------------------------------------------
-//  * "THE BEER-WARE LICENSE" (Revision 42):
-//  * Martin d'Allens <martin.dallens@gmail.com> wrote this file. As long as you retain
-//  * this notice you can do whatever you want with this stuff. If we meet some day,
-//  * and you think this stuff is worth it, you can buy me a beer in return.
-//  * ----------------------------------------------------------------------------
-//  */
-
-// #ifndef HTTPCLIENT_H
-// #define HTTPCLIENT_H
-
+#pragma once
+#include "stdbool.h"
 // #define HTTP_STATUS_GENERIC_ERROR  -1   // In case of TCP or DNS error the callback is called with this status.
 // #define BUFFER_SIZE_MAX            5000 // Size of http responses that will cause an error.
 
@@ -20,8 +10,8 @@
 //  * A successful request corresponds to an HTTP status code of 200 (OK).
 //  * More info at http://en.wikipedia.org/wiki/List_of_HTTP_status_codes
 //  */
-// typedef void (*http_callback)(char *url, char *response_body, int http_status,
-//                               char *response_headers, int body_size);
+typedef void (*http_callback)(char *url, char *response_body, int http_status,
+                              char *response_header_key,char *response_header_value, int body_size);
 //  void http_init(const char *agent);
 
 // /*
@@ -43,9 +33,8 @@
 
 // /*
 //  * Call this function to skip URL parsing if the arguments are already in separate variables.
-//  */
-// void http_raw_request(const char *hostname, int port, bool secure,
-//                                         const char *auth, const char *path, const char *post_data,
-//                                         const char *headers, int retries, http_callback user_callback);
+void start_http_client();
+void http_raw_request(const char *hostname, int port, bool secure,
+                                        const char *user, const char *passwd, const char *path, const char *post_data,
+                                        const char *header_key, const char *header_value, int retries, http_callback user_callback);
 
-// #endif
