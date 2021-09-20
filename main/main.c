@@ -16,6 +16,7 @@
 #include "fpm.h"
 #include "ap.h"
 #include "http.h"
+#include "httpd.h"
 #include  "esp_log.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
@@ -53,9 +54,11 @@ static int qrcode_event(int event, const char *data,
     return 1;
 }
 static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
-    printf("%s", response_body);
+    printf("event %s", response_body);
 }
-
+static void http_event2(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
+    printf("event2 %s", response_body);
+}
 static tty_func_t test_event(int tty, char *data,
                       int len, void *user_data)
 {
@@ -82,9 +85,10 @@ static void ctl_event(int event, int status) {
         
         break;
     case CTL_EVT_SENSOR:
+        start_httpd();
         // http://www.ibam.org.br
-        http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/css/externo.css", NULL, "", "", 5, http_event);
-        http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/js/externo.js", NULL, "", "", 5, http_event);
+        // http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/css/externo.css", NULL, "", "", 5, http_event);
+        // http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/js/externo.js", NULL, "", "", 5, http_event2);
         
         break;
     default:

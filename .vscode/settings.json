@@ -13,7 +13,10 @@
         "task.h": "c",
         "esp_netif.h": "c",
         "esp_netif_ip_addr.h": "c",
-        "endian.h": "c"
+        "endian.h": "c",
+        "esp_tls_crypto.h": "c",
+        "protocol_examples_common.h": "c",
+        "esp_http_server.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

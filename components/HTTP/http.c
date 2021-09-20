@@ -2,7 +2,8 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "string.h"
-#define MAX_HTTP_buffer 2048
+#define MAX_HTTP_buffer 5000
+#define MAX_URL_SIZE 2048
 const char * TAG = "HTTP";
 esp_err_t _http_event_handle(esp_http_client_event_t *evt)
 {
@@ -90,10 +91,10 @@ void start_http_client() {
 void http_raw_request(const char *hostname, int port, bool secure,
                                         const char *user, const char *passwd, const char *path, const char *post_data,
                                         const char *header_key, const char *header_value, int retries, http_callback user_callback) {
-    char local_response_buffer[MAX_HTTP_buffer] = {0};
-    char url[MAX_HTTP_buffer];
+    static char local_response_buffer[MAX_HTTP_buffer] = {0};
+    char url[MAX_URL_SIZE];
     char key[256];
-    char value[256];
+    char *value;
 
 
     esp_http_client_config_t config = {
@@ -131,8 +132,8 @@ void http_raw_request(const char *hostname, int port, bool secure,
         ESP_LOGE(TAG, "Error perform http request %s", esp_err_to_name(err));
     }
     esp_http_client_get_header(client, key, &value);
-    esp_http_client_get_url(client, url,MAX_HTTP_buffer);
-    user_callback(url,local_response_buffer,esp_http_client_get_status_code(client),key, *value, esp_http_client_get_content_length(client));
+    esp_http_client_get_url(client, url,MAX_URL_SIZE);
+    user_callback(url,local_response_buffer,esp_http_client_get_status_code(client),key, value, esp_http_client_get_content_length(client));
     esp_http_client_cleanup(client);
     
 }
