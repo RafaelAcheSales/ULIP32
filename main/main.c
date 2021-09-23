@@ -85,7 +85,8 @@ static void ctl_event(int event, int status) {
         
         break;
     case CTL_EVT_SENSOR:
-        start_httpd();
+        ctl_beep(3);
+        // start_httpd();
         // http://www.ibam.org.br
         // http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/css/externo.css", NULL, "", "", 5, http_event);
         // http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/js/externo.js", NULL, "", "", 5, http_event2);
@@ -130,6 +131,7 @@ void app_main(void)
 {
     CFG_Load();
     CFG_set_dhcp(true);
+    CFG_set_qrcode_led(true);
     gpio_config_t io_conf;
     //disable interrupt
     io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -144,7 +146,7 @@ void app_main(void)
     //configure GPIO with the given settings
     // gpio_config(&io_conf);
 
-    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     ctl_init(CTL_MODE_NORMAL, ctl_event);
     tty_init();
     ctl_set_sensor_mode(1);
@@ -154,17 +156,17 @@ void app_main(void)
     //                 true,
     //                 30,
     //                 qrcode_event, NULL);
-    // qrcode_init(CFG_get_qrcode_led(), true,
-    //                 CFG_get_qrcode_timeout(),
-    //                 CFG_get_qrcode_panic_timeout(),
-    //                 CFG_get_qrcode_dynamic(),
-    //                 CFG_get_qrcode_validity(),
-    //                 qrcode_event, NULL);
+    qrcode_init(CFG_get_qrcode_led(), true,
+                    CFG_get_qrcode_timeout(),
+                    CFG_get_qrcode_panic_timeout(),
+                    CFG_get_qrcode_dynamic(),
+                    CFG_get_qrcode_validity(),
+                    qrcode_event, NULL);
     // tty_open(BITBANG,test_event, NULL);
     // fpm_init(0,2,2,fingerprint_event, NULL);
     // printf("fpm setup timeout: %d, security: %d, retry: %d\n", CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries());
-    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // gpio_interrupt_open(2, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
     
     printf("Hello world!\n");

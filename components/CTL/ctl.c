@@ -9,11 +9,11 @@
 #include "ap.h"
 #define QRCODE_PIN      32
 #define BUZZER_PIN      13
-#define LED_PIN         35
+#define LED_PIN         40
 #define RELAY_EXT_PIN   16
 #define OUTPUT_MASK     ((1ULL<<QRCODE_PIN) | (1ULL<<RELAY_EXT_PIN))
-#define FPM_PIN         12
-#define SENSOR_PIN      14
+#define FPM_PIN         39
+#define SENSOR_PIN      36
 #define SENSOR_INTR     4
 #define INPUT_MASK      (1ULL<<FPM_PIN | 1ULL<<SENSOR_PIN | 1ULL<<BUZZER_PIN ) 
 #define CTL_BEEP_TIME   100000

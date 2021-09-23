@@ -16,11 +16,11 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        5
+#define UART1_RX_PIN        34
 #define UART1_TX_PIN        2
 
 #define UART2               2
-#define UART2_RX_PIN        4
+#define UART2_RX_PIN        35
 #define UART2_TX_PIN        15
 
 #define UART3               3
