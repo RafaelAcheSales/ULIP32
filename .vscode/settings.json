@@ -16,7 +16,9 @@
         "endian.h": "c",
         "esp_tls_crypto.h": "c",
         "protocol_examples_common.h": "c",
-        "esp_http_server.h": "c"
+        "esp_http_server.h": "c",
+        "time.h": "c",
+        "struct_tm.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
