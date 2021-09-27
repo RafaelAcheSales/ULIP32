@@ -18,7 +18,12 @@
         "protocol_examples_common.h": "c",
         "esp_http_server.h": "c",
         "time.h": "c",
-        "struct_tm.h": "c"
+        "struct_tm.h": "c",
+        "sha1.h": "c",
+        "base64.h": "c",
+        "account.h": "c",
+        "esp_partition.h": "c",
+        "hw_timer.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

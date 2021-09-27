@@ -6,7 +6,7 @@
 
 
 #define ESP_INTR_FLAG_DEFAULT 0
-static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
+// static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
 static xQueueHandle gpio_evt_queue = NULL;
 TaskHandle_t xHandle;
 typedef struct gpio_intr {

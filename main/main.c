@@ -7,6 +7,8 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "tty.h"
 #include "gpio_drv.h"
 #include "eth.h"
@@ -54,24 +56,24 @@ static int qrcode_event(int event, const char *data,
     printf(RED "%s\n", data);
     return 1;
 }
-static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
-    printf("event %s", response_body);
-}
-static void http_event2(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
-    printf("event2 %s", response_body);
-}
-static tty_func_t test_event(int tty, char *data,
-                      int len, void *user_data)
-{
-    printf("event rolou: ");
-    for (int i = 0; i < len; i++)
-    {
-        printf("%c",data[i]);
-    }
-    printf("\n");
-    tty_func_t t = NULL;
-    return t;
-}
+// static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
+//     printf("event %s", response_body);
+// }
+// static void http_event2(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
+//     printf("event2 %s", response_body);
+// }
+// static tty_func_t test_event(int tty, char *data,
+//                       int len, void *user_data)
+// {
+//     printf("event rolou: ");
+//     for (int i = 0; i < len; i++)
+//     {
+//         printf("%c",data[i]);
+//     }
+//     printf("\n");
+//     tty_func_t t = NULL;
+//     return t;
+// }
 
 static void ctl_event(int event, int status) {
     printf("event rolou ctl: %d status %d\n", event, status);
@@ -132,7 +134,7 @@ void app_main(void)
 {
     CFG_Load();
     CFG_set_dhcp(true);
-    CFG_set_qrcode_led(true);
+    CFG_set_qrcode_led(false);
     gpio_config_t io_conf;
     //disable interrupt
     io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -169,7 +171,41 @@ void app_main(void)
     fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
             CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // gpio_interrupt_open(2, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
+    account_init();
+    account_t *acc = account_new();
+    // vTaskDelay(50);
+    printf("created acc\n");
     
+    account_set_user(acc, "usuarioDeCrack");
+    printf("set user\n");
+    account_set_name(acc, "Pirocadura");
+    account_log_t *log = account_log_new();
+    account_log_set_code(log, "codigolog");
+    account_log_set_name(log, "nomedolog");
+    int logindex = account_db_log_insert(log);
+    int index = account_db_insert(acc);
+    printf("index of: %d\n", index);
+    account_destroy(acc);
+    account_log_destroy(log);
+    // vTaskDelay(100);
+    account_t *acc2 = account_db_get_index(index);
+    account_log_t *log2 = account_db_log_get_index(logindex);
+    printf("got account\n");
+    if (!acc2 )
+    {
+        printf("account not found by index");
+        
+    }
+    
+    char * name =  account_log_get_name(log2);
+
+    // printf("got account with name %s\n", name);
+    printf("got log with name %s\n", name);
+    account_db_remove_all();
+    account_t *acc3 = account_db_get_index(index);
+    char * name2 = account_get_name(acc3);
+    printf("got acc with name %s\n", name2);
+
     printf("Hello world!\n");
     // start_ap();
 }

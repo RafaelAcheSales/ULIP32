@@ -466,8 +466,8 @@ int tty_write(int tty, unsigned char *data, int len)
     
     tty_dev_t *p;
     int rc = -1;
-    int size;
-    int i;
+
+    // int i;
 
     if (tty >= TTY_NUM_DEV) return -1;
 

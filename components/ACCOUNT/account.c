@@ -1,11 +1,16 @@
 #include <time.h>
 #include "account.h"
+#include "stdbool.h"
 #include "esp_partition.h"
 #include "esp_timer.h"
 #include "string.h"
 #include "esp_log.h"
+#include "mbedtls/sha1.h"
+#include "mbedtls/base64.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 /* DATABASE sector */
-#define DB_START_SECTOR         256
+#define DB_START_SECTOR         0
 #define DB_NUM_SECTOR           500
 #define DB_SECTOR_SIZE          4096
 
@@ -13,6 +18,7 @@
 #define DB_NODE_SIZE            1024
 #define DB_NUM_NODE             2000
 #define DB_NODE_PER_SECTOR      4
+#define SHA1_DIGEST_LENGTH      64
 
 #define DB_SECTOR(i) \
     (DB_START_SECTOR + (i / DB_NODE_PER_SECTOR))
@@ -24,7 +30,7 @@
     ((i % DB_NODE_PER_SECTOR) * DB_NODE_SIZE)
 
 /* DATABASE log sector */
-#define DB_LOG_START_SECTOR     756
+#define DB_LOG_START_SECTOR     500
 #define DB_LOG_NUM_SECTOR       32
 
 /* DATABASE log node */
@@ -42,7 +48,7 @@
     ((i % DB_LOG_NODE_PER_SECTOR) * DB_LOG_NODE_SIZE)
 
 #define DB_NODE_FLAG            0x55
-
+const char * TAG = "ACCOUNT"; 
 union account_u
 {
     struct {
@@ -54,7 +60,7 @@ union account_u
         char card[32];
         char code[128];
         acc_permission_t perm[ACCOUNT_PERMISSIONS];
-        char fingerprint[ACCOUNT_FINGERPRINT_SIZE];
+        unsigned char fingerprint[ACCOUNT_FINGERPRINT_SIZE];
         char rfcode[16];
         uint16_t lifecount;
         uint8_t accessibility;
@@ -150,11 +156,11 @@ static void account_db_cleanup(void *arg)
         acc = account_db_get_index(index);
         if (acc) {
             if (acc->a.visitor) {
-                rv = TRUE;
+                rv = true;
                 for (i = 0; *acc->a.perm[i] != '\0' && i < ACCOUNT_PERMISSIONS; i++) {
                     strcpy(period, acc->a.perm[i]);
                     if (!strchr(period, '/')) {
-                        rv = FALSE;
+                        rv = false;
                         break;
                     } else {
                         p = strtok_r(period, " ", &t);
@@ -182,7 +188,7 @@ static void account_db_cleanup(void *arg)
                         sprintf(date, "%04d/%02d/%02d %02d:%02d",
                                    y2, t2, d2, h2, m2);
                         if (strcmp(now, date) < 0) {
-                            rv = FALSE;
+                            rv = false;
                             break;
                         }
                     }
@@ -219,7 +225,8 @@ int account_init(void)
         /* Read sector boundary */
         if (!(i % DB_NODE_PER_SECTOR)) {
             acc = (account_t *)data;
-            ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) data, DB_SECTOR_SIZE));
+            ESP_LOGE("account", "%x", addr);
+            esp_err_t error = esp_partition_read(partition, addr, (void *) data, DB_SECTOR_SIZE);
             // ets_intr_lock();
             // spi_flash_read(addr, (uint32 *)data,
             //                DB_SECTOR_SIZE);
@@ -280,7 +287,7 @@ int account_init(void)
     ESP_ERROR_CHECK(esp_timer_start_periodic(account_db.timer, 300000000));
     // timer_setfn(&account_db.timer,
     //                (timer_func_t *)account_db_cleanup, NULL);
-    // timer_arm(&account_db.timer, 300000, TRUE);
+    // timer_arm(&account_db.timer, 300000, true);
 
     return 0;
 }
@@ -288,7 +295,7 @@ int account_init(void)
 
 void account_release(void)
 {
-    ESP_ERROR_CHECK(esp_timer_stop(account_db.timer))
+    ESP_ERROR_CHECK(esp_timer_stop(account_db.timer));
     // timer_disarm(&account_db.timer);
     account_db.node_empty = 0;
     account_db.node_index_empty = DB_NUM_NODE;
@@ -574,7 +581,7 @@ uint16_t account_get_lifecount(account_t *acc)
 
 uint8_t account_get_accessibility(account_t *acc)
 {
-    if (!acc) return FALSE;
+    if (!acc) return false;
 
     return acc->a.accessibility;
 }
@@ -582,7 +589,7 @@ uint8_t account_get_accessibility(account_t *acc)
 
 uint8_t account_get_panic(account_t *acc)
 {
-    if (!acc) return FALSE;
+    if (!acc) return false;
 
     return acc->a.panic;
 }
@@ -654,10 +661,10 @@ bool account_check_permission(account_t *acc)
     int k;
     int j;
 
-    if (!acc) return FALSE;
+    if (!acc) return false;
 
     if (*acc->a.perm[0] == '\0')
-        return TRUE;
+        return true;
     time(&rawtime);
     tm = localtime(&rawtime);
     year = tm->tm_year;
@@ -721,7 +728,7 @@ bool account_check_permission(account_t *acc)
             if (k > i) {
                 continue;
             }
-            return TRUE;
+            return true;
         } else {
             /*
              * Period format: year/month/day-year/month/day hour:minute-hour:minute
@@ -777,11 +784,11 @@ bool account_check_permission(account_t *acc)
                        y2, t2, d2, h2, m2);
             if (strcmp(now, date) > 0)
                 continue;
-            return TRUE;
+            return true;
         }
     }
 
-    return FALSE;
+    return false;
 }
 
 
@@ -901,6 +908,8 @@ int account_db_insert(account_t *acc)
 
 int account_db_delete(int index)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     account_t *acc;
     uint8_t *data;
     int sector;
@@ -990,6 +999,8 @@ int account_db_find(const char *name,
                     uint8_t *fingerprint,
                     const char *key)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint32_t addr;
     account_t acc;
     int i;
@@ -1003,9 +1014,10 @@ int account_db_find(const char *name,
 
     addr = DB_SECTOR_ADDR(0);
     for (i = 0; i <= account_db.node_index_full; i++) {
-        ets_intr_lock();
-        spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
-        ets_intr_unlock();
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) &acc, DB_NODE_SIZE));
+        // ets_intr_lock();
+        // spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
+        // ets_intr_unlock();
         if (acc.a.flag == DB_NODE_FLAG) {
             if ((name && *name && strcasestr(acc.a.name, name)) ||
                 (user && *user && !strcmp(user, acc.a.user)) ||
@@ -1019,7 +1031,7 @@ int account_db_find(const char *name,
         }
         addr += DB_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
     }
 
     return -1;
@@ -1028,14 +1040,18 @@ int account_db_find(const char *name,
 
 int account_db_find_hash(const char *key, int validity)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint8_t hash[SHA1_DIGEST_LENGTH];
     uint32_t addr;
     account_t acc;
     struct tm *tm;
+    time_t rawtime;
     uint32_t now;
-    SHA1_CTX ctx;
+    mbedtls_sha1_context ctx;
+    // SHA1_CTX ctx;
     char stmp[64];
-    uint32_t d;
+    long unsigned int d;
     int i;
     int k;
     int j;
@@ -1047,14 +1063,16 @@ int account_db_find_hash(const char *key, int validity)
 
     if (strlen(key) < (SHA1_DIGEST_LENGTH << 1))
         return -1;
-
-    tm = rtc_localtime();
-    now = rtc_mktime(tm);
+    time(&rawtime);
+    tm = localtime(&rawtime);
+    // tm = rtc_localtime();
+    now = rawtime;
     addr = DB_SECTOR_ADDR(0);
     for (i = 0; i <= account_db.node_index_full; i++) {
-        ets_intr_lock();
-        spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
-        ets_intr_unlock();
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) &acc, DB_NODE_SIZE));
+        // ets_intr_lock();
+        // spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
+        // ets_intr_unlock();
         if (acc.a.flag == DB_NODE_FLAG) {
             if (*acc.a.code == '\0' || *acc.a.key == '\0')
                 continue;
@@ -1062,9 +1080,12 @@ int account_db_find_hash(const char *key, int validity)
             for (k = 0; k < 3; k++) {
                 snprintf(stmp, sizeof(stmp), "%s:%lu",
                             acc.a.key, d + k - 1);
-                SHA1_Init(&ctx);
-                SHA1_Update(&ctx, stmp, strlen(stmp));
-                SHA1_Final(hash, &ctx);
+                mbedtls_sha1_init(&ctx);
+                mbedtls_sha1_update_ret(&ctx, (const unsigned char *)stmp, strlen(stmp));
+                mbedtls_sha1_finish_ret(&ctx, hash);
+                // SHA1_Init(&ctx);
+                // SHA1_Update(&ctx, stmp, strlen(stmp));
+                // SHA1_Final(hash, &ctx);
                 for (j = 0; j < SHA1_DIGEST_LENGTH; j++)
                     snprintf(stmp + (j << 1), sizeof(stmp) - (j << 1),
                                 "%02x", hash[j]);
@@ -1074,7 +1095,7 @@ int account_db_find_hash(const char *key, int validity)
         }
         addr += DB_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
     }
 
     return -1;
@@ -1083,9 +1104,11 @@ int account_db_find_hash(const char *key, int validity)
 
 int account_db_remove_all(void)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint32_t addr;
     account_t acc;
-    int sector;
+    uint32_t sector;
     int i;
 
     /* Empty database */
@@ -1093,24 +1116,26 @@ int account_db_remove_all(void)
 
     addr = DB_SECTOR_ADDR(0);
     for (i = 0; i <= account_db.node_index_full; ) {
-        ets_intr_lock();
-        spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
-        ets_intr_unlock();
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) &acc, DB_NODE_SIZE));
+        // ets_intr_lock();
+        // spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
+        // ets_intr_unlock();
         if (acc.a.flag == DB_NODE_FLAG) {
             /* Erase sector */
-            sector = DB_SECTOR(i);
-            ets_intr_lock();
-            spi_flash_erase_sector(sector);
-            ets_intr_unlock();
+            sector = DB_SECTOR_ADDR(i);
+            ESP_ERROR_CHECK(esp_partition_erase_range(partition, sector, DB_SECTOR_SIZE));
+            // ets_intr_lock();
+            // spi_flash_erase_sector(sector);
+            // ets_intr_unlock();
             i += (DB_NODE_PER_SECTOR - (i % DB_NODE_PER_SECTOR));
             addr = DB_NODE_ADDR(i);
             /* Watchdog */
-            system_soft_wdt_feed();
+            // system_soft_wdt_feed();
             continue;
         }
         addr += DB_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
         i++;
     }
 
@@ -1131,6 +1156,8 @@ int account_db_get_size(void)
 
 int account_db_get_first(void)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint32_t addr;
     account_t acc;
     int i;
@@ -1140,14 +1167,15 @@ int account_db_get_first(void)
 
     addr = DB_NODE_ADDR(0);
     for (i = 0; i <= account_db.node_index_full; i++) {
-        ets_intr_lock();
-        spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
-        ets_intr_unlock(); 
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) &acc, DB_NODE_SIZE));
+        // ets_intr_lock();
+        // spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
+        // ets_intr_unlock(); 
         if (acc.a.flag == DB_NODE_FLAG)
             return i;
         addr += DB_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
     }
 
     return account_db.node_index_full;
@@ -1162,6 +1190,8 @@ int account_db_get_last(void)
 
 int account_db_get_next(int index)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint32_t addr;
     account_t acc;
     int i;
@@ -1174,14 +1204,16 @@ int account_db_get_next(int index)
 
     addr = DB_NODE_ADDR(index);
     for (i = index; i <= account_db.node_index_full; i++) {
-        ets_intr_lock(); 
-        spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
-        ets_intr_unlock(); 
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) &acc, DB_NODE_SIZE));
+
+        // ets_intr_lock(); 
+        // spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
+        // ets_intr_unlock(); 
         if (acc.a.flag == DB_NODE_FLAG)
             return i;
         addr += DB_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
     }
 
     return account_db.node_index_full;
@@ -1190,6 +1222,8 @@ int account_db_get_next(int index)
 
 int account_db_get_previous(int index)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint32_t addr;
     account_t acc;
     int i;
@@ -1201,14 +1235,16 @@ int account_db_get_previous(int index)
 
     addr = DB_NODE_ADDR(index);
     for (i = index; i >= 0; i--) {
-        ets_intr_lock(); 
-        spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
-        ets_intr_unlock(); 
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) &acc, DB_NODE_SIZE));
+
+        // ets_intr_lock(); 
+        // spi_flash_read(addr, (uint32 *)&acc, DB_NODE_SIZE);
+        // ets_intr_unlock(); 
         if (acc.a.flag == DB_NODE_FLAG)
             return i;
         addr -= DB_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
     }
 
     return 0;
@@ -1223,21 +1259,32 @@ int account_db_get_empty(void)
 
 account_t *account_db_get_index(int index)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     uint32_t addr;
+    // static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
     account_t *acc;
 
     if (index < 0 || index > account_db.node_index_full)
         return NULL;
 
     acc = (account_t *)malloc(sizeof(account_t));
+    ESP_LOGI(TAG, "malloced");
     if (!acc) return NULL;
 
     addr = DB_NODE_ADDR(index);
-    ets_intr_lock(); 
-    spi_flash_read(addr, (uint32 *)acc, DB_NODE_SIZE);
-    ets_intr_unlock(); 
+    ESP_LOGI(TAG, "addr of node: %x", addr);
+    vTaskDelay(100);
+    // taskENTER_CRITICAL(&my_mutex);
+    esp_err_t error = esp_partition_read(partition, addr, (void *) acc, DB_NODE_SIZE);
+    // taskEXIT_CRITICAL(&my_mutex);
+    ESP_LOGI(TAG, "read partition and error: %x", error);
+    // ets_intr_lock(); 
+    // spi_flash_read(addr, (uint32 *)acc, DB_NODE_SIZE);
+    // ets_intr_unlock(); 
     if (acc->a.flag != DB_NODE_FLAG) {
         free(acc);
+        ESP_LOGI(TAG, "flag != 0x55");
         return NULL;
     }
 
@@ -1258,8 +1305,9 @@ int account_db_json(int index, char *json, int len)
     if (!acc) return -1;
    
     if (*acc->a.fingerprint)
-        base64Encode(sizeof(acc->a.fingerprint), acc->a.fingerprint,
-                     sizeof(temp), temp);
+        mbedtls_base64_encode((unsigned char *)temp, sizeof(temp), NULL, acc->a.fingerprint, sizeof(acc->a.fingerprint));
+        // base64Encode(sizeof(acc->a.fingerprint), acc->a.fingerprint,
+        //              sizeof(temp), temp);
     else
         temp[0] = '\0';
     size = snprintf(json, len, "{\"id\":\"%d\",\"name\":\"%s\",\"user\":\"%s\"," \
@@ -1274,9 +1322,9 @@ int account_db_json(int index, char *json, int len)
                        *acc->a.code ? acc->a.code : "",
                        *acc->a.rfcode ? acc->a.rfcode : "",
                        *temp ? temp : "", acc->a.lifecount,
-                       acc->a.accessibility ? "true" : "false",
+                       acc->a.accessibility ? "true" : "false", 
                        acc->a.panic ? "true" : "false",
-                       *acc->a.key ? acc->a.key : "",
+                       *acc->a.key ? acc->a.key : "", //11
                        acc->a.level ? "true" : "false",
                        acc->a.visitor ? "true" : "false",
                        *acc->a.finger ? acc->a.finger : "");
@@ -1298,6 +1346,8 @@ int account_db_json(int index, char *json, int len)
 
 int account_db_json_summary(char *json, int len)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     int accounts = 0;
     int user = 0;
     int card = 0;
@@ -1321,10 +1371,11 @@ int account_db_json_summary(char *json, int len)
             /* Read sector boundary */
             if (!(i % DB_NODE_PER_SECTOR)) {
                 acc = (account_t *)data;
-                ets_intr_lock();
-                spi_flash_read(addr, (uint32 *)data,
-                               DB_SECTOR_SIZE);
-                ets_intr_unlock();
+                ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) data, DB_SECTOR_SIZE));
+                // ets_intr_lock();
+                // spi_flash_read(addr, (uint32 *)data,
+                //                DB_SECTOR_SIZE);
+                // ets_intr_unlock();
             }
             /* Check node */
             if (acc->a.flag == DB_NODE_FLAG) {
@@ -1342,7 +1393,7 @@ int account_db_json_summary(char *json, int len)
             addr += DB_NODE_SIZE;
             acc++;
             /* Watchdog */
-            system_soft_wdt_feed();
+            // system_soft_wdt_feed();
         }
         free(data);
     }
@@ -1369,8 +1420,9 @@ int account_db_string(int index, char *str, int len)
     if (!acc) return -1;
    
     if (*acc->a.fingerprint)
-        base64Encode(sizeof(acc->a.fingerprint), acc->a.fingerprint,
-                     sizeof(temp), temp);
+        mbedtls_base64_encode((unsigned char *)temp, sizeof(temp), NULL, acc->a.fingerprint, sizeof(acc->a.fingerprint));
+        // base64Encode(sizeof(acc->a.fingerprint), acc->a.fingerprint,
+        //              sizeof(temp), temp);
     else
         temp[0] = '\0';
     size = snprintf(str, len, "%s,%s,%s,%s,%s,%s,%s,%d,%d,%d,%s,%d,%d,%c",
@@ -1384,7 +1436,7 @@ int account_db_string(int index, char *str, int len)
                        acc->a.accessibility, acc->a.panic,
                        *acc->a.key ? acc->a.key : "",
                        acc->a.level, acc->a.visitor,
-                       acc->a.finger);
+                       acc->a.finger[0]);
     for (i = 0; i < ACCOUNT_PERMISSIONS; i++)
         size += snprintf(str + size, len - size, ",%s",
                             acc->a.perm[i]);
@@ -1406,7 +1458,7 @@ account_log_t *account_log_new(void)
 {
     account_log_t *p;
 
-    p = (account_log_t *)zalloc(sizeof(account_log_t));
+    p = (account_log_t *)calloc(1, sizeof(account_log_t));
 
     return p;
 }
@@ -1497,7 +1549,7 @@ void account_log_set_type(account_log_t *log,
 
 uint8_t account_log_get_type(account_log_t *log)
 {
-    if (!log) return FALSE;
+    if (!log) return false;
 
     return log->type;
 }
@@ -1514,7 +1566,7 @@ void account_log_set_granted(account_log_t *log,
 
 bool account_log_get_granted(account_log_t *log)
 {
-    if (!log) return FALSE;
+    if (!log) return false;
 
     return log->granted;
 }
@@ -1522,10 +1574,13 @@ bool account_log_get_granted(account_log_t *log)
 
 int account_db_log_insert(account_log_t *log)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     account_log_data_t d;
     uint8_t *data;
     uint16_t index;
     int sector;
+    time_t rawtime;
     uint32_t addr;
     int off;
 
@@ -1542,24 +1597,28 @@ int account_db_log_insert(account_log_t *log)
     }
     sector = DB_LOG_SECTOR(index);
     addr = sector * DB_SECTOR_SIZE;
-    ets_intr_lock();
-    spi_flash_read(addr, (uint32 *)data, DB_SECTOR_SIZE);
-    ets_intr_unlock();
+    ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *) data, DB_SECTOR_SIZE));
+    // ets_intr_lock();
+    // spi_flash_read(addr, (uint32 *)data, DB_SECTOR_SIZE);
+    // ets_intr_unlock();
     off = DB_LOG_NODE_OFFSET(index);
     /* Update log database node */
     memset(&d, 0, sizeof(account_log_data_t));
-    d.a.timestamp = rtc_mklocaltime(rtc_localtime());
+    time(&rawtime);
+    d.a.timestamp = rawtime;
     strncpy(d.a.name, log->name, sizeof(d.a.name) - 1);
     strncpy(d.a.data, log->code, sizeof(d.a.data) - 1);
     d.a.type = log->type;
     d.a.granted = log->granted;
     memcpy(data + off, &d, sizeof(account_log_data_t));
-    ets_intr_lock();
-    spi_flash_erase_sector(sector);
-    spi_flash_write(addr, (uint32 *)data, DB_SECTOR_SIZE);
-    ets_intr_unlock();
-    /* Watchdog */
-    system_soft_wdt_feed();
+    ESP_ERROR_CHECK(esp_partition_erase_range(partition, addr, DB_SECTOR_SIZE));
+    ESP_ERROR_CHECK(esp_partition_write(partition, addr, (void *) data, DB_SECTOR_SIZE));
+    // ets_intr_lock();
+    // spi_flash_erase_sector(sector);
+    // spi_flash_write(addr, (uint32 *)data, DB_SECTOR_SIZE);
+    // ets_intr_unlock();
+    // /* Watchdog */
+    // system_soft_wdt_feed();
     /* Update log database information */
     account_db.node_log_index = index;
 
@@ -1573,9 +1632,11 @@ int account_db_log_insert(account_log_t *log)
 
 int account_db_log_remove_all(void)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     account_log_data_t data;
     uint32_t addr;
-    int sector;
+    uint32_t sector;
     int i;
 
     /* Empty log database */
@@ -1584,24 +1645,26 @@ int account_db_log_remove_all(void)
 
     addr = DB_LOG_SECTOR_ADDR(0);
     for (i = 0; i < DB_LOG_NUM_NODE; ) {
-        ets_intr_lock();
-        spi_flash_read(addr, (uint32 *)&data, DB_LOG_NODE_SIZE);
-        ets_intr_unlock();
+        ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *)&data, DB_LOG_NODE_SIZE));
+        // ets_intr_lock();
+        // spi_flash_read(addr, (uint32 *)&data, DB_LOG_NODE_SIZE);
+        // ets_intr_unlock();
         if (data.a.timestamp != -1) {
             /* Erase sector */
-            sector = DB_LOG_SECTOR(i);
-            ets_intr_lock();
-            spi_flash_erase_sector(sector);
-            ets_intr_unlock();
+            sector = DB_LOG_SECTOR_ADDR(i);
+            ESP_ERROR_CHECK(esp_partition_erase_range(partition, sector, DB_SECTOR_SIZE));
+            // ets_intr_lock();
+            // spi_flash_erase_sector(sector);
+            // ets_intr_unlock();
             i += (DB_LOG_NODE_PER_SECTOR - (i % DB_LOG_NODE_PER_SECTOR));
             addr = DB_LOG_NODE_ADDR(i);
             /* Watchdog */
-            system_soft_wdt_feed();
+            // system_soft_wdt_feed();
             continue;
         }
         addr += DB_LOG_NODE_SIZE;
         /* Watchdog */
-        system_soft_wdt_feed();
+        // system_soft_wdt_feed();
         i++;
     }
 
@@ -1611,8 +1674,11 @@ int account_db_log_remove_all(void)
 
 account_log_t *account_db_log_get_index(uint16_t index)
 {
+    const esp_partition_t *partition = esp_partition_find_first(ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, "accounts");
+    assert(partition != NULL);
     account_log_t *log;
     account_log_data_t data;
+    // account_log_data_t *dataptr;
     uint32_t addr;
     struct tm *tm;
 
@@ -1620,15 +1686,21 @@ account_log_t *account_db_log_get_index(uint16_t index)
 
     /* Read log node */
     addr = DB_LOG_NODE_ADDR(index);
-    ets_intr_lock();
-    spi_flash_read(addr, (uint32 *)&data, DB_LOG_NODE_SIZE);
-    ets_intr_unlock();
+    ESP_LOGI(TAG, "before reading log addr: %x", addr);
+    // dataptr = (account_log_data_t *)calloc(1, sizeof(account_log_data_t));
+    // if (!dataptr) return NULL;
+    ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *)&data, DB_LOG_NODE_SIZE));
+    ESP_LOGI(TAG, "after reading log");
+    // data = *dataptr;
+    // ets_intr_lock();
+    // spi_flash_read(addr, (uint32 *)&data, DB_LOG_NODE_SIZE);
+    // ets_intr_unlock();
     if (data.a.timestamp == -1)
         return NULL;
 
-    log = (account_log_t *)zalloc(sizeof(account_log_t));
+    log = (account_log_t *)calloc(1, sizeof(account_log_t));
     if (!log) return NULL;
-    tm = rtc_gmtime(data.a.timestamp);
+    tm = localtime((time_t *)&data.a.timestamp);
     sprintf(log->date, "%04d-%02d-%02d %02d:%02d:%02d",
                tm->tm_year, tm->tm_mon + 1, tm->tm_mday,
                tm->tm_hour, tm->tm_min, tm->tm_sec);
