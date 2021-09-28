@@ -150,7 +150,7 @@ bool ctl_check_ap_mode(void)
 {
     bool ap;
     gpio_set_direction(BUZZER_PIN, GPIO_MODE_INPUT);
-    vTaskDelay(10);
+    // vTaskDelay(10);
     ap = !gpio_get_level(BUZZER_PIN);
     gpio_set_direction(BUZZER_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(BUZZER_PIN, 0);

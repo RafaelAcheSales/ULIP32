@@ -1,4 +1,5 @@
 alias python=python3
 $IDF_PATH/install.sh
 . /home/rafael/esp/esp-idf/export.sh
-idf.py create-component -C components ACCOUNT
+# idf.py openocd
+idf.py create-component -C components BLUETOOTH

@@ -225,7 +225,7 @@ int account_init(void)
         /* Read sector boundary */
         if (!(i % DB_NODE_PER_SECTOR)) {
             acc = (account_t *)data;
-            ESP_LOGE("account", "%x", addr);
+            // ESP_LOGE("account", "%x", addr);
             esp_err_t error = esp_partition_read(partition, addr, (void *) data, DB_SECTOR_SIZE);
             // ets_intr_lock();
             // spi_flash_read(addr, (uint32 *)data,
@@ -1274,7 +1274,7 @@ account_t *account_db_get_index(int index)
 
     addr = DB_NODE_ADDR(index);
     ESP_LOGI(TAG, "addr of node: %x", addr);
-    vTaskDelay(100);
+    // vTaskDelay(100);
     // taskENTER_CRITICAL(&my_mutex);
     esp_err_t error = esp_partition_read(partition, addr, (void *) acc, DB_NODE_SIZE);
     // taskEXIT_CRITICAL(&my_mutex);

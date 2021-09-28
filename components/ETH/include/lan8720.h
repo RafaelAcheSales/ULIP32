@@ -73,7 +73,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
 void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask)
 {
     set_pin_17(1);
-    vTaskDelay(100);
+    // vTaskDelay(100);
     // Initialize TCP/IP network interface (should be called only once in application)
     ESP_ERROR_CHECK(esp_netif_init());
     // Create default event loop that running in background
@@ -184,7 +184,7 @@ void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask)
         esp_netif_dhcpc_start(eth_netif);
     } else {
         ESP_ERROR_CHECK(esp_netif_dhcpc_stop(eth_netif));
-        vTaskDelay(200);
+        // vTaskDelay(200);
         esp_netif_ip_info_t info_t;
         memset(&info_t, 0, sizeof(esp_netif_ip_info_t));
         esp_netif_str_to_ip4((const char *)ip_address, (esp_ip4_addr_t *) &info_t.ip.addr);
