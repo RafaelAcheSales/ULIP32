@@ -21,6 +21,7 @@
 #include "httpd.h"
 #include "esp_log.h"
 #include "account.h"
+#include "bluetooth.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define GPIO_INPUT 16
@@ -151,10 +152,10 @@ void app_main(void)
     // //configure GPIO with the given settings
     // // gpio_config(&io_conf);
 
-    tty_init();
-    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
-    ctl_init(CTL_MODE_NORMAL, ctl_event);
-    ctl_set_sensor_mode(1);
+    // tty_init();
+    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    // ctl_init(CTL_MODE_NORMAL, ctl_event);
+    // ctl_set_sensor_mode(1);
     
     // // qrcode_init(false, true,
     // //                 1000000,
@@ -213,6 +214,7 @@ void app_main(void)
     // if (name2) {
     //     printf("got acc with name %s\n", name2);
     // }
+    bluetooth_start();
     printf("Hello world!\n");
     // start_ap();
 }
