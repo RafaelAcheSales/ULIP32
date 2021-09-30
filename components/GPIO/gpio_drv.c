@@ -192,6 +192,7 @@ void gpio_interrupt_enable(int intr, gpio_int_type_t state)
 
     p = &gpio_intr[intr];
     gpio_set_intr_type(p->gpio, state);
+    
 }
 
 

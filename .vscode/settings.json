@@ -23,7 +23,8 @@
         "base64.h": "c",
         "account.h": "c",
         "esp_partition.h": "c",
-        "hw_timer.h": "c"
+        "hw_timer.h": "c",
+        "gpio_drv.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
