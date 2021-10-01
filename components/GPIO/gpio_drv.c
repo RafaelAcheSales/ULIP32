@@ -3,7 +3,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-
+#include "esp_log.h"
 
 #define ESP_INTR_FLAG_DEFAULT 0
 // static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
@@ -67,6 +67,7 @@ static void gpio_task_example(void* arg)
     uint32_t io_num;
     for(;;) {
         if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
+            ESP_LOGI("GPIO", "interrupt detected %d", io_num);
             //taskENTER_CRITICAL(&my_mutex);
             // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
             gpio_intr_t *p;
@@ -159,6 +160,7 @@ int gpio_interrupt_open(int intr, int gpio, int state,
     gpio_set_intr_type(gpio, state);
     gpio_isr_handler_add(gpio, gpio_interrupt_handler, (void *) p);
     gpio_intr_enable(gpio);
+    ESP_LOGI("GPIO", "interrupt open in pin: %d", gpio);
     return 0;
 }
 

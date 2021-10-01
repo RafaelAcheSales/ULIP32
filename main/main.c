@@ -98,7 +98,7 @@ static void ctl_event(int event, int status) {
         break;
     case CTL_EVT_SENSOR:
         ESP_LOGI("main","botao");
-        change_value();
+        // change_value();
         // ulip_core_capture_finger(true, 4);
         // start_httpd();
         // http://www.ibam.org.br

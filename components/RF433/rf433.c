@@ -228,6 +228,7 @@ static bool rf433_receive(int p, unsigned int changeCount)
 
 static void rf433_interrupt_handler(int intr, void *user_data)
 {
+    // ESP_LOGI("RF433", "interrupt handle 433");
     static unsigned int changeCount = 0;
     static unsigned long lastTime = 0;
     static unsigned int repeatCount = 0;
