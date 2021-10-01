@@ -4,11 +4,11 @@
 #define KEELOQ_HIGH_KEY 0x38b4b1ff
 #define KEELOQ_LOW_KEY  0xd015238c
 
-ICACHE_FLASH_ATTR
+
 void keeloq_set_key(uint32_t keyHigh, uint32_t keyLow);
-ICACHE_FLASH_ATTR
+
 uint32_t keeloq_encrypt(uint32_t data);
-ICACHE_FLASH_ATTR
+
 uint32_t keeloq_decrypt(uint32_t data);
 
 #define KeeLoq_NLF              0x3A5C742EUL
@@ -21,14 +21,14 @@ static uint32_t _keyLow = 0;
 #define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
 #define bitWrite(value, bit, bitvalue) (bitvalue ? bitSet(value, bit) : bitClear(value, bit))
 
-ICACHE_FLASH_ATTR
+
 void keeloq_set_key(uint32_t keyHigh, uint32_t keyLow)
 {
     _keyHigh = keyHigh;
     _keyLow = keyLow;
 }
 
-ICACHE_FLASH_ATTR
+
 uint32_t keeloq_encrypt(uint32_t data)
 {
     uint32_t keyBitVal,bitVal;
@@ -51,7 +51,7 @@ uint32_t keeloq_encrypt(uint32_t data)
     return x;
 }
 
-ICACHE_FLASH_ATTR
+
 uint32_t keeloq_decrypt(uint32_t data)
 {
     uint32_t keyBitVal,bitVal;

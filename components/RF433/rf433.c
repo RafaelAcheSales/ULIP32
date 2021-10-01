@@ -1,9 +1,9 @@
-#include "debug.h"
+#include "esp_log.h"
 #include "gpio_drv.h"
 #include "time.h"
 #include "keeloq.h"
 #include "rf433.h"
-
+#include "string.h"
 #undef DEBUG
 
 #define RF433_RX_PIN            5
@@ -80,7 +80,7 @@ static rc_protocol_t rc_proto[RCSWITCH_MAX_PROTO] = {
 };
 
 static uint32_t nRollingCodeValue = 0;
-static uint32_t nReceivedValue = 0;
+static unsigned long int nReceivedValue = 0;
 static uint8_t nButtonValue = 0;
 static uint8_t nStatusValue = 0;
 static unsigned int nReceivedBitlength = 0;
@@ -89,13 +89,14 @@ static unsigned nReceivedProtocol = 0;
 static unsigned nReceiveTolerance = 50;
 static unsigned int nSeparationLimit = 4500;
 
+
 // separationLimit: minimum microseconds between received codes, closer codes are ignored.
 // according to discussion on issue #14 it might be more suitable to set the separation
 // limit to the same time as the 'low' part of the sync signal for the current protocol.
 static unsigned int timings[RCSWITCH_MAX_CHANGES];
 
-static bool rf433_rolling_code = FALSE;
-static bool rf433_button_code = TRUE;
+static bool rf433_rolling_code = false;
+static bool rf433_button_code = true;
 static rf433_handler_t rf433_func = NULL;
 static void *rf433_user_data = NULL;
 static char rf433_code[RF433_CODESIZE];
@@ -351,7 +352,7 @@ int rf433_init(bool rolling_code, bool button_code,
     //disable interrupt
     io_conf.intr_type = GPIO_INTR_DISABLE;
     //set as output mode
-    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.mode = GPIO_MODE_INPUT;
     io_conf.pin_bit_mask = INPUT_MASK;
     //disable pull-down mode
     io_conf.pull_down_en = 0;

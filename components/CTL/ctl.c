@@ -315,7 +315,6 @@ void ctl_set_sensor_mode(uint8_t mode)
         gpio_interrupt_open(SENSOR_INTR, SENSOR_PIN,
                             GPIO_INTR_POSEDGE, GPIO_INTR_DISABLED,
                             ctl_interrupt_handler, NULL);
-        gpio_interrupt_enable(SENSOR_INTR, GPIO_INTR_DISABLED);
     }
 }
 

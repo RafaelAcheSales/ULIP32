@@ -22,6 +22,7 @@
 #include "esp_log.h"
 #include "account.h"
 #include "bluetooth.h"
+#include "rf433.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define GPIO_INPUT 16
@@ -50,6 +51,13 @@ static void fingerprint_event(int event, int index,
     {
         printf("%02X", data[i]);
     }
+}
+static int rf433_event(int event, const char *data, int len,
+                       uint16_t sync, uint8_t button,
+                       uint8_t status, void *user_data)
+{
+    printf("event rolou rf433 of len: %d event %X\n", len, event);
+    return 1;
 }
 static int qrcode_event(int event, const char *data,
                         int len, void *user_data)
@@ -216,7 +224,10 @@ void app_main(void)
     // if (name2) {
     //     printf("got acc with name %s\n", name2);
     // }
-    bluetooth_start();
+    rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
+                   CFG_get_rf433_panic_timeout(),
+                   rf433_event, NULL);
+    // bluetooth_start();
     printf("Hello world!\n");
     // start_ap();
 }

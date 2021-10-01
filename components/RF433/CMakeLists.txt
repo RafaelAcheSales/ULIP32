@@ -1,2 +1,3 @@
-idf_component_register(SRCS "RF433.c"
-                    INCLUDE_DIRS "include")
+idf_component_register(SRCS "rf433.c"
+                    INCLUDE_DIRS "include"
+                    PRIV_REQUIRES GPIO)
