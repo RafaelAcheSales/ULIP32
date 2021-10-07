@@ -24,7 +24,13 @@
         "account.h": "c",
         "esp_partition.h": "c",
         "hw_timer.h": "c",
-        "gpio_drv.h": "c"
+        "gpio_drv.h": "c",
+        "soc.h": "c",
+        "gpio_periph.h": "c",
+        "gpio_reg.h": "c",
+        "gpio_struct.h": "c",
+        "esp_task_wdt.h": "c",
+        "rf433.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

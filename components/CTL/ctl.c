@@ -51,7 +51,7 @@ static void ctl_interrupt_handler(int intr, void *user_data)
     if (ctl_event_func)
         ctl_event_func(CTL_EVT_SENSOR, 0);
 
-    gpio_interrupt_enable(SENSOR_INTR, GPIO_INTR_POSEDGE);
+    gpio_interrupt_enable(SENSOR_INTR, GPIO_INTR_NEGEDGE);
 }
 
 static void ctl_timeout(void *arg)
@@ -313,7 +313,7 @@ void ctl_set_sensor_mode(uint8_t mode)
         gpio_interrupt_close(SENSOR_INTR);
     } else {
         gpio_interrupt_open(SENSOR_INTR, SENSOR_PIN,
-                            GPIO_INTR_POSEDGE, GPIO_INTR_DISABLED,
+                            GPIO_INTR_NEGEDGE, 0,
                             ctl_interrupt_handler, NULL);
     }
 }

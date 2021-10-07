@@ -1,0 +1,44 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/rafael/esp/ULIP32'
+ 
+make: xtensa-esp32-elf-gcc: No such file or directory
+ 
+/bin/sh: 1: xtensa-esp32-elf-gcc: not found
+ 
+/bin/sh: 1: xtensa-esp32-elf-gcc: not found
+ 
+Toolchain path: 
+WARNING: Failed to find Xtensa toolchain, may need to alter PATH or set one in the configuration menu
+ 
+Traceback (most recent call last):
+  File "/home/rafael/esp/esp-idf/tools/check_python_dependencies.py", line 23, in <module>
+    import pkg_resources
+  File "/usr/local/lib/python2.7/dist-packages/pkg_resources/__init__.py", line 36, in <module>
+ 
+    import email.parser
+  File "/usr/lib/python2.7/email/parser.py", line 12, in <module>
+ 
+    from email.feedparser import FeedParser
+  File "/usr/lib/python2.7/email/feedparser.py", line 27, in <module>
+ 
+    from email import message
+  File "/usr/lib/python2.7/email/message.py", line 16, in <module>
+ 
+    import email.charset
+  File "/usr/lib/python2.7/email/charset.py", line 13, in <module>
+ 
+    import email.base64mime
+  File "/usr/lib/python2.7/email/base64mime.py", line 40, in <module>
+ 
+    from email.utils import fix_eols
+  File "/usr/lib/python2.7/email/utils.py", line 27, in <module>
+ 
+    import random
+  File "/usr/lib/python2.7/random.py", line 49, in <module>
+ 
+    import hashlib as _hashlib
+  File "/usr/lib/python2.7/hashlib.py", line 134, in <module>
+ 
+    import _hashlib
+KeyboardInterrupt
+ 

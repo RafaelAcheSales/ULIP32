@@ -4,10 +4,16 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "esp_log.h"
-
+#include "esp_task_wdt.h"
+// #include "soc/gpio_periph.h"
+// #define TEST_INTR             1
+#define TWDT_TIMEOUT_S        3
+#define GPIO_OUTPUT           4
+#define GPIO_OUTPUT_PIN_SEL   (1ULL<<GPIO_OUTPUT)
 #define ESP_INTR_FLAG_DEFAULT 0
 // static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
 static xQueueHandle gpio_evt_queue = NULL;
+static int cnt = 0;
 TaskHandle_t xHandle;
 typedef struct gpio_intr {
     int intr;
@@ -66,26 +72,29 @@ static void gpio_task_example(void* arg)
 {
     uint32_t io_num;
     for(;;) {
-        if(xQueueReceive(gpio_evt_queue, &io_num, portMAX_DELAY)) {
-            ESP_LOGI("GPIO", "interrupt detected %d", io_num);
-            //taskENTER_CRITICAL(&my_mutex);
-            // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
+        if(xQueueReceiveFromISR(gpio_evt_queue, &io_num, portMAX_DELAY)) {
+#if defined(TEST_INTR)
+            cnt += 1;
+            gpio_set_level(GPIO_OUTPUT, cnt & 1);
+#endif
             gpio_intr_t *p;
             int status;
             int i;
-
+            
             for (i = 0; i < GPIO_NUM_INTERRUPT; i++) {
                 p = &gpio_intr[i];
                 if (!p->func) continue;
-                status = BIT64(p->gpio);
+                status = BIT(p->gpio);
                 if (io_num == p->gpio) {
                     /* Disable interrupt */
                     if (p->flags & GPIO_INTR_DISABLED) {
-                        //printf("disabling gpio: %d", p->gpio);
+                        // printf("disabling gpio: %d", p->gpio);
                         gpio_set_intr_type(p->gpio, GPIO_INTR_DISABLE);
                     }
+                    SET_PERI_REG_MASK(GPIO_STATUS_W1TC_REG, status);
                     //GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, status);
-                    p->func(i, p->user_data);
+                    // esp_task_wdt_reset();
+                    p->func(p->intr, p->user_data);
                 }
             }
             //taskENTER_CRITICAL(&my_mutex);
@@ -97,7 +106,13 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
 {
     gpio_intr_t * p = (gpio_intr_t *) arg;
     uint32_t gpio_num = p->gpio;
+
+    // // ESP_LOGI("GPIO", "interrupt detected %d", io_num);
+    // //taskENTER_CRITICAL(&my_mutex);
+    // // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
+    
     xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
+    // }
 }
 
 
@@ -106,9 +121,33 @@ int gpio_drv_init(void)
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
     xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 10, &xHandle);
+    // esp_task_wdt_init(TWDT_TIMEOUT_S, false);
+    // esp_task_wdt_add(xHandle);
     // ETS_GPIO_INTR_ATTACH(gpio_interrupt_handler, NULL);
     // ETS_GPIO_INTR_ENABLE();
+#if defined(TEST_INTR)
 
+    // gpio_config_t io_conf2;
+    gpio_config_t io_conf2 = {
+        .intr_type = GPIO_INTR_DISABLE,
+        .mode = GPIO_MODE_OUTPUT,
+        .pin_bit_mask = GPIO_OUTPUT_PIN_SEL,
+        .pull_down_en = 0,
+        .pull_up_en = 0
+    };
+    //disable interrupt
+    // io_conf2.intr_type = GPIO_INTR_DISABLE;
+    // //set as output mode
+    // io_conf2.mode = GPIO_MODE_OUTPUT;
+    // //bit mask of the pins that you want to set,e.g.GPIO18/19
+    // io_conf2.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    // //disable pull-down mode
+    // io_conf2.pull_down_en = 0;
+    // //disable pull-up mode
+    // io_conf2.pull_up_en = 0;
+    //configure GPIO with the given settings
+    gpio_config(&io_conf2);
+#endif
     return 0;
 }
 
