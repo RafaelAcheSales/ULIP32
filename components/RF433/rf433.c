@@ -8,7 +8,7 @@
 
 #undef DEBUG
 // #define TEST_INTR               1
-#define RF433_RX_PIN            12
+#define RF433_RX_PIN            5
 #define INPUT_MASK              (1ULL<<RF433_RX_PIN)
 #define RF433_RX_INTR           2
 #define GPIO_OUTPUT             4
