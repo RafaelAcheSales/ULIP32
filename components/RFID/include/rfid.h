@@ -1,6 +1,6 @@
 #ifndef __RFID_H__
 #define __RFID_H__
-
+#include "stdbool.h"
 #define RFID_EVT_CHECK      1
 #define RFID_EVT_MIFARE     2
 #define RFID_EVT_NFC        3
@@ -12,9 +12,9 @@
 typedef int (*rfid_handler_t)(int event, const char *data,
                               int len, void *user_data);
 
-ICACHE_FLASH_ATTR
+
 int rfid_init(int timeout, int retries, bool nfc, int panic_timeout,
               int format, rfid_handler_t func, void *user_data);
-ICACHE_FLASH_ATTR void rfid_release(void);
+ void rfid_release(void);
 
 #endif  /* __RFID_H__ */

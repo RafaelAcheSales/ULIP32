@@ -302,7 +302,7 @@ int tty_init(void)
 {
     ESP_LOGI("TTY", "TTY init");
     uart_dev uart1_dev = {
-        .baud_rate = BIT_RATE_9600,
+        .baud_rate = BIT_RATE_115200,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bit = UART_STOP_BITS_1,
@@ -483,7 +483,7 @@ int tty_write(int tty, unsigned char *data, int len)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;
         case UART1:
-            ESP_LOGE("TTY", "writing command to fingerprint: %02X", data[8]);
+            ESP_LOGE("TTY", "writing command to UART1: %02X", data[8]);
 
             
             rc = uart_write_bytes(tty, data, len);

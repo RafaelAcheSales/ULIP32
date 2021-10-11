@@ -23,6 +23,7 @@
 #include "account.h"
 #include "bluetooth.h"
 #include "rf433.h"
+#include "rfid.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define GPIO_INPUT 16
@@ -41,6 +42,12 @@ void ulip_core_capture_finger(bool status, int index)
         fpm_set_enroll(index);
     else
         fpm_cancel_enroll();
+}
+static int rfid_event(int event, const char *data, int len,
+                      void *user_data)
+{
+    ESP_LOGI("main","event rfid %s", data);
+    return 1;
 }
 static void fingerprint_event(int event, int index,
                               uint8_t *data, int len,
@@ -203,10 +210,17 @@ void app_main(void)
     // esp_timer_handle_t periodic_timer;
     // ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
     // esp_timer_start_once(periodic_timer, 0);
-    rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
-                   CFG_get_rf433_panic_timeout(),
-                   rf433_event, NULL);
+    // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
+    //                CFG_get_rf433_panic_timeout(),
+    //                rf433_event, NULL);
+    
     // bluetooth_start();
+    rfid_init(CFG_get_rfid_timeout(),
+                  CFG_get_rfid_retries(),
+                  CFG_get_rfid_nfc(),
+                  CFG_get_rfid_panic_timeout(),
+                  CFG_get_rfid_format(),
+                  rfid_event, NULL);
     printf("Hello world!\n");
     // int64_t now = esp_timer_get_time();
     // int64_t last_time = 0;
