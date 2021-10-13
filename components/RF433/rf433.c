@@ -130,7 +130,7 @@ static bool rf433_receive(int p, unsigned int changeCount)
     unsigned int firstDataTiming = (proto->invertedSignal) ? (2) : (1);
     uint32_t code = 0;
     int bits = 0;
-    int i;
+    int i; 
     
     /* For protocols that start low, the sync period looks like
      *               _________
