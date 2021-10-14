@@ -4,7 +4,7 @@
 #include "esp_timer.h"
 #include "string.h"
 #include "driver/gpio.h"
-
+#include "esp_log.h"
 #define MAX_BUFFER_SIZE_RX      512
 #define MAX_BUFFER_SIZE_TX      512
 #define MAX_FRAME_SIZE          (MAX_BUFFER_SIZE_TX -  sizeof(rs485_header_t))
@@ -139,7 +139,10 @@ static void rs485_start_retransmitions(void)
 
     if (!p->xmit_retries) return;
 
-    ESP_ERROR_CHECK(esp_timer_stop(p->xmit_timer));
+    if (esp_timer_is_active(p->xmit_timer)) {
+
+        ESP_ERROR_CHECK(esp_timer_stop(p->xmit_timer));
+    }
     ESP_ERROR_CHECK(esp_timer_start_once(p->xmit_timer, p->xmit_timeout));
     // timer_disarm(&p->xmit_timer);
     // timer_arm(&p->xmit_timer, p->xmit_timeout, false);
@@ -167,7 +170,9 @@ static int rs485_xmit_start(void)
                       hdr->tpl_hdr.tpl_data.raw_len);
        
         /* Enable transmitter */ 
-        rs485_xmit_enable();              
+        ESP_LOGI("RS485", "writing");
+        ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);
+        rs485_xmit_enable();    
         tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len);
             
         p->hdlc_tx.len = 0;
@@ -214,6 +219,7 @@ static void rs485_xmit_timeout(void *data)
 
 static int rs485_send_ack(void)
 {
+    ESP_LOGD("RS485", "SENDING ACK");
     unsigned char buf[sizeof(rs485_header_t)];
     rs485_t *p = &rs485_dev;
     rs485_header_t *hdr;
@@ -239,7 +245,9 @@ static int rs485_send_ack(void)
         hdr->tpl_hdr.tpl_data.raw_len = len;
         hdlc_tx_frame(&p->hdlc_tx, buf, len);
         /* Enable transmitter */ 
-        rs485_xmit_enable();              
+        ESP_LOGI("RS485", "writing");
+        ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);           
+        rs485_xmit_enable();   
         if (tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len))
             retval = -1;
         p->hdlc_tx.len = 0;
@@ -318,7 +326,9 @@ static void rs485_send_arp_response(void *data)
     *arp_proto++ = p->hw_addr;
     hdlc_tx_frame(&p->hdlc_tx, buf, sizeof(rs485_header_t) + ARP_PROTO_SIZE);
     /* Enable transmitter */ 
-    rs485_xmit_enable();              
+    ESP_LOGI("RS485", "writing");
+    ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);              
+    rs485_xmit_enable();
     tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len);
     p->hdlc_tx.len = 0;
 
@@ -380,7 +390,10 @@ static void hdlc_rx_frame(void *user_data, unsigned char ok,
             
             if (hdr->tpl_hdr.tpl_data.control & PSH_DATA) {
                 /* Send acknowledge */
-                ESP_ERROR_CHECK(esp_timer_stop(p->ack_delay_timer));
+                if (esp_timer_is_active(p->ack_delay_timer)) {
+
+                    ESP_ERROR_CHECK(esp_timer_stop(p->ack_delay_timer));
+                }
                 ESP_ERROR_CHECK(esp_timer_start_once(p->ack_delay_timer, ACK_DELAY));
                 // timer_disarm(&p->ack_delay_timer);
                 // timer_arm(&p->ack_delay_timer, ACK_DELAY, false);
@@ -520,7 +533,7 @@ int rs485_tx_frame(unsigned char hw_addr_dest,
         }
         break;
     }
-
+    //64192
     hdr = (rs485_header_t *)&p->xmit_buf[p->xmit_head];
     hdr->hw_addr_org = p->hw_addr;
     hdr->hw_addr_dest = hw_addr_dest;

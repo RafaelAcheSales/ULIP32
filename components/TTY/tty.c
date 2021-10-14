@@ -5,7 +5,8 @@
 #include "gpio_drv.h"
 #include "driver/timer.h"
 #include "uart_drv.h"
-
+#include "soc/soc.h"
+#include "soc/uart_periph.h"
 
 #define TTY_BSIZE           512
 #define TTY_BITBANG_BITS    10
@@ -16,8 +17,8 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        34
-#define UART1_TX_PIN        2
+#define UART1_RX_PIN        14
+#define UART1_TX_PIN        12
 
 #define UART2               2
 #define UART2_RX_PIN        35
@@ -268,7 +269,8 @@ static void tty_task(void)
         ESP_ERROR_CHECK(uart_get_buffered_data_len(UART1, (size_t*)&len));
         size = uart_read_bytes(UART1, buf, len, 50);
         if (size) {
-            ESP_LOGI("TTY", "read %d bytes from UART %d  --  %02X", size, UART1, buf[8]);
+            ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
+            ESP_LOG_BUFFER_HEX("TTY", buf, len);
         }
         if (size)
             p->func(UART1, buf, len, p->user_data);
@@ -302,7 +304,7 @@ int tty_init(void)
 {
     ESP_LOGI("TTY", "TTY init");
     uart_dev uart1_dev = {
-        .baud_rate = BIT_RATE_115200,
+        .baud_rate = BIT_RATE_9600,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bit = UART_STOP_BITS_1,
@@ -483,9 +485,8 @@ int tty_write(int tty, unsigned char *data, int len)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;
         case UART1:
-            ESP_LOGE("TTY", "writing command to UART1: %02X", data[8]);
-
-            
+            ESP_LOGE("TTY", "writing command to UART1: ");
+            ESP_LOG_BUFFER_HEX("TTY", data, len);
             rc = uart_write_bytes(tty, data, len);
             break;
         case UART2:
@@ -504,18 +505,13 @@ int tty_write(int tty, unsigned char *data, int len)
 int tty_tx_fifo_size(int tty)
 {
     tty_dev_t *p;
-    int size;
+    int size = 0;
 
-    if (tty == UART0) {
+    if (tty >= UART0 && tty <= UART2) {
         // /* UART FIFO */
-        // size = ((READ_PERI_REG(UART_STATUS(tty)) >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
-        // return size;
-    } else if (tty == UART1) {
-        // p = &tty_dev[tty];
-        // size = TTY_FIFO_CNT(p->xmit_head, p->xmit_tail, TTY_BSIZE);
-        // /* UART FIFO */
-        // size += ((READ_PERI_REG(UART_STATUS(tty)) >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
-        // return size;
+        size = ((READ_PERI_REG(UART_STATUS_REG(tty)) >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
+        return size;
+    }
     } else if (tty == UART3) {
         p = &tty_dev[tty];
         size = TTY_FIFO_CNT(p->xmit_head, p->xmit_tail, TTY_BSIZE);

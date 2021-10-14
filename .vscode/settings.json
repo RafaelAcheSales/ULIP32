@@ -31,7 +31,11 @@
         "gpio_struct.h": "c",
         "esp_task_wdt.h": "c",
         "rf433.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "uart_drv.h": "c",
+        "esp_bit_defs.h": "c",
+        "uart_periph.h": "c",
+        "uart_reg.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
