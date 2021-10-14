@@ -511,7 +511,6 @@ int tty_tx_fifo_size(int tty)
         // /* UART FIFO */
         size = ((READ_PERI_REG(UART_STATUS_REG(tty)) >> UART_TXFIFO_CNT_S) & UART_TXFIFO_CNT);
         return size;
-    }
     } else if (tty == UART3) {
         p = &tty_dev[tty];
         size = TTY_FIFO_CNT(p->xmit_head, p->xmit_tail, TTY_BSIZE);
