@@ -219,7 +219,7 @@ static void rs485_xmit_timeout(void *data)
 
 static int rs485_send_ack(void)
 {
-    ESP_LOGD("RS485", "SENDING ACK");
+    // ESP_LOGD("RS485", "SENDING ACK");
     unsigned char buf[sizeof(rs485_header_t)];
     rs485_t *p = &rs485_dev;
     rs485_header_t *hdr;

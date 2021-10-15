@@ -11,6 +11,7 @@
 #include "time.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "esp_system.h"
 #include "tty.h"
 #include "gpio_drv.h"
 #include "eth.h"
@@ -27,6 +28,7 @@
 #include "rf433.h"
 #include "rfid.h"
 #include "rs485.h"
+#include "sdkconfig.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define GPIO_INPUT 16
@@ -37,6 +39,7 @@
 #define UART_TTY 2
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
+#define ULIP_MODEL "MLI-1WB"
 static int cnt = 0;
 
 
@@ -88,8 +91,8 @@ static void rs485_event(unsigned char from_addr,
     }
 
     if (control & PSH_DATA) {
-        ESP_LOGD("ULIP", "RS485 frame address [%d] len [%d]",
-                 from_addr, len);
+        // ESP_LOGD("ULIP", "RS485 frame address [%d] len [%d]",
+        //          from_addr, len);
         if (len < 7) return;
         p.b = frame;
         size = *p.b++;
@@ -101,7 +104,7 @@ static void rs485_event(unsigned char from_addr,
         id |= (*p.b++ << 24);
         cmd = *p.b++;
         size -= 7;
-        ESP_LOGI("main","cmd: %02x", cmd);
+        ESP_LOGE("main","cmd: %02x", cmd);
         switch (cmd) {
             case RS485_CMD_POLLING:
                 /* do nothing */
@@ -118,7 +121,7 @@ static void rs485_event(unsigned char from_addr,
                 *p.b++ = true;
                 *p.b++ = 1 == CTL_RELAY_OFF ? 0 : 1;
                 *p.b++ = ctl_sensor_status() == CTL_SENSOR_OFF ? 0 : 1;
-                ESP_LOG_BUFFER_HEX("main", buf, 10);
+                // ESP_LOG_BUFFER_HEX("main", buf, 10);
                 rs485_tx_frame(from_addr, buf, 10);
                 break;
             case RS485_CMD_RELAY:
@@ -160,9 +163,11 @@ static void rs485_event(unsigned char from_addr,
                 *p.b++ = state;
                 rs485_tx_frame(from_addr, buf, 9);
                 if (state) {
-                    // ctl_alarm_on();
+                    ESP_LOGE("main", "alarm onnnnn");
+                    ctl_alarm_on();
                 } else {
-                    // ctl_alarm_off();
+                    ESP_LOGE("main", "alarm offfffffff");
+                    ctl_alarm_off();
                 }
                 break;
             case RS485_CMD_PANIC:
@@ -180,9 +185,9 @@ static void rs485_event(unsigned char from_addr,
                 *p.b++ = state;
                 rs485_tx_frame(from_addr, buf, 9);
                 if (state) {
-                    // ctl_panic_on();
+                    ctl_panic_on();
                 } else {
-                    // ctl_panic_off();
+                    ctl_panic_off();
                 }
                 break;
             case RS485_CMD_ADDUSER:
@@ -448,11 +453,11 @@ static void rs485_event(unsigned char from_addr,
                 rs485_tx_frame(from_addr, buf, 8);
                 break;
             case RS485_CMD_REBOOT:
-                // ulip_core_reboot();
+                esp_restart();
                 break;
             case RS485_CMD_GETCONFIG:
                 /* Response */
-                // len = strlen((char *)ULIP_MODEL) + 1;
+                len = strlen((char *)ULIP_MODEL) + 1;
                 len += strlen((char *)CFG_get_serialnum()) + 1;
                 len += strlen((char *)CFG_get_release()) + 1;
                 p.b = buf;
@@ -463,14 +468,15 @@ static void rs485_event(unsigned char from_addr,
                 *p.b++ = (id >> 24) & 0xff;
                 *p.b++ = RS485_CMD_GETCONFIG;
                 *p.b++ = true;
-                // size = strlen((char *)ULIP_MODEL) + 1;
-                // memcpy(p.b, ULIP_MODEL, size);
-                // p.b += size;
+                size = strlen((char *)ULIP_MODEL) + 1;
+                memcpy(p.b, ULIP_MODEL, size);
+                p.b += size;
                 size = strlen((char *)CFG_get_serialnum()) + 1;
                 memcpy(p.b, CFG_get_serialnum(), size);
                 p.b += size;
                 size = strlen((char *)CFG_get_release()) + 1;
                 memcpy(p.b, CFG_get_release(), size);
+                ESP_LOG_BUFFER_CHAR("main",CFG_get_release(), size);
                 p.b += size;
                 *p.b++ = CFG_get_standalone();
                 *p.b++ = CFG_get_rs485_hwaddr();
@@ -831,9 +837,9 @@ void app_main(void)
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
     //                 qrcode_event, NULL);
-    // // tty_open(BITBANG,test_event, NULL);
-    // // fpm_init(0,2,2,fingerprint_event, NULL);
-    // // printf("fpm setup timeout: %d, security: %d, retry: %d\n", CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries());
+    // tty_open(BITBANG,test_event, NULL);
+    // fpm_init(0,2,2,fingerprint_event, NULL);
+    // printf("fpm setup timeout: %d, security: %d, retry: %d\n", CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries());
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // // gpio_interrupt_open(2, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
@@ -860,6 +866,7 @@ void app_main(void)
     //               rfid_event, NULL);
     CFG_set_rs485_hwaddr(2);
     CFG_set_rs485_server_hwaddr(1);
+
     rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
                    rs485_event, NULL);
     // tty_open(1, rs485_rx_data, NULL);
@@ -869,8 +876,9 @@ void app_main(void)
     //     vTaskDelay(50);
     //     /* code */
     // }
-    
+    #ifdef CONFIG_MLI_1WRF
     printf("Hello world!\n");
+    #endif
     // int64_t now = esp_timer_get_time();
     // int64_t last_time = 0;
     // int cnt = 0;

@@ -41,7 +41,10 @@ void ctl_relay_on(uint32_t time);
 void ctl_relay_off(void);
 
 bool ctl_check_ap_mode(void);
-
+void ctl_alarm_on(void);
+void ctl_alarm_off(void);
+void ctl_panic_on(void);
+void ctl_panic_off(void);
 uint8_t ctl_relay_status(void);
 uint8_t ctl_sensor_status(void);
 // uint8_t clt_alarm_status(void);

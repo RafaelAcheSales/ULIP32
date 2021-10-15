@@ -1,16 +1,4 @@
 menu "ETH Configuration"
-    config USE_DHCP
-        bool "DHCP"
-
-    config IP
-        string 
-        prompt "ETHERNET FIXED IP"
-    config GATEWAY
-        string 
-        prompt "DEFAULT GATEWAY IP"
-    config NETMASK
-        string 
-        prompt "SUBNET NETMASK"
     config USE_SPI_ETHERNET
         bool
 

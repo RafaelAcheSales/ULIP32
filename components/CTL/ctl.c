@@ -306,6 +306,40 @@ void ctl_relay_off(void)
     if (ctl_event_func)
         ctl_event_func(CTL_EVT_RELAY, CTL_RELAY_OFF);
 }
+
+void ctl_alarm_on(void)
+{
+    if (ctl_alarm_state == CTL_ALARM_OFF) {
+        ctl_alarm_state = CTL_ALARM_ON;
+        ctl_buzzer_on(0);
+    }
+}
+
+
+void ctl_alarm_off(void)
+{
+    if (ctl_alarm_state == CTL_ALARM_ON) {
+        ctl_alarm_state = CTL_ALARM_OFF;
+        ctl_breakin_state = CTL_BREAKIN_OFF;
+        ctl_buzzer_off();
+    }
+}
+
+void ctl_panic_on(void)
+{
+    if (ctl_panic_state == CTL_PANIC_OFF) {
+        ctl_panic_state = CTL_PANIC_ON;
+        ctl_relay_on(0);
+    }
+}
+
+void ctl_panic_off(void)
+{
+    if (ctl_panic_state == CTL_PANIC_ON) {
+        ctl_panic_state = CTL_PANIC_OFF;
+        ctl_relay_off();
+    }
+}
 void ctl_set_sensor_mode(uint8_t mode)
 {
     ctl_sensor_mode = mode;
