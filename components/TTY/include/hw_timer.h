@@ -132,6 +132,7 @@ void timer_isr_task() {
 
 void hw_timer_disarm(int timer_group)
 {
+    
     timer_pause(timer_group, TIMER_0);
 }
 

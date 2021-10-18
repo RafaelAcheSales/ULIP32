@@ -17,8 +17,8 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        14
-#define UART1_TX_PIN        12
+#define UART1_RX_PIN        34
+#define UART1_TX_PIN        2
 
 #define UART2               2
 #define UART2_RX_PIN        35
@@ -264,16 +264,25 @@ static void tty_task(void)
     int size;
     int len;
     //int i;
+    p = &tty_dev[UART0];
+    if (p->func) {
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART0, (size_t*)&len));
+        size = uart_read_bytes(UART0, buf, len, 50);
+        if (size) {
+            // ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
+            // ESP_LOG_BUFFER_HEX("TTY", buf, len);
+            p->func(UART0, buf, len, p->user_data);
+        }
+    }
     p = &tty_dev[UART1];
     if (p->func) {
         ESP_ERROR_CHECK(uart_get_buffered_data_len(UART1, (size_t*)&len));
         size = uart_read_bytes(UART1, buf, len, 50);
         if (size) {
-            // ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
+            ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
             // ESP_LOG_BUFFER_HEX("TTY", buf, len);
-        }
-        if (size)
             p->func(UART1, buf, len, p->user_data);
+        }
     }
     p = &tty_dev[UART2];
     if (p->func) {
@@ -282,9 +291,8 @@ static void tty_task(void)
         if (size) {
             ESP_LOGI("TTY", "read %d bytes from UART%d", size, UART2);
 
-        }
-        if (size)
             p->func(UART2, buf, len, p->user_data);
+        }
     }
 
     p = &tty_dev[UART3];
@@ -303,6 +311,19 @@ static void tty_task(void)
 int tty_init(void)
 {
     ESP_LOGI("TTY", "TTY init");
+    uart_dev uart0_dev = {
+        .baud_rate = BIT_RATE_9600,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bit = UART_STOP_BITS_1,
+        .flow_control = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_APB,
+        .uart_id = UART0,
+        .tx_pin = UART0_TX_PIN,
+        .rx_pin = UART0_RX_PIN,
+        .cts = -1,
+        .rts = -1,
+    };
     uart_dev uart1_dev = {
         .baud_rate = BIT_RATE_9600,
         .data_bits = UART_DATA_8_BITS,
@@ -330,6 +351,7 @@ int tty_init(void)
         .cts = -1,
         .rts = -1,
     };
+    // uart_initialize(&uart0_dev);
     uart_initialize(&uart1_dev);
     uart_initialize(&uart2_dev);
 
@@ -375,12 +397,15 @@ int tty_init(void)
 void tty_release(void)
 {
     ESP_LOGI("tty", "releasing");
+
     tty_close(UART0);
     tty_close(UART1);
     tty_close(UART2);
+    ESP_LOGI("tty", "closed uarts");
     // tty_close(UART3);
     hw_timer_disarm(TIMER_GROUP_0);
     hw_timer_disarm(TIMER_GROUP_1);
+    ESP_LOGI("tty", "timers disarmed");
     gpio_drv_release();
     ESP_LOGI("tty", "released");
 }
@@ -399,7 +424,7 @@ int tty_open(int tty, tty_func_t func,
         p = &tty_dev[tty];
         switch (tty) {
             case UART0:
-                //uart_rx_intr_enable(UART0);
+                uart_open(UART0);
                 break;
             case UART1:
                 uart_open(UART1);
@@ -438,7 +463,7 @@ int tty_close(int tty)
     p = &tty_dev[tty];
     switch (tty) {
         case UART0:
-            // uart_rx_intr_disable(UART0);
+            uart_close(tty);
             break;
         case UART1:
             uart_close(tty);
@@ -481,6 +506,7 @@ int tty_write(int tty, unsigned char *data, int len)
     //ESP_LOGI("TTY", "tty = %d and uart is %d", tty, UART3);
     switch (tty) {
         case UART0:
+            rc = uart_write_bytes(tty, data, len);
             // for (i = 0; i < len; i++)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;

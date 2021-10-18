@@ -134,7 +134,7 @@ static uint32_t fpm_enroll_timeout = 0;
 static bool fpm_identify_finger = false;
 static int fpm_identify_counter = 0;
 static int fpm_led_status = 0;
-
+static int baudrate_retry = 5;
 static fpm_cmd_t fpm_cmd_buf[FPM_CMD_BSIZE];
 static uint8_t fpm_cmd_head = 0;
 static uint8_t fpm_cmd_tail = 0;
@@ -231,6 +231,19 @@ static void fpm_module_initialize(int stage)
 {
     ESP_LOGI("FPM", "FPM init stage [%d]", stage);
     
+    if (!stage) {
+        fpm_cmd_head = 0;
+        fpm_cmd_tail = 0;
+        if (baudrate_retry <= 0) {
+            ESP_LOGE("FPM", "cant open, changing tty baudrate to 115200");
+            tty_set_baudrate(FPM_TTY, 115200);
+            baudrate_retry = 5;
+        }
+        baudrate_retry -= 1;
+        ESP_LOGD("FPM", "retry %d", baudrate_retry);
+        
+    }
+
     if (fpm_cmd_head != fpm_cmd_tail)
         return;
 
@@ -238,17 +251,23 @@ static void fpm_module_initialize(int stage)
         case 0:
             /* Initialize */
             fpm_send_command(FPM5210_Open, 0, NULL);
+            
             break;
         case 1:
+            /* Change BaudRate */
+            fpm_send_command(FPM5210_ChangeBaudrate, 115200, NULL);
+            
+            break;
+        case 2:
             /* Set security level */
             fpm_send_command(FPM5210_SetSecurityLevel,
                              fpm_security_level, NULL);
             break;
-        case 2:
+        case 3:
             /* Disable LED */
             fpm_send_command(FPM5210_CmosLed, 0, NULL);
             break;
-        case 3:
+        case 4:
         default:
             fpm_configured = 1;
             break;
@@ -272,6 +291,7 @@ static void fpm_module_restart(void)
     fpm_identify_counter = 0;
     fpm_configured = false;
     fpm_init_stage = 0;
+    baudrate_retry = 5;
     fpm_module_initialize(0);
 }
 
@@ -292,10 +312,10 @@ static void fpm_event(int tty, const char *event,
     pgen_t p;
     int i;
    
-#ifdef DEBUG
+
     ESP_LOGD("FPM", "FPM read [%d] bytes len [%d]",
              len, fpm_buflen);
-#endif
+    ESP_LOG_BUFFER_HEX("FPM", event, len);
 
     if (fpm_buflen + len > FPM_BFSIZE) {
         ESP_LOGW("FPM", "FPM buffer overflow");
@@ -365,10 +385,14 @@ static void fpm_event(int tty, const char *event,
             }
             switch (ack) {
                 case FPM5210_ACK:
-#ifdef DEBUG
+
                     ESP_LOGD("FPM", "Command response ACK");
-#endif
+
                     if (!fpm_configured) {
+                        if (fpm_init_stage == 1) {
+                            tty_set_baudrate(FPM_TTY, 115200);
+                            ESP_LOGD("FPM", "ack setted baudrate");
+                        }
                         fpm_module_initialize(++fpm_init_stage);
                         break;
                     }
@@ -575,6 +599,7 @@ static void fpm_event(int tty, const char *event,
                     }
                     break;
                 default:
+                    ESP_LOGE("FPM", "could not understand on stage: %d", fpm_init_stage);
                     break;
             }
             fpm_buflen -= FPM5210_CMD_LEN;
@@ -701,6 +726,7 @@ int fpm_init(int timeout, int security, int identify_retries,
         ESP_LOGW("FPM", "Failed to initialize FPM!");
         return -1;
     }
+    baudrate_retry = 5;
     fpm_timeout = timeout;
     fpm_security_level = security ?
                          security : FPM_SECURITY_LEVEL;
@@ -712,7 +738,8 @@ int fpm_init(int timeout, int security, int identify_retries,
     memset(fpm_cmd_buf, 0, sizeof(fpm_cmd_buf));
     fpm_cmd_head = fpm_cmd_tail = 0;
     fpm_led_status = 0;
-
+    tty_set_baudrate(FPM_TTY, 9600);
+    fpm_init_stage = 0;
     /* Initialize module */
     fpm_module_initialize(0);
 
@@ -728,8 +755,7 @@ int fpm_init(int timeout, int security, int identify_retries,
     
     ESP_ERROR_CHECK(esp_timer_create(&fpm_timer_args, &fpm_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(fpm_timer, fpm_timeout));
-    // os_timer_setfn(&fpm_timer, (os_timer_func_t *)fpm_polling_timeout, NULL);
-    // os_timer_arm(&fpm_timer, fpm_timeout, true);
+
 
     return 0;
 }
@@ -746,6 +772,7 @@ void fpm_release(void)
     fpm_timestamp = 0;
     fpm_configured = false;
     fpm_init_stage = 0;
+    baudrate_retry = 5;
 }
 
 int fpm_set_enroll(uint16_t index)

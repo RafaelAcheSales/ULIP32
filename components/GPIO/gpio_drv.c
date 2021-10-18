@@ -13,8 +13,9 @@
 #define ESP_INTR_FLAG_DEFAULT 0
 // static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
 static xQueueHandle gpio_evt_queue = NULL;
+static int delete_task_number = 55;
 static int cnt = 0;
-TaskHandle_t xHandle;
+static TaskHandle_t xHandle;
 typedef struct gpio_intr {
     int intr;
     int gpio;
@@ -77,6 +78,11 @@ static void gpio_task_example(void* arg)
             cnt += 1;
             gpio_set_level(GPIO_OUTPUT, cnt & 1);
 #endif
+            if (io_num == delete_task_number)
+            {
+                vTaskDelete(NULL);
+            }
+            
             gpio_intr_t *p;
             int status;
             int i;
@@ -145,9 +151,15 @@ int gpio_drv_init(void)
 
 void gpio_drv_release(void)
 {
-    vTaskSuspend(xHandle);
+    ESP_LOGD("GPIO", "uninstall isr");
     gpio_uninstall_isr_service();
+    ESP_LOGD("GPIO", "deleting task");
+    xQueueSend(gpio_evt_queue, &delete_task_number, NULL);
+    ESP_LOGD("GPIO", "task deleted");
     vQueueDelete(gpio_evt_queue);
+    ESP_LOGD("GPIO", "deleteD queue");
+    // vTaskSuspend(xHandle);
+
 }
 
 

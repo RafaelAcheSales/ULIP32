@@ -7,6 +7,7 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #include <stdio.h>
+#include <sys/time.h>
 #include "string.h"
 #include "time.h"
 #include "freertos/FreeRTOS.h"
@@ -563,6 +564,12 @@ static void rs485_event(unsigned char from_addr,
                 t = strtok(NULL, ":");
                 if (!t) return;
                 tm.tm_sec = strtol(t, NULL, 10);
+                
+                struct timeval tv;
+                tv.tv_sec = mktime(&tm);
+                tv.tv_usec = 0;
+
+                settimeofday(&tv,NULL);
                 // rtc_set_time(rtc_mktime(&tm));
                 /* Save date and time in flash */
                 // if (abs(rtc_time() - CFG_get_rtc_time()) > 60) {
@@ -680,54 +687,54 @@ void ulip_core_capture_finger(bool status, int index)
     else
         fpm_cancel_enroll();
 }
-// static int rfid_event(int event, const char *data, int len,
-//                       void *user_data)
-// {
-//     ESP_LOGI("main","event rfid %s", data);
-//     return 1;
-// }
-// static void fingerprint_event(int event, int index,
-//                               uint8_t *data, int len,
-//                               int error, void *user_data)
-// {
-//     printf("event rolou fingerprint of len: %d erro %X\n", len, event);
-//     for (int i = 0; i < len; i++)
-//     {
-//         printf("%02X", data[i]);
-//     }
-// }
+static int rfid_event(int event, const char *data, int len,
+                      void *user_data)
+{
+    ESP_LOGI("main","event rfid %s", data);
+    return 1;
+}
+static void fingerprint_event(int event, int index,
+                              uint8_t *data, int len,
+                              int error, void *user_data)
+{
+    printf("event rolou fingerprint of len: %d erro %X\n", len, event);
+    for (int i = 0; i < len; i++)
+    {
+        printf("%02X", data[i]);
+    }
+}
 
-// static int rf433_event(int event, const char *data, int len,
-//                        uint16_t sync, uint8_t button,
-//                        uint8_t status, void *user_data)
-// {
-//     ets_printf("chave %s\n", data);
-//     return 1;
-// }
-// static int qrcode_event(int event, const char *data,
-//                         int len, void *user_data)
-// {
-//     printf(RED "%s\n", data);
-//     return 1;
-// }
-// static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
-//     printf("event %s", response_body);
-// }
-// static void http_event2(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
-//     printf("event2 %s", response_body);
-// }
-// static tty_func_t test_event(int tty, char *data,
-//                       int len, void *user_data)
-// {
-//     printf("event rolou: ");
-//     for (int i = 0; i < len; i++)
-//     {
-//         printf("%c",data[i]);
-//     }
-//     printf("\n");
-//     tty_func_t t = NULL;
-//     return t;
-// }
+static int rf433_event(int event, const char *data, int len,
+                       uint16_t sync, uint8_t button,
+                       uint8_t status, void *user_data)
+{
+    ets_printf("chave %s\n", data);
+    return 1;
+}
+static int qrcode_event(int event, const char *data,
+                        int len, void *user_data)
+{
+    printf(RED "%s\n", data);
+    return 1;
+}
+static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
+    printf("event %s", response_body);
+}
+static void http_event2(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
+    printf("event2 %s", response_body);
+}
+static tty_func_t test_event(int tty, char *data,
+                      int len, void *user_data)
+{
+    printf("event rolou: ");
+    for (int i = 0; i < len; i++)
+    {
+        printf("%c",data[i]);
+    }
+    printf("\n");
+    tty_func_t t = NULL;
+    return t;
+}
 
 static void ctl_event(int event, int status) {
     printf("event rolou ctl: %d status %d\n", event, status);
@@ -744,8 +751,12 @@ static void ctl_event(int event, int status) {
     case CTL_EVT_SENSOR:
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
-
+        tty_release();
+        fpm_release();
+        vTaskDelay(50);
         ESP_LOGI("main","%d", cnt);
+        tty_init();
+        fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
         // change_value();
         // ulip_core_capture_finger(true, 4);
         // start_httpd();
@@ -761,39 +772,7 @@ static void ctl_event(int event, int status) {
 }
 
 unsigned char * data = (unsigned char *)"\x88";
-// static void buttonPressed(int intr, void *user_data) {
-    
 
-//     if (intr == 2) {
-
-//         // ctl_relay_on(500000);
-//         // printf("reading %d port\n", CFG_Get_blobs());
-//         // CFG_set_server_port(34);
-//         // CFG_Save();
-//         // printf("reading2 %d port\n", CFG_Get_blobs());
-
-        
-        
-//         // // CFG_Load();
-//         // printf("reading %d port", CFG_get_server_port());
-
-//         // tty_release();
-//         // ctl_release();
-//         // printf("ctl released\n");
-//         // ctl_beep(3);
-        
-//         // fpm_release();
-        
-//         // fpm_delete_all();
-//         // ulip_core_capture_finger(true, 3);
-//         cnt++;
-//     }
-// }
-// static void periodic_timer_callback(void* arg)
-// {
-//     int64_t time_since_boot = esp_timer_get_time();
-//     ESP_LOGI("timer", "Periodic timer called, time since boot: %lld us", time_since_boot);
-// }
 static void rs485_rx_data(int tty, const char *data,
                           int len, void *user_data)
 {
@@ -801,58 +780,26 @@ static void rs485_rx_data(int tty, const char *data,
 }
 void app_main(void)
 {
-    // 
 
+    printf("%d", ++cnt);
     CFG_Load();
-    // CFG_set_dhcp(true);
-    // CFG_set_qrcode_led(false);
-    // gpio_config_t io_conf;
-    // //disable interrupt
-    // io_conf.intr_type = GPIO_INTR_DISABLE;
-    // //set as output mode
-    // io_conf.mode = GPIO_MODE_OUTPUT;
-    // //bit mask of the pins that you want to set,e.g.GPIO18/19
-    // io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
-    // //disable pull-down mode
-    // io_conf.pull_down_en = 0;
-    // //disable pull-up mode
-    // io_conf.pull_up_en = 0;
-    // //configure GPIO with the given settings
-    // gpio_config(&io_conf);
-
+    printf("%d", ++cnt);
     tty_init();
-    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    printf("%d", ++cnt);
     ctl_init(CTL_MODE_NORMAL, ctl_event);
+    printf("%d", ++cnt);
     ctl_set_sensor_mode(1);
-    
-    // qrcode_init(false, true,
-    //                 1000000,
-    //                 2000000,
-    //                 true,
-    //                 30,
-    //                 qrcode_event, NULL);
+    printf("%d", ++cnt);
+    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     // qrcode_init(CFG_get_qrcode_led(), true,
     //                 CFG_get_qrcode_timeout(),
     //                 CFG_get_qrcode_panic_timeout(),
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
     //                 qrcode_event, NULL);
-    // tty_open(BITBANG,test_event, NULL);
-    // fpm_init(0,2,2,fingerprint_event, NULL);
-    // printf("fpm setup timeout: %d, security: %d, retry: %d\n", CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries());
-    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-    // // gpio_interrupt_open(2, GPIO_INPUT, GPIO_INTR_NEGEDGE, 0, buttonPressed, NULL);
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
-    // const esp_timer_create_args_t periodic_timer_args = {
-    //         .callback = &periodic_timer_callback,
-    //         /* name is optional, but may help identify the timer when ESP_LOGDging */
-    //         .name = "periodic"
-    // };
-    
-    // esp_timer_handle_t periodic_timer;
-    // ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
-    // esp_timer_start_once(periodic_timer, 0);
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
     //                rf433_event, NULL);
@@ -864,33 +811,10 @@ void app_main(void)
     //               CFG_get_rfid_panic_timeout(),
     //               CFG_get_rfid_format(),
     //               rfid_event, NULL);
-    CFG_set_rs485_hwaddr(2);
-    CFG_set_rs485_server_hwaddr(1);
-
-    rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
-                   rs485_event, NULL);
-    // tty_open(1, rs485_rx_data, NULL);
-    // while (1)
-    // {
-    //     tty_write(1, (unsigned char *)"abcefgh", 7);
-    //     vTaskDelay(50);
-    //     /* code */
-    // }
-    #ifdef CONFIG_MLI_1WRF
+    // CFG_set_rs485_hwaddr(2);
+    // CFG_set_rs485_server_hwaddr(1);
+    // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
+    //                rs485_event, NULL);
     printf("Hello world!\n");
-    #endif
-    // int64_t now = esp_timer_get_time();
-    // int64_t last_time = 0;
-    // int cnt = 0;
-    // while (1)
-    // {
-    //     now = esp_timer_get_time();
-    //     if (now - last_time >= 1000) {
-    //         last_time = now;
-    //         cnt += 1;
-    //         gpio_set_level(GPIO_OUTPUT, cnt & 1);
-    //     }
-    // }
-    
-    // start_ap();
+
 }

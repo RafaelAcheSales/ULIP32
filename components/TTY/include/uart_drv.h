@@ -85,7 +85,8 @@ void uart_open(int uart_n) {
 }
 void uart_close(int uart_n) {
     // uart_isr_free(uart_n);
-    uart_driver_delete(uart_n);
+    if (uart_is_driver_installed(uart_n))
+        uart_driver_delete(uart_n);
 }
 #endif
 
