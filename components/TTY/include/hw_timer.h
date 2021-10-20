@@ -108,7 +108,13 @@ void timer_isr_task() {
 
     while (1) {
         example_timer_event_t evt;
-        xQueueReceive(s_timer_queue, &evt, portMAX_DELAY);
+        
+        xQueueReceive(s_timer_queue, &evt, NULL);
+        if (evt.timer_counter_value == NULL) {
+            ets_printf("deleted task hwtimer\n");
+            
+            vTaskDelete(NULL);
+        }
         switch (evt.info.timer_group)
         
         {
@@ -196,5 +202,21 @@ static void hw_timer_init(int timer_group)
  // Use the handle to delete the task.
 
 }
+void hw_timer_release() {
+    timer_deinit(TIMER_GROUP_0, TIMER_0);
+    // timer_deinit(TIMER_GROUP_1, TIMER_0);
+    example_timer_info_t info = {
+        .alarm_interval = NULL,
+        .auto_reload = NULL,
+        .timer_group = NULL,
+        .timer_idx = NULL
+    };
+    example_timer_event_t evt;
+    evt.info = info;
+    evt.timer_counter_value = NULL;
+    xQueueSend(s_timer_queue, &evt, NULL);
+
+}
+
 
 #endif

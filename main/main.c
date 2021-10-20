@@ -749,14 +749,13 @@ static void ctl_event(int event, int status) {
         
         break;
     case CTL_EVT_SENSOR:
+        
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
-        tty_release();
-        fpm_release();
-        vTaskDelay(50);
-        ESP_LOGI("main","%d", cnt);
-        tty_init();
-        fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+        tty_write(3, (unsigned char *)"abcdefgh", 8);
+        // ctl_init();
+        // ctl_set_sensor_mode(1);
+        // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
         // change_value();
         // ulip_core_capture_finger(true, 4);
         // start_httpd();
@@ -785,11 +784,30 @@ void app_main(void)
     CFG_Load();
     printf("%d", ++cnt);
     tty_init();
-    printf("%d", ++cnt);
+    // printf("%d", ++cnt);
     ctl_init(CTL_MODE_NORMAL, ctl_event);
-    printf("%d", ++cnt);
+    // printf("%d", ++cnt);
     ctl_set_sensor_mode(1);
-    printf("%d", ++cnt);
+    // tty_release();
+    // // vTaskDelay(200);
+    // tty_init();
+    // // gpio_drv_init();
+    // ctl_set_sensor_mode(1);
+    // tty_open(3, test_event, NULL);
+    // tty_write(3, (unsigned char *)"abcdefg", 7);
+    // vTaskDelay(200);
+    // tty_write(3, (unsigned char *)"abcdefg", 7);
+    // vTaskDelay(200);
+    // tty_write(3, (unsigned char *)"abcdefg", 7);
+    // vTaskDelay(200);
+    // tty_write(3, (unsigned char *)"abcdefg", 7);
+    // while (1)
+    // {
+    //     // tty_write(3, (unsigned char *)"abcdefg", 7);
+    // }
+    
+    // gpio_drv_init();
+
     // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     // qrcode_init(CFG_get_qrcode_led(), true,
     //                 CFG_get_qrcode_timeout(),

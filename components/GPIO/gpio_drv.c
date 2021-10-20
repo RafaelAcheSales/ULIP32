@@ -69,17 +69,21 @@ static gpio_intr_t gpio_intr[GPIO_NUM_INTERRUPT] = {
 };
 
 
-static void gpio_task_example(void* arg)
+static void IRAM_ATTR gpio_task_example(void* arg)
 {
+    // ets_printf("gpiotask\n");
     uint32_t io_num;
     for(;;) {
-        if(xQueueReceiveFromISR(gpio_evt_queue, &io_num, portMAX_DELAY)) {
+        // ets_printf("for\n");
+        if(xQueueReceiveFromISR(gpio_evt_queue, &io_num, NULL)) {
+            // ets_printf("recivefromisr\n");
 #if defined(TEST_INTR)
             cnt += 1;
             gpio_set_level(GPIO_OUTPUT, cnt & 1);
 #endif
             if (io_num == delete_task_number)
             {
+                ESP_LOGE("GPIO", "vtaskdeleted");
                 vTaskDelete(NULL);
             }
             
@@ -125,9 +129,12 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
 
 int gpio_drv_init(void)
 {
+    
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+
     xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 10, &xHandle);
+    
     // esp_task_wdt_init(TWDT_TIMEOUT_S, false);
     // esp_task_wdt_add(xHandle);
     // ETS_GPIO_INTR_ATTACH(gpio_interrupt_handler, NULL);
@@ -151,12 +158,22 @@ int gpio_drv_init(void)
 
 void gpio_drv_release(void)
 {
-    ESP_LOGD("GPIO", "uninstall isr");
+    // ESP_LOGD("GPIO", "uninstall isr");
     gpio_uninstall_isr_service();
+    // gpio_intr_t *p;
+    // for (int i = 0; i < GPIO_NUM_INTERRUPT; i++)
+    // {
+    //     p = &gpio_intr[i];
+    //     gpio_isr_handler_remove(p->gpio);
+
+    // }
+    
+    // gpio_intr_disable
     ESP_LOGD("GPIO", "deleting task");
     xQueueSend(gpio_evt_queue, &delete_task_number, NULL);
     ESP_LOGD("GPIO", "task deleted");
     vQueueDelete(gpio_evt_queue);
+    gpio_evt_queue = NULL;
     ESP_LOGD("GPIO", "deleteD queue");
     // vTaskSuspend(xHandle);
 

@@ -76,17 +76,22 @@ static void uart_initialize(uart_dev* device)
     ESP_LOGI("uart", "seted params");
     ESP_ERROR_CHECK(uart_set_pin(device->uart_id, device->tx_pin, device->rx_pin, device->rts, device->cts));
     ESP_LOGI("uart", "seted pins");
-
+    if (!uart_is_driver_installed(device->uart_id)) {
+        uart_driver_install(device->uart_id, BUF_SIZE, BUF_SIZE, QUEUE_SIZE, NULL, 0);
+    }
     // Configure a temporary buffer for the incoming data
 }
 
 void uart_open(int uart_n) {
-    uart_driver_install(uart_n, BUF_SIZE, BUF_SIZE, QUEUE_SIZE, NULL, 0);
+    ESP_LOGD("uart", "opening uart: %d",uart_n);
+    uart_enable_rx_intr(uart_n);
+        
 }
 void uart_close(int uart_n) {
-    // uart_isr_free(uart_n);
-    if (uart_is_driver_installed(uart_n))
-        uart_driver_delete(uart_n);
+    ESP_LOGD("uart", "closing uart: %d",uart_n);
+    if (uart_is_driver_installed(uart_n)) {
+        uart_disable_rx_intr(uart_n);
+    }
 }
 #endif
 

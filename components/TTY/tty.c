@@ -2,12 +2,12 @@
 #include "tty.h"
 #include "esp_log.h"
 #include "hw_timer.h"
+#include "esp_timer.h"
 #include "gpio_drv.h"
 #include "driver/timer.h"
 #include "uart_drv.h"
 #include "soc/soc.h"
 #include "soc/uart_periph.h"
-
 #define TTY_BSIZE           512
 #define TTY_BITBANG_BITS    10
 #define TTY_TIMEOUT         50000
@@ -22,7 +22,7 @@
 
 #define UART2               2
 #define UART2_RX_PIN        35
-#define UART2_TX_PIN        15
+#define UART2_TX_PIN        16
 
 #define UART3               3
 #define UART3_RX_PIN        -1
@@ -30,7 +30,7 @@
 #define UART3_RX_INTR       3
 
 #define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN) | (1ULL<<UART2_RX_PIN) | (1ULL<<UART1_RX_PIN)
-#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN)
+#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN) | (1ULL<<15)
 
 
 #define TTY_FIFO_CNT(head,tail,size) \
@@ -54,6 +54,7 @@ typedef struct _tty_dev {
     uint8_t xmit_bits;
 } tty_dev_t;
 static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
+static int cnt = 0;
 static tty_dev_t tty_dev[TTY_NUM_DEV] = { 
     {
         .tty = 0,
@@ -79,6 +80,7 @@ static tty_dev_t tty_dev[TTY_NUM_DEV] = {
 
 static bool hw_timer_enabled = false;
 static uint32_t hw_timer_counter = 0;
+static esp_timer_handle_t tty_task_timer;
 //static xQueueHandle sw_timer_queue;
 
 static void tty_hw_timer_enable(void)
@@ -105,10 +107,7 @@ static void tty_gpio_interrupt(int intr, void *user_data)
     //ESP_LOGI("TTY", "iterrupto via intr: %d", intr);
     taskENTER_CRITICAL(&my_mutex);
 
-    if (p->tty == UART1) {
-        p->recv_bits = TTY_BITBANG_BITS;
-        tty_hw_timer_enable();
-    } else if (p->tty == UART3) {
+    if (p->tty == UART3) {
         p->recv_bits = TTY_BITBANG_BITS;
         tty_hw_timer_enable();
     }
@@ -118,10 +117,13 @@ static void tty_gpio_interrupt(int intr, void *user_data)
 
 static void tty_hw_timeout(void)
 {
+    // ets_printf("hwtiem\n");
+    cnt++;
+    gpio_set_level(15, (cnt & 1));
     tty_dev_t *p;
     uint32_t bit;
     int rc = 0;
-
+    // ets_printf("hwtime\n");
     taskENTER_CRITICAL(&my_mutex);
 
     /* Only receive */
@@ -188,6 +190,7 @@ static void tty_hw_timeout(void)
                 }
                 /* Write GPIO */
                 bit = (p->xmit_xsr >> (TTY_BITBANG_BITS - p->xmit_bits)) & 1;
+                // printf("%d", bit);
                 gpio_set_level(UART3_TX_PIN, bit);
                 p->xmit_bits--;
                 if (!p->xmit_bits)
@@ -219,7 +222,7 @@ tty_read_fifo(int tty, char *buf, int len)
     p = &tty_dev[tty];
 
     size = TTY_FIFO_CNT(p->recv_head, p->recv_tail, TTY_BSIZE);
-    //printf("fifo size: %d", size);
+    // printf("fifo size: %d\n", size);
     if (size) {
         if (size > len) size = len;
         for (i = 0; i < size; i++) {
@@ -264,6 +267,7 @@ static void tty_task(void)
     int size;
     int len;
     //int i;
+    // ESP_LOGD("TTY", "tty_task");
     p = &tty_dev[UART0];
     if (p->func) {
         ESP_ERROR_CHECK(uart_get_buffered_data_len(UART0, (size_t*)&len));
@@ -311,6 +315,24 @@ static void tty_task(void)
 int tty_init(void)
 {
     ESP_LOGI("TTY", "TTY init");
+
+    gpio_config_t io_conf;
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_OUTPUT;
+    io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 0;
+    gpio_config(&io_conf);
+
+    gpio_config_t io_conf2;
+    io_conf2.intr_type = GPIO_INTR_DISABLE;
+    io_conf2.mode = GPIO_MODE_INPUT;
+    io_conf2.pin_bit_mask = GPIO_INPUT_PIN_SEL;
+    io_conf2.pull_down_en = 0;
+    io_conf2.pull_up_en = 0;
+    gpio_config(&io_conf2);
+
+    ESP_LOGI("tty", "initialized gpios");
     uart_dev uart0_dev = {
         .baud_rate = BIT_RATE_9600,
         .data_bits = UART_DATA_8_BITS,
@@ -361,35 +383,30 @@ int tty_init(void)
     // os_timer_setfn(&tty_timer, (os_timer_func_t *)tty_task, &tty_event);
     // os_timer_arm(&tty_timer, TTY_TIMEOUT, TRUE);
 
-    gpio_drv_init();
-    ESP_LOGI("tty", "initialized gpios");
 
-    // gpio_config_t io_conf;
-    // //disable interrupt
-    // io_conf.intr_type = GPIO_INTR_DISABLE;
-    // //set as output mode
-    // io_conf.mode = GPIO_MODE_OUTPUT;
-    // //bit mask of the pins that you want to set,e.g.GPIO18/19
-    // io_conf.pin_bit_mask = GPIO_OUTPUT_PIN_SEL;
-    // //disable pull-down mode
-    // io_conf.pull_down_en = 0;
-    // //disable pull-up mode
-    // io_conf.pull_up_en = 0;
-    // //configure GPIO with the given settings
-    // gpio_config(&io_conf);
+    gpio_drv_init();
     // ESP_LOGI("tty", "configed gpio");
 
 
     hw_timer_init(TIMER_GROUP_0);
     ESP_LOGI("tty", "hw timer init 0");
-    hw_timer_init(TIMER_GROUP_1);
-    ESP_LOGI("tty", "hw timer init 1");
+    // hw_timer_init(TIMER_GROUP_1);
+    // ESP_LOGI("tty", "hw timer init 1");
     hw_timer_set_func(tty_hw_timeout);
     ESP_LOGI("tty", "hw timer setfunc");
-    sw_timer_set_func(tty_task);
-    ESP_LOGI("tty", "sw timer setfunc");
-    hw_timer_arm(TTY_TIMEOUT,true, TIMER_GROUP_1);
-    ESP_LOGI("tty", "armed sw timer");
+
+    const esp_timer_create_args_t tty_task_timer_args = {
+            .callback = &tty_task,
+            /* name is optional, but may help identify the timer when debugging */
+            .name = "tty task"
+    };
+    
+    ESP_ERROR_CHECK(esp_timer_create(&tty_task_timer_args, &tty_task_timer));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(tty_task_timer, TTY_TIMEOUT));
+    // sw_timer_set_func(tty_task);
+    // ESP_LOGI("tty", "sw timer setfunc");
+    // hw_timer_arm(TTY_TIMEOUT,true, TIMER_GROUP_1);
+    // ESP_LOGI("tty", "armed sw timer");
     return 1;
 }
 
@@ -401,10 +418,10 @@ void tty_release(void)
     tty_close(UART0);
     tty_close(UART1);
     tty_close(UART2);
+    esp_timer_delete(tty_task_timer);
     ESP_LOGI("tty", "closed uarts");
     // tty_close(UART3);
-    hw_timer_disarm(TIMER_GROUP_0);
-    hw_timer_disarm(TIMER_GROUP_1);
+    hw_timer_release();
     ESP_LOGI("tty", "timers disarmed");
     gpio_drv_release();
     ESP_LOGI("tty", "released");
@@ -418,7 +435,7 @@ int tty_open(int tty, tty_func_t func,
 
     if (tty >= TTY_NUM_DEV) return -1;
 
-    ESP_LOGI("TTY", "TTY: %d open", tty);
+    ESP_LOGI("TTY", "%d open", tty);
 
     if (func) {
         p = &tty_dev[tty];
@@ -511,7 +528,6 @@ int tty_write(int tty, unsigned char *data, int len)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;
         case UART1:
-            // ESP_LOGE("TTY", "writing command to UART1: ");
             // ESP_LOG_BUFFER_HEX("TTY", data, len);
             rc = uart_write_bytes(tty, data, len);
             break;
@@ -519,6 +535,7 @@ int tty_write(int tty, unsigned char *data, int len)
             rc = uart_write_bytes(tty, data, len);
             break;
         case UART3:
+            ESP_LOGE("TTY", "writing command to UART3: ");
             //printf("writing to fifo\n");
             rc = tty_write_fifo(tty, data, len);
             break;
@@ -552,6 +569,15 @@ void tty_set_baudrate(int tty, int baudrate)
     if (tty >= 0 && tty < 3) {
         uart_set_baudrate(tty, baudrate);
     }
+}
+uint32_t tty_get_baudrate(int tty)
+{
+    uint32_t baud;
+    if (tty >= 0 && tty < 3) {
+        uart_get_baudrate(tty, &baud);
+        return baud;
+    }
+    return 0;
 }
 
 

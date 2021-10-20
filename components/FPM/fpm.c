@@ -231,18 +231,7 @@ static void fpm_module_initialize(int stage)
 {
     ESP_LOGI("FPM", "FPM init stage [%d]", stage);
     
-    if (!stage) {
-        fpm_cmd_head = 0;
-        fpm_cmd_tail = 0;
-        if (baudrate_retry <= 0) {
-            ESP_LOGE("FPM", "cant open, changing tty baudrate to 115200");
-            tty_set_baudrate(FPM_TTY, 115200);
-            baudrate_retry = 5;
-        }
-        baudrate_retry -= 1;
-        ESP_LOGD("FPM", "retry %d", baudrate_retry);
-        
-    }
+    
 
     if (fpm_cmd_head != fpm_cmd_tail)
         return;
@@ -650,7 +639,7 @@ static void fpm_polling_timeout(void *data)
 {
     static int stage = 0;
     int touch;
-
+    ESP_LOGD("FPM", "timeout polling");
     /* Command timeout */
     if (fpm_cmd_head != fpm_cmd_tail) {
         fpm_cmd_t *c = &fpm_cmd_buf[fpm_cmd_head];
@@ -672,6 +661,17 @@ static void fpm_polling_timeout(void *data)
     }
 
     if (!fpm_configured) {
+        if (!fpm_init_stage) {
+            if (baudrate_retry <= 0) {
+                ESP_LOGE("FPM", "cant open, changing tty baudrate to 115200");
+                // tty_set_baudrate(FPM_TTY, 115200);
+                fpm_module_restart();
+                // baudrate_retry = 5;
+            }
+            baudrate_retry -= 1;
+            ESP_LOGD("FPM", "retry %d current rate %d", baudrate_retry, tty_get_baudrate(FPM_TTY));
+            
+        }
         if (fpm_init_stage == stage)
             fpm_module_initialize(stage);
         stage = fpm_init_stage;
