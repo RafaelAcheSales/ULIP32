@@ -12,7 +12,7 @@
 // #undef DEBUG
 #define DEBUG 1
 
-#define FPM_TTY                     1
+#define FPM_TTY                     3
 #define FPM_BFSIZE                  1024
 #define FPM_TIMEOUT                 1000000  /* usec */
 #define FPM_SECURITY_LEVEL          3
@@ -93,7 +93,7 @@
 #define FPM_ENROLL_TAKEOFF2         4 
 #define FPM_ENROLL_STAGE3           5
 
-#define FPM_COMMAND_TIMEOUT         3000
+#define FPM_COMMAND_TIMEOUT         3000000
 #define FPM_COMMAND_RETRIES         2
 #define FPM_ENROLL_TIMEOUT          60000
 #define FPM_IDENTIFY_RETRIES        2
@@ -379,7 +379,7 @@ static void fpm_event(int tty, const char *event,
 
                     if (!fpm_configured) {
                         if (fpm_init_stage == 1) {
-                            tty_set_baudrate(FPM_TTY, 115200);
+                            // tty_set_baudrate(FPM_TTY, 115200);
                             ESP_LOGD("FPM", "ack setted baudrate");
                         }
                         fpm_module_initialize(++fpm_init_stage);
@@ -662,7 +662,7 @@ static void fpm_polling_timeout(void *data)
 
     if (!fpm_configured) {
         if (!fpm_init_stage) {
-            if (baudrate_retry <= 0) {
+            if (baudrate_retry <= 5) {
                 ESP_LOGE("FPM", "cant open, changing tty baudrate to 115200");
                 // tty_set_baudrate(FPM_TTY, 115200);
                 fpm_module_restart();
@@ -738,7 +738,7 @@ int fpm_init(int timeout, int security, int identify_retries,
     memset(fpm_cmd_buf, 0, sizeof(fpm_cmd_buf));
     fpm_cmd_head = fpm_cmd_tail = 0;
     fpm_led_status = 0;
-    tty_set_baudrate(FPM_TTY, 9600);
+    // tty_set_baudrate(FPM_TTY, 9600);
     fpm_init_stage = 0;
     /* Initialize module */
     fpm_module_initialize(0);

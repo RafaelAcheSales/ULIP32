@@ -13,7 +13,7 @@
 #include "sdkconfig.h"
 #undef DEBUG
 
-#define QRCODE_TTY              2
+#define QRCODE_TTY              3
 #define QRCODE_BFSIZE           512
 #define QRCODE_TIMEOUT          1000000  /* usec */
 #define QRCODE_CARDSIZE         256
@@ -233,12 +233,8 @@ static void qrcode_led_blink(void)
 static void qrcode_event(int tty, const char *event,
                          int len, void *user_data)
 {
-    // ESP_LOGI("QRCODE", "qrcode event: ");
-    // for (int i = 0; i < len; i++)
-    // {
-    //     ESP_LOGI("", "%02X", event[i]);
-        
-    // }
+    ESP_LOGI("QRCODE", "qrcode event: ");
+    ESP_LOG_BUFFER_HEX("qrcode", event, len);
     char card[QRCODE_CARDSIZE];
     uint64_t now;
     struct timeval tv_now;

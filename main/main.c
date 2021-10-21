@@ -752,7 +752,8 @@ static void ctl_event(int event, int status) {
         
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
-        tty_write(3, (unsigned char *)"abcdefgh", 8);
+        tty_write(3, (unsigned char *)"abcdefghdoivbntsadsw", 20);
+        // tty_hw_timer_disable();
         // ctl_init();
         // ctl_set_sensor_mode(1);
         // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
@@ -780,9 +781,9 @@ static void rs485_rx_data(int tty, const char *data,
 void app_main(void)
 {
 
-    printf("%d", ++cnt);
-    CFG_Load();
-    printf("%d", ++cnt);
+    // printf("%d", ++cnt);
+    // CFG_Load();
+    // printf("%d", ++cnt);
     tty_init();
     // printf("%d", ++cnt);
     ctl_init(CTL_MODE_NORMAL, ctl_event);
@@ -793,7 +794,7 @@ void app_main(void)
     // tty_init();
     // // gpio_drv_init();
     // ctl_set_sensor_mode(1);
-    // tty_open(3, test_event, NULL);
+    tty_open(3, test_event, NULL);
     // tty_write(3, (unsigned char *)"abcdefg", 7);
     // vTaskDelay(200);
     // tty_write(3, (unsigned char *)"abcdefg", 7);
@@ -815,8 +816,8 @@ void app_main(void)
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
     //                 qrcode_event, NULL);
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),

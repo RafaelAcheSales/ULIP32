@@ -16,5 +16,8 @@ int tty_tx_fifo_size(int tty);
 void tty_set_baudrate(int tty, int baudrate);
 uint32_t tty_get_baudrate(int tty);
 void tty_set_parity(int tty, int mode);
+void tty_hw_timer_enable(void);
+
+void tty_hw_timer_disable(void);
 
 #endif  /* __TTY_H__ */

@@ -17,20 +17,20 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        34
-#define UART1_TX_PIN        2
+#define UART1_RX_PIN        5
+#define UART1_TX_PIN        33
 
 #define UART2               2
 #define UART2_RX_PIN        35
-#define UART2_TX_PIN        16
+#define UART2_TX_PIN        2
 
 #define UART3               3
-#define UART3_RX_PIN        -1
-#define UART3_TX_PIN        -1
+#define UART3_RX_PIN        34
+#define UART3_TX_PIN        15
 #define UART3_RX_INTR       3
 
 #define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN) | (1ULL<<UART2_RX_PIN) | (1ULL<<UART1_RX_PIN)
-#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN) | (1ULL<<15)
+#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN)
 
 
 #define TTY_FIFO_CNT(head,tail,size) \
@@ -53,6 +53,7 @@ typedef struct _tty_dev {
     uint32_t xmit_xsr;
     uint8_t xmit_bits;
 } tty_dev_t;
+
 static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
 static int cnt = 0;
 static tty_dev_t tty_dev[TTY_NUM_DEV] = { 
@@ -83,21 +84,21 @@ static uint32_t hw_timer_counter = 0;
 static esp_timer_handle_t tty_task_timer;
 //static xQueueHandle sw_timer_queue;
 
-static void tty_hw_timer_enable(void)
+void tty_hw_timer_enable(void)
 {
     if (!hw_timer_enabled) {
         hw_timer_enabled = true;
         hw_timer_counter = 0;
-        hw_timer_arm(52, true, TIMER_GROUP_0);
+        hw_timer_arm();
     }
 }
 
-static void tty_hw_timer_disable(void)
+void tty_hw_timer_disable(void)
 {
     if (hw_timer_enabled) {
         hw_timer_enabled = false;
         hw_timer_counter = 0;
-        hw_timer_disarm(TIMER_GROUP_0);
+        hw_timer_disarm();
     }
 }
 
@@ -118,14 +119,14 @@ static void tty_gpio_interrupt(int intr, void *user_data)
 static void tty_hw_timeout(void)
 {
     // ets_printf("hwtiem\n");
-    cnt++;
-    gpio_set_level(15, (cnt & 1));
+    
+    
     tty_dev_t *p;
     uint32_t bit;
     int rc = 0;
     // ets_printf("hwtime\n");
     taskENTER_CRITICAL(&my_mutex);
-
+    
     /* Only receive */
     // p = &tty_dev[UART1];
     // if (p->func) {
@@ -190,7 +191,7 @@ static void tty_hw_timeout(void)
                 }
                 /* Write GPIO */
                 bit = (p->xmit_xsr >> (TTY_BITBANG_BITS - p->xmit_bits)) & 1;
-                // printf("%d", bit);
+                // gpio_set_level(15, bit);
                 gpio_set_level(UART3_TX_PIN, bit);
                 p->xmit_bits--;
                 if (!p->xmit_bits)
@@ -209,6 +210,7 @@ static void tty_hw_timeout(void)
         tty_hw_timer_disable();
 
     taskEXIT_CRITICAL(&my_mutex);
+    
 }
 
 
@@ -303,6 +305,7 @@ static void tty_task(void)
     if (p->func) {
         //printf("reading fifo\n");
         size = tty_read_fifo(UART3, buf, sizeof(buf));
+        // ESP_LOGI("TTY", "reading from uart3 size %d", size);
         if (size)
             p->func(UART3, buf, size, p->user_data);
     }
@@ -314,7 +317,7 @@ static void tty_task(void)
 
 int tty_init(void)
 {
-    ESP_LOGI("TTY", "TTY init");
+    // ESP_LOGI("TTY", "TTY init");
 
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -383,17 +386,14 @@ int tty_init(void)
     // os_timer_setfn(&tty_timer, (os_timer_func_t *)tty_task, &tty_event);
     // os_timer_arm(&tty_timer, TTY_TIMEOUT, TRUE);
 
-
+    gpio_set_level(15, 1);
     gpio_drv_init();
     // ESP_LOGI("tty", "configed gpio");
 
-
-    hw_timer_init(TIMER_GROUP_0);
-    ESP_LOGI("tty", "hw timer init 0");
-    // hw_timer_init(TIMER_GROUP_1);
-    // ESP_LOGI("tty", "hw timer init 1");
     hw_timer_set_func(tty_hw_timeout);
-    ESP_LOGI("tty", "hw timer setfunc");
+
+    hw_timer_init(52);
+    ESP_LOGI("tty", "hw timer init 0");
 
     const esp_timer_create_args_t tty_task_timer_args = {
             .callback = &tty_task,
@@ -421,7 +421,7 @@ void tty_release(void)
     esp_timer_delete(tty_task_timer);
     ESP_LOGI("tty", "closed uarts");
     // tty_close(UART3);
-    hw_timer_release();
+    // hw_timer_release();
     ESP_LOGI("tty", "timers disarmed");
     gpio_drv_release();
     ESP_LOGI("tty", "released");
@@ -536,6 +536,7 @@ int tty_write(int tty, unsigned char *data, int len)
             break;
         case UART3:
             ESP_LOGE("TTY", "writing command to UART3: ");
+            ESP_LOG_BUFFER_HEX("TTY", data, len);
             //printf("writing to fifo\n");
             rc = tty_write_fifo(tty, data, len);
             break;
