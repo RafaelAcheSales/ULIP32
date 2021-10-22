@@ -10,7 +10,7 @@
 #include "soc/uart_periph.h"
 #define TTY_BSIZE           512
 #define TTY_BITBANG_BITS    10
-#define TTY_TIMEOUT         50000
+#define TTY_TIMEOUT         100000
 
 #define UART0               0
 #define UART0_RX_PIN        8
@@ -18,14 +18,14 @@
 
 #define UART1               1
 #define UART1_RX_PIN        5
-#define UART1_TX_PIN        33
+#define UART1_TX_PIN        13
 
 #define UART2               2
-#define UART2_RX_PIN        35
-#define UART2_TX_PIN        2
+#define UART2_RX_PIN        34
+#define UART2_TX_PIN        12
 
 #define UART3               3
-#define UART3_RX_PIN        34
+#define UART3_RX_PIN        35
 #define UART3_TX_PIN        15
 #define UART3_RX_INTR       3
 
@@ -192,6 +192,7 @@ static void tty_hw_timeout(void)
                 /* Write GPIO */
                 bit = (p->xmit_xsr >> (TTY_BITBANG_BITS - p->xmit_bits)) & 1;
                 // gpio_set_level(15, bit);
+                // ets_printf("a\n");
                 gpio_set_level(UART3_TX_PIN, bit);
                 p->xmit_bits--;
                 if (!p->xmit_bits)
@@ -515,9 +516,9 @@ int tty_write(int tty, unsigned char *data, int len)
 
     if (tty >= TTY_NUM_DEV) return -1;
 
-#ifdef DEBUG
-    os_debug("TTY", "TTY: %d write %d bytes", tty, len);
-#endif
+
+    ESP_LOGD("TTY", "TTY: %d write %d bytes", tty, len);
+
 
     p = &tty_dev[tty];
     //ESP_LOGI("TTY", "tty = %d and uart is %d", tty, UART3);
@@ -532,11 +533,13 @@ int tty_write(int tty, unsigned char *data, int len)
             rc = uart_write_bytes(tty, data, len);
             break;
         case UART2:
+            // ESP_LOG_BUFFER_HEX("TTY", data, len);
             rc = uart_write_bytes(tty, data, len);
             break;
         case UART3:
-            ESP_LOGE("TTY", "writing command to UART3: ");
-            ESP_LOG_BUFFER_HEX("TTY", data, len);
+            // ESP_LOGE("TTY", "writing command to UART3: ");
+            // ESP_LOG_BUFFER_HEX("TTY", data, len);
+            // ESP_LOGE("TTY", "writing command to UART3: ");
             //printf("writing to fifo\n");
             rc = tty_write_fifo(tty, data, len);
             break;

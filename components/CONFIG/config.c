@@ -288,7 +288,7 @@ CFG_Default(void)
     sysCfg.user_auth = true;
     sysCfg.rfid_nfc = false;
     sysCfg.rfid_format = CFG_RFID_FORMAT;
-    sysCfg.qrcode_led = false;
+    sysCfg.qrcode_led = true;
     sysCfg.breakin_alarm = false;
     sysCfg.control_acc_timeout = CFG_CONTROL_ACC_TIMEOUT;
     sysCfg.wifi_channel = 1;

@@ -11,9 +11,9 @@ typedef int (*qrcode_handler_t)(int event, const char *data,
 int qrcode_init(bool led, bool led_alarm, int timeout,
                 int panic_timeout, bool dynamic,
                 int validity, qrcode_handler_t func,
-                void *user_data);
+                void *user_data, int tty);
 void qrcode_release(void);
-
+void qrcode_module_initialize(int stage);
 bool qrcode_get_dynamic(void);
 int qrcode_get_validity(void);
 

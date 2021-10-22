@@ -42,7 +42,7 @@
 #define GRN "\e[0;32m"
 #define ULIP_MODEL "MLI-1WB"
 static int cnt = 0;
-
+static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
 
 
 typedef union {
@@ -735,7 +735,18 @@ static tty_func_t test_event(int tty, char *data,
     tty_func_t t = NULL;
     return t;
 }
-
+static tty_func_t test_event2(int tty, char *data,
+                      int len, void *user_data)
+{
+    printf("event rolou2: ");
+    for (int i = 0; i < len; i++)
+    {
+        printf("%c",data[i]);
+    }
+    printf("\n");
+    tty_func_t t = NULL;
+    return t;
+}
 static void ctl_event(int event, int status) {
     printf("event rolou ctl: %d status %d\n", event, status);
     switch (event)
@@ -749,10 +760,12 @@ static void ctl_event(int event, int status) {
         
         break;
     case CTL_EVT_SENSOR:
-        
+       
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
-        tty_write(3, (unsigned char *)"abcdefghdoivbntsadsw", 20);
+        // tty_write(2, cmd, 9);
+        // tty_write(3, cmd, 9);
+        qrcode_module_initialize(0);
         // tty_hw_timer_disable();
         // ctl_init();
         // ctl_set_sensor_mode(1);
@@ -782,7 +795,8 @@ void app_main(void)
 {
 
     // printf("%d", ++cnt);
-    // CFG_Load();
+    CFG_Load();
+    CFG_set_qrcode_timeout(10000000);
     // printf("%d", ++cnt);
     tty_init();
     // printf("%d", ++cnt);
@@ -794,7 +808,8 @@ void app_main(void)
     // tty_init();
     // // gpio_drv_init();
     // ctl_set_sensor_mode(1);
-    tty_open(3, test_event, NULL);
+    // tty_open(2, test_event, NULL);
+    // tty_open(3, test_event2, NULL);
     // tty_write(3, (unsigned char *)"abcdefg", 7);
     // vTaskDelay(200);
     // tty_write(3, (unsigned char *)"abcdefg", 7);
@@ -808,14 +823,20 @@ void app_main(void)
     // }
     
     // gpio_drv_init();
-
+    vTaskDelay(100);
     // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
-    // qrcode_init(CFG_get_qrcode_led(), true,
+    qrcode_init(true, true,
+                    CFG_get_qrcode_timeout(),
+                    CFG_get_qrcode_panic_timeout(),
+                    CFG_get_qrcode_dynamic(),
+                    CFG_get_qrcode_validity(),
+                    qrcode_event, NULL, 3);
+    // qrcode_init(true, true,0
     //                 CFG_get_qrcode_timeout(),
     //                 CFG_get_qrcode_panic_timeout(),
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
-    //                 qrcode_event, NULL);
+    //                 qrcode_event, NULL, 1);
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
