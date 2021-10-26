@@ -161,7 +161,7 @@ void qrcode_module_initialize(int stage)
 static void qrcode_led_enable(void)
 {
     uint8_t data;
-    ESP_LOGI("QRCODE", "led enable\n");
+    ESP_LOGI("QRCODE", "led enable");
 
     /* Enable LED */
     data = 0x88;
@@ -172,6 +172,7 @@ static void qrcode_led_enable(void)
 static void qrcode_led_disable(void)
 {
     uint8_t data;
+    // ESP_LOGI("QRCODE", "led disable\n");
 
     /* Disable LED */
     data = 0x80;
@@ -259,7 +260,7 @@ static void qrcode_event(int tty, const char *event,
 
     /* Ignore data in alarm */
     if (qrcode_alarm_timeout > 0) {
-        ESP_LOGW("QRCODE", "QRCODE ignore data!");
+        ESP_LOGW("QRCODE", "QRCODE ignore data! %d", qrcode_alarm_timeout);
         qrcode_alarm_timeout = QRCODE_ALARM_TIMEOUT;
         return;
     }
@@ -406,6 +407,7 @@ static void qrcode_polling_timeout(void *data)
 
     /* Ignore data */
     if (qrcode_alarm_timeout > 0) {
+        ESP_LOGD("QRCODE", "polling ignore %d", qrcode_alarm_timeout);
         qrcode_alarm_timeout -= QRCODE_TIMEOUT;
         if (qrcode_alarm_timeout > 0)
             return;
@@ -428,7 +430,18 @@ static void qrcode_polling_timeout(void *data)
         val ^= 1;
     }
 }
+void print_status_debug(void) {
+    ESP_LOGD("QRCODE", "timer on %d  ", esp_timer_is_active(polling_timer));
+}
+static tty_func_t test_event(int tty, char *data,
+                      int len, void *user_data)
+{
+    printf("event rolou teste\n");
+    ESP_LOG_BUFFER_HEX("main", data, len);
 
+    tty_func_t t = NULL;
+    return t;
+}
 int qrcode_init(bool led, bool led_alarm, int timeout,
                 int panic_timeout, bool dynamic,
                 int validity, qrcode_handler_t func,
@@ -441,6 +454,7 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
         ESP_LOGW("QRCODE", "Failed to initialize QRCODE!");
         return -1;
     }
+    // tty_open(2, qrcode_event, NULL);
     qrcode_led = led;
     qrcode_led_alarm = led_alarm;
     qrcode_timeout = timeout;
@@ -454,6 +468,7 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
 
     /* Initialize module */
     // tty_write(QRCODE_TTY, cmd, 9);
+    qrcode_module_initialize(0);
 
     /* Start polling */
     if (!qrcode_timeout)
@@ -466,7 +481,7 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
     
     ESP_LOGI("QRCODE", "timeout is %d", qrcode_timeout);
     ESP_ERROR_CHECK(esp_timer_create(&polling_timer_args, &polling_timer));
-    // ESP_ERROR_CHECK(esp_timer_start_periodic(polling_timer, qrcode_timeout>>1));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(polling_timer, qrcode_timeout>>1));
     ESP_LOGI("QRCODE", "poling timer started");
     const esp_timer_create_args_t led_timer_args = {
             .callback = &qrcode_led_timeout,
@@ -477,7 +492,6 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
     ESP_ERROR_CHECK(esp_timer_create(&led_timer_args, &led_timer));
     // os_timer_setfn(&qrcode_timer, (os_timer_func_t *)qrcode_polling_timeout, NULL);
     // os_timer_arm(&qrcode_timer, qrcode_timeout >> 1, true);
-    qrcode_module_initialize(0);
     return 0;
 }
 

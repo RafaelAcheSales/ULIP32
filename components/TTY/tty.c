@@ -30,7 +30,7 @@
 #define UART3_RX_INTR       3
 
 #define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN) | (1ULL<<UART2_RX_PIN) | (1ULL<<UART1_RX_PIN)
-#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN)
+#define GPIO_OUTPUT_PIN_SEL (1ULL<<UART3_TX_PIN) | (1ULL<<UART2_TX_PIN) | (1ULL<<UART1_TX_PIN) 
 
 
 #define TTY_FIFO_CNT(head,tail,size) \
@@ -191,7 +191,8 @@ static void tty_hw_timeout(void)
                 }
                 /* Write GPIO */
                 bit = (p->xmit_xsr >> (TTY_BITBANG_BITS - p->xmit_bits)) & 1;
-                // gpio_set_level(15, bit);
+                // gpio_set_level(12, cnt & 1);
+                // cnt++;
                 // ets_printf("a\n");
                 gpio_set_level(UART3_TX_PIN, bit);
                 p->xmit_bits--;
@@ -387,7 +388,7 @@ int tty_init(void)
     // os_timer_setfn(&tty_timer, (os_timer_func_t *)tty_task, &tty_event);
     // os_timer_arm(&tty_timer, TTY_TIMEOUT, TRUE);
 
-    gpio_set_level(15, 1);
+    gpio_set_level(UART3_TX_PIN, 1);
     gpio_drv_init();
     // ESP_LOGI("tty", "configed gpio");
 

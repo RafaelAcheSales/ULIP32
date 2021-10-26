@@ -41,6 +41,7 @@
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
 #define ULIP_MODEL "MLI-1WB"
+#define MAGIC_CODE "uTech"
 static int cnt = 0;
 static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
 
@@ -711,10 +712,14 @@ static int rf433_event(int event, const char *data, int len,
     ets_printf("chave %s\n", data);
     return 1;
 }
-static int qrcode_event(int event, const char *data,
+static int qrcode_event_main(int event, const char *data,
                         int len, void *user_data)
 {
-    printf(RED "%s\n", data);
+    printf(RED "%s and compare %d\n", data, strcmp(data, MAGIC_CODE));
+    if (1) {
+        ctl_beep(3);
+    }
+    
     return 1;
 }
 static void http_event(char *url, char *response_body, int http_status, char *response_header_key,char *response_header_value, int body_size) {
@@ -726,12 +731,9 @@ static void http_event2(char *url, char *response_body, int http_status, char *r
 static tty_func_t test_event(int tty, char *data,
                       int len, void *user_data)
 {
-    printf("event rolou: ");
-    for (int i = 0; i < len; i++)
-    {
-        printf("%c",data[i]);
-    }
-    printf("\n");
+    printf("event rolou teste\n");
+    ESP_LOG_BUFFER_HEX("main", data, len);
+
     tty_func_t t = NULL;
     return t;
 }
@@ -766,6 +768,7 @@ static void ctl_event(int event, int status) {
         // tty_write(2, cmd, 9);
         // tty_write(3, cmd, 9);
         qrcode_module_initialize(0);
+        // print_status_debug();
         // tty_hw_timer_disable();
         // ctl_init();
         // ctl_set_sensor_mode(1);
@@ -796,7 +799,7 @@ void app_main(void)
 
     // printf("%d", ++cnt);
     CFG_Load();
-    CFG_set_qrcode_timeout(10000000);
+    CFG_set_qrcode_timeout(1000000);
     // printf("%d", ++cnt);
     tty_init();
     // printf("%d", ++cnt);
@@ -826,17 +829,17 @@ void app_main(void)
     vTaskDelay(100);
     // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     qrcode_init(true, true,
-                    CFG_get_qrcode_timeout(),
+                    0,
                     CFG_get_qrcode_panic_timeout(),
                     CFG_get_qrcode_dynamic(),
                     CFG_get_qrcode_validity(),
-                    qrcode_event, NULL, 3);
+                    qrcode_event_main, NULL, 3);
     // qrcode_init(true, true,0
     //                 CFG_get_qrcode_timeout(),
     //                 CFG_get_qrcode_panic_timeout(),
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
-    //                 qrcode_event, NULL, 1);
+    //                 qrcode_event_main, NULL, 1);
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
