@@ -9,7 +9,7 @@
 #define MAX_BUFFER_SIZE_TX      512
 #define MAX_FRAME_SIZE          (MAX_BUFFER_SIZE_TX -  sizeof(rs485_header_t))
 
-#define RS485_TTY               1
+#define RS485_TTY               3
 #define RS485_EN_PIN            4
 #define GPIO_OUTPUT_MASK   1ULL<<RS485_EN_PIN
 
@@ -171,7 +171,7 @@ static int rs485_xmit_start(void)
        
         /* Enable transmitter */ 
         ESP_LOGI("RS485", "writing");
-        ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);
+        // ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);
         rs485_xmit_enable();    
         tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len);
             
@@ -246,7 +246,7 @@ static int rs485_send_ack(void)
         hdlc_tx_frame(&p->hdlc_tx, buf, len);
         /* Enable transmitter */ 
         ESP_LOGI("RS485", "writing");
-        ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);           
+        // ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);           
         rs485_xmit_enable();   
         if (tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len))
             retval = -1;
@@ -294,7 +294,7 @@ static void rs485_rx_data(int tty, const char *data,
 {
     rs485_t *p = (rs485_t *)&rs485_dev;
     int i;
-    
+    ESP_LOGD("RS485", "rs event");
     if (!len) return;
 
     for (i = 0; i < len; i++)
@@ -327,7 +327,7 @@ static void rs485_send_arp_response(void *data)
     hdlc_tx_frame(&p->hdlc_tx, buf, sizeof(rs485_header_t) + ARP_PROTO_SIZE);
     /* Enable transmitter */ 
     ESP_LOGI("RS485", "writing");
-    ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);              
+    // ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);              
     rs485_xmit_enable();
     tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len);
     p->hdlc_tx.len = 0;

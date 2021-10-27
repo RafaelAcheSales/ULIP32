@@ -17,16 +17,16 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        5
-#define UART1_TX_PIN        13
+#define UART1_RX_PIN        -1
+#define UART1_TX_PIN        -1
 
 #define UART2               2
-#define UART2_RX_PIN        34
-#define UART2_TX_PIN        12
+#define UART2_RX_PIN        35
+#define UART2_TX_PIN        15
 
 #define UART3               3
-#define UART3_RX_PIN        35
-#define UART3_TX_PIN        15
+#define UART3_RX_PIN        14
+#define UART3_TX_PIN        12
 #define UART3_RX_INTR       3
 
 #define GPIO_INPUT_PIN_SEL (1ULL<<UART3_RX_PIN) | (1ULL<<UART2_RX_PIN) | (1ULL<<UART1_RX_PIN)
@@ -530,7 +530,7 @@ int tty_write(int tty, unsigned char *data, int len)
             //     rc = uart_tx_one_char(tty, data[i]);
             break;
         case UART1:
-            // ESP_LOG_BUFFER_HEX("TTY", data, len);
+            ESP_LOG_BUFFER_HEX("TTY", data, len);
             rc = uart_write_bytes(tty, data, len);
             break;
         case UART2:
@@ -538,7 +538,7 @@ int tty_write(int tty, unsigned char *data, int len)
             rc = uart_write_bytes(tty, data, len);
             break;
         case UART3:
-            // ESP_LOGE("TTY", "writing command to UART3: ");
+            // ESP_LOGI("TTY", "writing command to UART3: ");
             // ESP_LOG_BUFFER_HEX("TTY", data, len);
             // ESP_LOGE("TTY", "writing command to UART3: ");
             //printf("writing to fifo\n");

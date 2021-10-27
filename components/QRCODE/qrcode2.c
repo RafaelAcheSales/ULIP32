@@ -89,8 +89,8 @@ static int qrcode_send_command(uint8_t cmd, uint16_t addr,
     int i;
 
 // #ifdef DEBUG
-    ESP_LOGI("QRCODE", "Send command [0x%02x] address [0x%04x] [%d] bytes",
-             cmd, addr, len);
+    // ESP_LOGI("QRCODE", "Send command [0x%02x] address [0x%04x] [%d] bytes",
+    //          cmd, addr, len);
 // #endif
 
     p.b = buf;
@@ -161,7 +161,7 @@ void qrcode_module_initialize(int stage)
 static void qrcode_led_enable(void)
 {
     uint8_t data;
-    ESP_LOGI("QRCODE", "led enable");
+    ESP_LOGE("QRCODE", "led enable");
 
     /* Enable LED */
     data = 0x88;
@@ -172,7 +172,7 @@ static void qrcode_led_enable(void)
 static void qrcode_led_disable(void)
 {
     uint8_t data;
-    // ESP_LOGI("QRCODE", "led disable\n");
+    ESP_LOGE("QRCODE", "led disable");
 
     /* Disable LED */
     data = 0x80;
@@ -231,6 +231,7 @@ static void qrcode_led_blink(void)
     // os_timer_setfn(&qrcode_led_timer, (os_timer_func_t *)qrcode_led_timeout, NULL);
     // os_timer_arm(&qrcode_led_timer, QRCODE_LED_TIMEOUT, true);
 }
+
 
 static void qrcode_event(int tty, const char *event,
                          int len, void *user_data)
@@ -398,7 +399,13 @@ static void qrcode_event(int tty, const char *event,
             memmove(qrcode_buf, p.b, qrcode_buflen);
     }
 }
-
+// static void qrcode_event_hardware_uart(int tty, const char *event,
+//                          int len, void *user_data)
+// {
+//     // qrcode_event(tty, event, len, user_data);
+//     ESP_LOGE("QRCODE", "UART2 event: ");
+//     ESP_LOG_BUFFER_HEX("qrcode", event, len);
+// }
 static void qrcode_polling_timeout(void *data)
 {
     ESP_LOGD("QRCODE", "polling timed out");
@@ -451,10 +458,10 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
     
     /* Open tty */
     if (tty_open(QRCODE_TTY, qrcode_event, NULL)) {
-        ESP_LOGW("QRCODE", "Failed to initialize QRCODE!");
+        ESP_LOGW("QRCODE", "Failed to initialize TTY3!");
         return -1;
     }
-    // tty_open(2, qrcode_event, NULL);
+
     qrcode_led = led;
     qrcode_led_alarm = led_alarm;
     qrcode_timeout = timeout;

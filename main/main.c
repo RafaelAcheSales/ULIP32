@@ -766,8 +766,8 @@ static void ctl_event(int event, int status) {
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
         // tty_write(2, cmd, 9);
-        // tty_write(3, cmd, 9);
-        qrcode_module_initialize(0);
+        // tty_write(2, (unsigned char *)"UUUUUUUUUU", 10);
+        // qrcode_module_initialize(0);
         // print_status_debug();
         // tty_hw_timer_disable();
         // ctl_init();
@@ -828,12 +828,12 @@ void app_main(void)
     // gpio_drv_init();
     vTaskDelay(100);
     // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
-    qrcode_init(true, true,
-                    0,
-                    CFG_get_qrcode_panic_timeout(),
-                    CFG_get_qrcode_dynamic(),
-                    CFG_get_qrcode_validity(),
-                    qrcode_event_main, NULL, 3);
+    // qrcode_init(true, true,
+    //                 0,
+    //                 CFG_get_qrcode_panic_timeout(),
+    //                 CFG_get_qrcode_dynamic(),
+    //                 CFG_get_qrcode_validity(),
+    //                 qrcode_event_main, NULL, 3);
     // qrcode_init(true, true,0
     //                 CFG_get_qrcode_timeout(),
     //                 CFG_get_qrcode_panic_timeout(),
@@ -843,9 +843,9 @@ void app_main(void)
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
-    // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
-    //                CFG_get_rf433_panic_timeout(),
-    //                rf433_event, NULL);
+    rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
+                   CFG_get_rf433_panic_timeout(),
+                   rf433_event, NULL);
     
     // bluetooth_start();
     // rfid_init(CFG_get_rfid_timeout(),
