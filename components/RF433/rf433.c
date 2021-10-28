@@ -11,7 +11,7 @@
 #define RF433_RX_PIN            5
 #define INPUT_MASK              (1ULL<<RF433_RX_PIN)
 #define RF433_RX_INTR           2
-#define GPIO_OUTPUT             4
+#define GPIO_OUTPUT             15
 #define GPIO_OUTPUT_PIN_SEL (1ULL<<GPIO_OUTPUT)
 #define RF433_CODESIZE          16
 #define RF433_TIMEOUT           1000
@@ -353,7 +353,7 @@ static void rf433_interrupt_handler(int intr, void *user_data)
  
     // Detect overflow
     if (changeCount >= RCSWITCH_MAX_CHANGES) {
-        ESP_LOGD("RF433", "Overflow");
+        // ESP_LOGD("RF433", "Overflow");
         changeCount = 0;
         repeatCount = 0;
     }
@@ -373,27 +373,6 @@ int rf433_init(bool rolling_code, bool button_code,
                void *user_data)
 {
     ESP_LOGI("RF433", "Initialize RF433");
-    // const esp_timer_create_args_t periodic_timer_args = {
-    //         .callback = &periodic_timer_callback,
-    //         /* name is optional, but may help identify the timer when debugging */
-    //         .name = "periodic"
-    // };
-    
-    // esp_timer_handle_t periodic_timer;
-    // ESP_ERROR_CHECK(esp_timer_create(&periodic_timer_args, &periodic_timer));
-    // esp_timer_start_once(periodic_timer, 0);
-    gpio_config_t io_conf;
-    //disable interrupt
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    //set as output mode
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = INPUT_MASK;  
-    //disable pull-down mode
-    io_conf.pull_down_en = 0;
-    //disable pull-up mode
-    io_conf.pull_up_en = 0;
-    //configure GPIO with the given settings
-    gpio_config(&io_conf);
 #if defined(TEST_INTR)
     gpio_config_t io_conf2;
     //disable interrupt

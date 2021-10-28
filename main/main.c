@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include "string.h"
 #include "time.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -107,6 +108,7 @@ static void rs485_event(unsigned char from_addr,
         cmd = *p.b++;
         size -= 7;
         ESP_LOGE("main","cmd: %02x", cmd);
+        cnt++;
         switch (cmd) {
             case RS485_CMD_POLLING:
                 /* do nothing */
@@ -165,10 +167,10 @@ static void rs485_event(unsigned char from_addr,
                 *p.b++ = state;
                 rs485_tx_frame(from_addr, buf, 9);
                 if (state) {
-                    ESP_LOGE("main", "alarm onnnnn");
+                    ESP_LOGI("main", "alarm onnnnn");
                     ctl_alarm_on();
                 } else {
-                    ESP_LOGE("main", "alarm offfffffff");
+                    ESP_LOGI("main", "alarm offfffffff");
                     ctl_alarm_off();
                 }
                 break;
@@ -766,7 +768,8 @@ static void ctl_event(int event, int status) {
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
         // tty_write(2, cmd, 9);
-        // tty_write(2, (unsigned char *)"UUUUUUUUUU", 10);
+        tty_write(2, (unsigned char *)"UUUUUUUUUU", 10);
+        tty_write(3, (unsigned char *)"UUUUUUUUUU", 10);
         // qrcode_module_initialize(0);
         // print_status_debug();
         // tty_hw_timer_disable();
@@ -794,6 +797,10 @@ static void rs485_rx_data(int tty, const char *data,
 {
     printf("data %s", data);
 }
+static void timer_callback() {
+    ESP_LOGI("main", "recived %d commands", cnt);
+    abort();
+}
 void app_main(void)
 {
 
@@ -806,6 +813,12 @@ void app_main(void)
     ctl_init(CTL_MODE_NORMAL, ctl_event);
     // printf("%d", ++cnt);
     ctl_set_sensor_mode(1);
+    esp_timer_handle_t timer;
+    esp_timer_create_args_t timer_args = {
+        .callback = &timer_callback
+    };
+    esp_timer_create(&timer_args, &timer);
+    // esp_timer_start_once(timer, 100000000);
     // tty_release();
     // // vTaskDelay(200);
     // tty_init();
@@ -813,20 +826,10 @@ void app_main(void)
     // ctl_set_sensor_mode(1);
     // tty_open(2, test_event, NULL);
     // tty_open(3, test_event2, NULL);
-    // tty_write(3, (unsigned char *)"abcdefg", 7);
-    // vTaskDelay(200);
-    // tty_write(3, (unsigned char *)"abcdefg", 7);
-    // vTaskDelay(200);
-    // tty_write(3, (unsigned char *)"abcdefg", 7);
-    // vTaskDelay(200);
-    // tty_write(3, (unsigned char *)"abcdefg", 7);
-    // while (1)
-    // {
-    //     // tty_write(3, (unsigned char *)"abcdefg", 7);
-    // }
+
     
     // gpio_drv_init();
-    vTaskDelay(100);
+    // vTaskDelay(100);
     // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
     // qrcode_init(true, true,
     //                 0,
@@ -843,9 +846,9 @@ void app_main(void)
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
-    rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
-                   CFG_get_rf433_panic_timeout(),
-                   rf433_event, NULL);
+    // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
+    //                CFG_get_rf433_panic_timeout(),
+    //                rf433_event, NULL);
     
     // bluetooth_start();
     // rfid_init(CFG_get_rfid_timeout(),
@@ -856,8 +859,10 @@ void app_main(void)
     //               rfid_event, NULL);
     // CFG_set_rs485_hwaddr(2);
     // CFG_set_rs485_server_hwaddr(1);
-    // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
-    //                rs485_event, NULL);
+    rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
+                   rs485_event, NULL);
     printf("Hello world!\n");
+    
+    
 
 }

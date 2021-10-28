@@ -297,7 +297,7 @@ static void tty_task(void)
         ESP_ERROR_CHECK(uart_get_buffered_data_len(UART2, (size_t*)&len));
         size = uart_read_bytes(UART2, buf, len, 50);
         if (size) {
-            ESP_LOGI("TTY", "read %d bytes from UART%d", size, UART2);
+            // ESP_LOGI("TTY", "read %d bytes from UART%d", size, UART2);
 
             p->func(UART2, buf, len, p->user_data);
         }

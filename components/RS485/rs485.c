@@ -170,7 +170,7 @@ static int rs485_xmit_start(void)
                       hdr->tpl_hdr.tpl_data.raw_len);
        
         /* Enable transmitter */ 
-        ESP_LOGI("RS485", "writing");
+        // ESP_LOGI("RS485", "writing");
         // ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);
         rs485_xmit_enable();    
         tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len);
@@ -245,7 +245,7 @@ static int rs485_send_ack(void)
         hdr->tpl_hdr.tpl_data.raw_len = len;
         hdlc_tx_frame(&p->hdlc_tx, buf, len);
         /* Enable transmitter */ 
-        ESP_LOGI("RS485", "writing");
+        // ESP_LOGI("RS485", "writing");
         // ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);           
         rs485_xmit_enable();   
         if (tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len))
@@ -326,7 +326,7 @@ static void rs485_send_arp_response(void *data)
     *arp_proto++ = p->hw_addr;
     hdlc_tx_frame(&p->hdlc_tx, buf, sizeof(rs485_header_t) + ARP_PROTO_SIZE);
     /* Enable transmitter */ 
-    ESP_LOGI("RS485", "writing");
+    // ESP_LOGI("RS485", "writing");
     // ESP_LOG_BUFFER_HEX("RS485", p->hdlc_tx.buffer, p->hdlc_tx.len);              
     rs485_xmit_enable();
     tty_write(RS485_TTY, p->hdlc_tx.buffer, p->hdlc_tx.len);

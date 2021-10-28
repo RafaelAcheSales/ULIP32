@@ -12,10 +12,13 @@
 #include "freertos/queue.h"
 #include "driver/timer.h"
 #include "driver/gpio.h"
-
+#define TEST_INTR              1
+#define GPIO_OUTPUT            15
 #define TIMER_DIVIDER         (2)  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
-// static int cnt = 0;
+#ifdef TEST_INTR
+static int count = 0;
+#endif
 typedef struct {
     int timer_group;
     int timer_idx;
@@ -42,14 +45,15 @@ static void (* user_hw_timer_cb)(void) = NULL;
 static void IRAM_ATTR hw_timer_task(void* arg) {
     while (1) {
         example_timer_event_t evt;
-        xQueueReceive(s_timer_queue, &evt, portMAX_DELAY);
-        
-        if (user_hw_timer_cb != NULL) {
-            (*(user_hw_timer_cb))();
+        if (xQueueReceive(s_timer_queue, &evt, portMAX_DELAY)) {
+            if (user_hw_timer_cb != NULL) {
+                (*(user_hw_timer_cb))();
+            }
+    #ifdef TEST_INTR
+            gpio_set_level(GPIO_OUTPUT, count & 1);
+            count++;
+    #endif
         }
-        // gpio_set_level(15, cnt & 1);
-        // cnt++;
-
     }
 }
 static bool IRAM_ATTR timer_group_isr_callback(void *args)
@@ -119,20 +123,22 @@ static void example_tg_timer_init(int group, int timer, bool auto_reload, int ti
 
 void hw_timer_init(int us)
 {
-    // gpio_config_t config = {
-    //     .intr_type = GPIO_PIN_INTR_DISABLE,
-    //     .pull_down_en = 0,
-    //     .pull_up_en = 0,
-    //     .pin_bit_mask = (1ULL<<15),
-    //     .mode = GPIO_MODE_OUTPUT
-    // };
-    // gpio_config(&config);
+#ifdef TEST_INTR
+    gpio_config_t config = {
+        .intr_type = GPIO_PIN_INTR_DISABLE,
+        .pull_down_en = 0,
+        .pull_up_en = 0,
+        .pin_bit_mask = (1ULL<<GPIO_OUTPUT),
+        .mode = GPIO_MODE_OUTPUT
+    };
+    gpio_config(&config);
+#endif
     s_timer_queue = xQueueCreate(10, sizeof(example_timer_event_t));
 
     example_tg_timer_init(TIMER_GROUP_0, TIMER_0, true, us);
     static TaskHandle_t xHandle;
     // example_tg_timer_init(TIMER_GROUP_1, TIMER_0, false, 5);
-    xTaskCreate(hw_timer_task, "hw_timer_task", 8192, NULL, 10, &xHandle);
+    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192, NULL, 10, &xHandle, 1);
     
 }
 void  hw_timer_set_func(void (* user_hw_timer_cb_set)(void))

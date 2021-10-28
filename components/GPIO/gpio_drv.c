@@ -8,7 +8,7 @@
 // #include "soc/gpio_periph.h"
 // #define TEST_INTR             1
 // #define TWDT_TIMEOUT_S        3
-#define GPIO_OUTPUT           4
+#define GPIO_OUTPUT           15
 #define GPIO_OUTPUT_PIN_SEL   (1ULL<<GPIO_OUTPUT)
 #define ESP_INTR_FLAG_DEFAULT 0
 // static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
@@ -118,7 +118,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
     gpio_intr_t * p = (gpio_intr_t *) arg;
     uint32_t gpio_num = p->gpio;
 
-    // // ESP_LOGI("GPIO", "interrupt detected %d", io_num);
+    // ESP_LOGI("GPIO", "interrupt detected %d", io_num);
     // //taskENTER_CRITICAL(&my_mutex);
     // // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
     
@@ -133,7 +133,7 @@ int gpio_drv_init(void)
     gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
 
-    xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 10, &xHandle);
+    xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 9, &xHandle);
     
     // esp_task_wdt_init(TWDT_TIMEOUT_S, false);
     // esp_task_wdt_add(xHandle);
