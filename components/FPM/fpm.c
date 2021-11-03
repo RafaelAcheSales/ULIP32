@@ -12,7 +12,7 @@
 // #undef DEBUG
 #define DEBUG 1
 
-#define FPM_TTY                     3
+#define FPM_TTY                     1
 #define FPM_BFSIZE                  1024
 #define FPM_TIMEOUT                 1000000  /* usec */
 #define FPM_SECURITY_LEVEL          3
@@ -379,7 +379,7 @@ static void fpm_event(int tty, const char *event,
 
                     if (!fpm_configured) {
                         if (fpm_init_stage == 1) {
-                            // tty_set_baudrate(FPM_TTY, 115200);
+                            tty_set_baudrate(FPM_TTY, 115200);
                             ESP_LOGD("FPM", "ack setted baudrate");
                         }
                         fpm_module_initialize(++fpm_init_stage);
@@ -662,14 +662,20 @@ static void fpm_polling_timeout(void *data)
 
     if (!fpm_configured) {
         if (!fpm_init_stage) {
-            if (baudrate_retry <= 5) {
-                ESP_LOGE("FPM", "cant open, changing tty baudrate to 115200");
-                // tty_set_baudrate(FPM_TTY, 115200);
+            if (baudrate_retry <= 0) {
+                int curr_baud_rate = tty_get_baudrate(FPM_TTY);
+                if (curr_baud_rate == 115201) {
+                    ESP_LOGE("FPM", "cant communicate, changing tty baudrate to 9600");
+                    tty_set_baudrate(FPM_TTY, 9600);
+                } else if (curr_baud_rate == 9600) {
+                    ESP_LOGE("FPM", "cant communicate, changing tty baudrate to 115200");
+                    tty_set_baudrate(FPM_TTY, 115200);
+                }
+                baudrate_retry = 5;
                 fpm_module_restart();
-                // baudrate_retry = 5;
             }
             baudrate_retry -= 1;
-            ESP_LOGD("FPM", "retry %d current rate %d", baudrate_retry, tty_get_baudrate(FPM_TTY));
+            ESP_LOGI("FPM", "retry %d current rate %d", baudrate_retry, tty_get_baudrate(FPM_TTY));
             
         }
         if (fpm_init_stage == stage)
@@ -764,7 +770,9 @@ void fpm_release(void)
 {
     tty_close(FPM_TTY);
     ESP_LOGI("FPM", "released\n");
+    // if (esp_timer_is_active(fpm_timer))
     ESP_ERROR_CHECK(esp_timer_stop(fpm_timer));
+    ESP_ERROR_CHECK(esp_timer_delete(fpm_timer));
     fpm_timeout = FPM_TIMEOUT;
     fpm_security_level = FPM_SECURITY_LEVEL;
     fpm_func = NULL;

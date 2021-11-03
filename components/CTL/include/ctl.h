@@ -28,7 +28,7 @@
 #define CTL_SENSOR_LEVEL    0
 #define CTL_SENSOR_EDGE     1
 typedef void (*ctl_event_func_t)(int event, int status);
-int ctl_init();
+int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable);
 void ctl_release(void);
 void ctl_qrcode_on(void);
 void ctl_qrcode_off(void);

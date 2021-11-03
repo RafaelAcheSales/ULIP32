@@ -17,8 +17,8 @@
 #define UART0_TX_PIN        9
 
 #define UART1               1
-#define UART1_RX_PIN        -1
-#define UART1_TX_PIN        -1
+#define UART1_RX_PIN        34
+#define UART1_TX_PIN        2
 
 #define UART2               2
 #define UART2_RX_PIN        35
@@ -416,11 +416,8 @@ int tty_init(void)
 void tty_release(void)
 {
     ESP_LOGI("tty", "releasing");
-
-    tty_close(UART0);
-    tty_close(UART1);
-    tty_close(UART2);
-    esp_timer_delete(tty_task_timer);
+    if (esp_timer_is_active(tty_task_timer))
+        esp_timer_delete(tty_task_timer);
     ESP_LOGI("tty", "closed uarts");
     // tty_close(UART3);
     // hw_timer_release();

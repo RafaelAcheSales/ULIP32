@@ -130,7 +130,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
 int gpio_drv_init(void)
 {
     
-    gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+    ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT));
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
 
     xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 9, &xHandle);
@@ -239,7 +239,7 @@ int gpio_interrupt_close(int intr)
     p->flags = 0;
     p->func = NULL;
     p->user_data = NULL;
-    gpio_reset_pin(p->gpio);
+    // gpio_reset_pin(p->gpio);
 
     return 0;
 }

@@ -14,7 +14,7 @@
 static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
 #undef DEBUG
 
-#define QRCODE_TTY              3
+#define QRCODE_TTY              2
 #define QRCODE_BFSIZE           512
 #define QRCODE_TIMEOUT          1000000  /* usec */
 #define QRCODE_CARDSIZE         256
@@ -117,7 +117,7 @@ void qrcode_module_initialize(int stage)
 {
     uint8_t data;
 
-    ESP_LOGD("QRCODE", "QRCODE init stage [%d]", stage);
+    ESP_LOGE("QRCODE", "QRCODE init stage [%d]", stage);
 
     switch (stage) {
         case 0:

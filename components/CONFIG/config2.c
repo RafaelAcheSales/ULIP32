@@ -6,7 +6,7 @@
 */
 #include <stdint.h>
 #include <string.h>
-#include "config.h"
+#include "config2.h"
 #include "stdbool.h"
 #include "esp_log.h"
 #include "esp_system.h" 

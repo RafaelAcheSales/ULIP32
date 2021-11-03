@@ -152,13 +152,14 @@ bool ctl_check_ap_mode(void)
     gpio_set_direction(BUZZER_PIN, GPIO_MODE_INPUT);
     // vTaskDelay(10);
     ap = !gpio_get_level(BUZZER_PIN);
+    ESP_LOGI("CTL", "hotspot button is %d", !ap);
     gpio_set_direction(BUZZER_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(BUZZER_PIN, 0);
 
     return ap;
 }
 
-int ctl_init(int mode, ctl_event_func_t func) {
+int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable) {
 
     //init qrcode
     gpio_config_t io_conf;
@@ -228,16 +229,20 @@ int ctl_init(int mode, ctl_event_func_t func) {
     gpio_set_level(BUZZER_PIN, 0);
     ESP_ERROR_CHECK(esp_timer_create(&ctl_timer_args, &ctl_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(ctl_timer, CTL_TIMEOUT));
-    if (ctl_check_ap_mode()) {
-        start_ap();
-    }
+
+    wifi_init_softap((ctl_check_ap_mode() || ap_mode), ip, netmask, gateway, dhcp, ssid, password, channel, disable);
     return 1;
 }
 void ctl_release(void)
 {
     //gpio_interrupt_close(SENSOR_INTR);
+    // if (esp_timer_is_active(ctl_timer)) {
+
+    // }
     ESP_ERROR_CHECK(esp_timer_stop(ctl_timer));
     ESP_ERROR_CHECK(esp_timer_delete(ctl_timer));
+    if (ctl_sensor_mode == 1)
+        ctl_set_sensor_mode(0);
     gpio_set_level(QRCODE_PIN, 1);
     gpio_set_level(RELAY_EXT_PIN, 1);
     gpio_set_level(BUZZER_PIN, 0);
@@ -245,6 +250,7 @@ void ctl_release(void)
     ctl_panic_state = CTL_PANIC_OFF;
     ctl_mode = CTL_MODE_NORMAL;
     ctl_event_func = NULL;
+    wifi_release();
 }
 
 

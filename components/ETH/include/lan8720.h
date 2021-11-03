@@ -75,9 +75,9 @@ void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask)
     set_pin_17(1);
     // vTaskDelay(100);
     // Initialize TCP/IP network interface (should be called only once in application)
-    ESP_ERROR_CHECK(esp_netif_init());
+    // ESP_ERROR_CHECK(esp_netif_init());
     // Create default event loop that running in background
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    // ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
     esp_netif_t *eth_netif = esp_netif_new(&cfg);
     // Set default handlers to process TCP/IP stuffs

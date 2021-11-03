@@ -19,7 +19,7 @@
 #include "eth.h"
 #include "ctl.h"
 #include "qrcode2.h"
-#include "config.h"
+#include "config2.h"
 #include "fpm.h"
 #include "ap.h"
 #include "http.h"
@@ -682,7 +682,7 @@ static void rs485_event(unsigned char from_addr,
 
 
 
-
+static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
 {
     if (status)
@@ -751,6 +751,19 @@ static tty_func_t test_event2(int tty, char *data,
     tty_func_t t = NULL;
     return t;
 }
+void release_task(){
+    fpm_release();
+    ctl_release();
+    tty_release();
+    vTaskDelay(50);
+    tty_init();
+    ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
+             CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
+            CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
+    ctl_set_sensor_mode(1);
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    vTaskDelete(NULL);
+}
 static void ctl_event(int event, int status) {
     printf("event rolou ctl: %d status %d\n", event, status);
     switch (event)
@@ -768,14 +781,14 @@ static void ctl_event(int event, int status) {
         // cnt += 1;
         // gpio_set_level(GPIO_OUTPUT, cnt & 1);
         // tty_write(2, cmd, 9);
-        tty_write(2, (unsigned char *)"UUUUUUUUUU", 10);
-        tty_write(3, (unsigned char *)"UUUUUUUUUU", 10);
+        // tty_write(2, (unsigned char *)"UUUUUUUUUU", 10);
+        // tty_write(3, (unsigned char *)"UUUUUUUUUU", 10);
         // qrcode_module_initialize(0);
         // print_status_debug();
         // tty_hw_timer_disable();
         // ctl_init();
         // ctl_set_sensor_mode(1);
-        // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+        xTaskCreate(release_task, "release task", 4096, NULL, 9, NULL);
         // change_value();
         // ulip_core_capture_finger(true, 4);
         // start_httpd();
@@ -797,6 +810,7 @@ static void rs485_rx_data(int tty, const char *data,
 {
     printf("data %s", data);
 }
+
 static void timer_callback() {
     ESP_LOGI("main", "recived %d commands", cnt);
     abort();
@@ -804,47 +818,35 @@ static void timer_callback() {
 void app_main(void)
 {
 
-    // printf("%d", ++cnt);
     CFG_Load();
-    CFG_set_qrcode_timeout(1000000);
+    CFG_set_ip_address("10.0.0.246");
+    CFG_set_netmask("255.255.255.0");
+    CFG_set_gateway("10.0.0.1");
+    CFG_set_ap_mode(false);
+    CFG_set_dhcp(true);
+    CFG_set_wifi_ssid("uTech-Wifi");
+    CFG_set_wifi_passwd("01566062");
+    CFG_set_wifi_disable(false);
     // printf("%d", ++cnt);
+    // printf("%d", ++cnt);
+    // printf("%d", ++cnt);
+    ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
+             CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
+            CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
     tty_init();
     // printf("%d", ++cnt);
-    ctl_init(CTL_MODE_NORMAL, ctl_event);
-    // printf("%d", ++cnt);
     ctl_set_sensor_mode(1);
-    esp_timer_handle_t timer;
-    esp_timer_create_args_t timer_args = {
-        .callback = &timer_callback
-    };
-    esp_timer_create(&timer_args, &timer);
-    // esp_timer_start_once(timer, 100000000);
-    // tty_release();
-    // // vTaskDelay(200);
-    // tty_init();
-    // // gpio_drv_init();
-    // ctl_set_sensor_mode(1);
-    // tty_open(2, test_event, NULL);
-    // tty_open(3, test_event2, NULL);
 
-    
-    // gpio_drv_init();
-    // vTaskDelay(100);
-    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
-    // qrcode_init(true, true,
-    //                 0,
-    //                 CFG_get_qrcode_panic_timeout(),
-    //                 CFG_get_qrcode_dynamic(),
-    //                 CFG_get_qrcode_validity(),
-    //                 qrcode_event_main, NULL, 3);
-    // qrcode_init(true, true,0
-    //                 CFG_get_qrcode_timeout(),
-    //                 CFG_get_qrcode_panic_timeout(),
-    //                 CFG_get_qrcode_dynamic(),
-    //                 CFG_get_qrcode_validity(),
-    //                 qrcode_event_main, NULL, 1);
-    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    qrcode_init(true, true,
+                    0,
+                    CFG_get_qrcode_panic_timeout(),
+                    CFG_get_qrcode_dynamic(),
+                    CFG_get_qrcode_validity(),
+                    qrcode_event_main, NULL, 3);
+
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
@@ -857,8 +859,8 @@ void app_main(void)
     //               CFG_get_rfid_panic_timeout(),
     //               CFG_get_rfid_format(),
     //               rfid_event, NULL);
-    // CFG_set_rs485_hwaddr(2);
-    // CFG_set_rs485_server_hwaddr(1);
+    CFG_set_rs485_hwaddr(2);
+    CFG_set_rs485_server_hwaddr(1);
     rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
                    rs485_event, NULL);
     printf("Hello world!\n");

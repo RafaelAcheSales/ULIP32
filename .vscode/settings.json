@@ -1,6 +1,8 @@
 {
     "files.associations": {
-        "task.h": "c"
+        "task.h": "c",
+        "config2.h": "c",
+        "err.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

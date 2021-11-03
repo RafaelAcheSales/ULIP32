@@ -12,7 +12,7 @@
 #include "freertos/queue.h"
 #include "driver/timer.h"
 #include "driver/gpio.h"
-#define TEST_INTR              1
+// #define TEST_INTR              1
 #define GPIO_OUTPUT            15
 #define TIMER_DIVIDER         (2)  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
