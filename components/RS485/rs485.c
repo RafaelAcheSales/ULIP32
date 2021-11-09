@@ -9,7 +9,7 @@
 #define MAX_BUFFER_SIZE_TX      512
 #define MAX_FRAME_SIZE          (MAX_BUFFER_SIZE_TX -  sizeof(rs485_header_t))
 
-#define RS485_TTY               3
+#define RS485_TTY               2
 #define RS485_EN_PIN            4
 #define GPIO_OUTPUT_MASK   1ULL<<RS485_EN_PIN
 
@@ -93,7 +93,7 @@ static void rs485_xmit_disable(void)
     //     GPIO_OUTPUT_SET(RS485_EN_PIN, 0);
     // else
     //     GPIO_OUTPUT_SET(RS485_EN_PIN_ALT, 0);
-    ESP_ERROR_CHECK(esp_timer_stop(p->xmit_enable_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->xmit_enable_timer));
     // timer_disarm(&p->xmit_enable_timer);
 }
 
@@ -127,7 +127,7 @@ static void rs485_stop_retransmitions(void)
 
     if (!p->xmit_retries) return;
 
-    ESP_ERROR_CHECK(esp_timer_stop(p->xmit_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->xmit_timer));
     // timer_disarm(&p->xmit_timer);
     p->curr_xmit_retries = 0;
 }
@@ -141,7 +141,7 @@ static void rs485_start_retransmitions(void)
 
     if (esp_timer_is_active(p->xmit_timer)) {
 
-        ESP_ERROR_CHECK(esp_timer_stop(p->xmit_timer));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->xmit_timer));
     }
     ESP_ERROR_CHECK(esp_timer_start_once(p->xmit_timer, p->xmit_timeout));
     // timer_disarm(&p->xmit_timer);
@@ -361,7 +361,7 @@ static void hdlc_rx_frame(void *user_data, unsigned char ok,
             /* Send arp response */
             if (arp_proto[0] == ARP_REQUEST)
             {
-                ESP_ERROR_CHECK(esp_timer_stop(p->arp_delay_timer));
+                ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->arp_delay_timer));
                 ESP_ERROR_CHECK(esp_timer_start_once(p->arp_delay_timer, ARP_DELAY));
                 // timer_disarm(&p->arp_delay_timer);
                 // timer_arm(&p->arp_delay_timer, ARP_DELAY, false);
@@ -392,7 +392,7 @@ static void hdlc_rx_frame(void *user_data, unsigned char ok,
                 /* Send acknowledge */
                 if (esp_timer_is_active(p->ack_delay_timer)) {
 
-                    ESP_ERROR_CHECK(esp_timer_stop(p->ack_delay_timer));
+                    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->ack_delay_timer));
                 }
                 ESP_ERROR_CHECK(esp_timer_start_once(p->ack_delay_timer, ACK_DELAY));
                 // timer_disarm(&p->ack_delay_timer);
@@ -490,18 +490,14 @@ int rs485_init(int pinout, unsigned char hw_addr,
 void rs485_release(void)
 {
     rs485_t *p = &rs485_dev;
-    ESP_ERROR_CHECK(esp_timer_stop(p->xmit_timer));
-    ESP_ERROR_CHECK(esp_timer_stop(p->ack_delay_timer));
-    ESP_ERROR_CHECK(esp_timer_stop(p->ack_delay_timer));
-    ESP_ERROR_CHECK(esp_timer_stop(p->xmit_enable_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(p->xmit_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(p->ack_delay_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(p->ack_delay_timer));
-    ESP_ERROR_CHECK(esp_timer_delete(p->xmit_enable_timer));
-    // timer_disarm(&p->xmit_timer);
-    // timer_disarm(&p->ack_delay_timer);
-    // timer_disarm(&p->arp_delay_timer);
-    // timer_disarm(&p->xmit_enable_timer);
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->xmit_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->ack_delay_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->ack_delay_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->xmit_enable_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_delete(p->xmit_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_delete(p->ack_delay_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_delete(p->ack_delay_timer));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_delete(p->xmit_enable_timer));
     tty_close(RS485_TTY);
 }
 

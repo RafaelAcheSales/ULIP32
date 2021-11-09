@@ -13,7 +13,7 @@
 #include "driver/timer.h"
 #include "driver/gpio.h"
 // #define TEST_INTR              1
-#define GPIO_OUTPUT            15
+#define GPIO_OUTPUT            12
 #define TIMER_DIVIDER         (2)  //  Hardware timer clock divider
 #define TIMER_SCALE           (TIMER_BASE_CLK / TIMER_DIVIDER)  // convert counter value to seconds
 #ifdef TEST_INTR
@@ -25,7 +25,7 @@ typedef struct {
     int alarm_interval;
     bool auto_reload;
 } example_timer_info_t;
-
+TaskHandle_t xHandle;
 /**
  * @brief A sample structure to pass events from the timer ISR to task
  *
@@ -46,6 +46,9 @@ static void IRAM_ATTR hw_timer_task(void* arg) {
     while (1) {
         example_timer_event_t evt;
         if (xQueueReceive(s_timer_queue, &evt, portMAX_DELAY)) {
+            if (evt.info.alarm_interval == -1) {
+                vTaskDelete(NULL);
+            }
             if (user_hw_timer_cb != NULL) {
                 (*(user_hw_timer_cb))();
             }
@@ -136,9 +139,9 @@ void hw_timer_init(int us)
     s_timer_queue = xQueueCreate(10, sizeof(example_timer_event_t));
 
     example_tg_timer_init(TIMER_GROUP_0, TIMER_0, true, us);
-    static TaskHandle_t xHandle;
+    
     // example_tg_timer_init(TIMER_GROUP_1, TIMER_0, false, 5);
-    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192, NULL, 10, &xHandle, 1);
+    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192, NULL, 32, &xHandle, 1);
     
 }
 void  hw_timer_set_func(void (* user_hw_timer_cb_set)(void))
@@ -150,4 +153,19 @@ void hw_timer_disarm() {
 }
 void hw_timer_arm() {
     timer_start(TIMER_GROUP_0, TIMER_0);
+}
+void hw_timer_release() {
+    timer_deinit(TIMER_GROUP_0, TIMER_0);
+    example_timer_info_t info = {
+        .alarm_interval = -1,
+        .auto_reload = false,
+        .timer_group = -1,
+        .timer_idx = -1
+        
+    };
+    example_timer_event_t evt = {
+        .info = info,
+        .timer_counter_value = 0xffffffffffffffff
+    };
+    xQueueSend(s_timer_queue, &evt, portMAX_DELAY);
 }

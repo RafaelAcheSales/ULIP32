@@ -2,7 +2,8 @@
     "files.associations": {
         "task.h": "c",
         "config2.h": "c",
-        "err.h": "c"
+        "err.h": "c",
+        "uart_periph.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

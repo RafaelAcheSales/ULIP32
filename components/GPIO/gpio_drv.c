@@ -11,7 +11,7 @@
 #define GPIO_OUTPUT           15
 #define GPIO_OUTPUT_PIN_SEL   (1ULL<<GPIO_OUTPUT)
 #define ESP_INTR_FLAG_DEFAULT 0
-// static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
+static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
 static xQueueHandle gpio_evt_queue = NULL;
 static int delete_task_number = 55;
 static int cnt = 0;
@@ -84,6 +84,10 @@ static void IRAM_ATTR gpio_task_example(void* arg)
             if (io_num == delete_task_number)
             {
                 ESP_LOGE("GPIO", "vtaskdeleted");
+                vQueueDelete(gpio_evt_queue);
+                gpio_evt_queue = NULL;
+                ESP_LOGD("GPIO", "deleteD queue");
+                
                 vTaskDelete(NULL);
             }
             
@@ -119,7 +123,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
     uint32_t gpio_num = p->gpio;
 
     // ESP_LOGI("GPIO", "interrupt detected %d", io_num);
-    // //taskENTER_CRITICAL(&my_mutex);
+    // 
     // // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
     
     xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
@@ -158,24 +162,24 @@ int gpio_drv_init(void)
 
 void gpio_drv_release(void)
 {
+    // taskENTER_CRITICAL(&my_mutex);
     // ESP_LOGD("GPIO", "uninstall isr");
-    gpio_uninstall_isr_service();
     // gpio_intr_t *p;
     // for (int i = 0; i < GPIO_NUM_INTERRUPT; i++)
     // {
     //     p = &gpio_intr[i];
     //     gpio_isr_handler_remove(p->gpio);
-
     // }
     
     // gpio_intr_disable
+
     ESP_LOGD("GPIO", "deleting task");
     xQueueSend(gpio_evt_queue, &delete_task_number, NULL);
     ESP_LOGD("GPIO", "task deleted");
-    vQueueDelete(gpio_evt_queue);
-    gpio_evt_queue = NULL;
-    ESP_LOGD("GPIO", "deleteD queue");
+    
+    // gpio_uninstall_isr_service();
     // vTaskSuspend(xHandle);
+    // taskEXIT_CRITICAL(&my_mutex);
 
 }
 

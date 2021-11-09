@@ -43,10 +43,12 @@
 #define GRN "\e[0;32m"
 #define ULIP_MODEL "MLI-1WB"
 #define MAGIC_CODE "uTech"
-static int cnt = 0;
+static int64_t cnt = 0;
+static double average = 0;
 static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
-
-
+static bool initialized = false;
+static esp_timer_handle_t handle;
+static esp_timer_handle_t handle2;
 typedef union {
     unsigned char *b;
     unsigned short *w;
@@ -107,8 +109,10 @@ static void rs485_event(unsigned char from_addr,
         id |= (*p.b++ << 24);
         cmd = *p.b++;
         size -= 7;
-        ESP_LOGE("main","cmd: %02x", cmd);
-        cnt++;
+        ++cnt;
+        int64_t time_elapsed = esp_timer_get_time()/1000000;
+        average = (double)cnt / (double)time_elapsed;
+        ESP_LOGE("main","cmd: %02x media: %f", cmd, average);
         switch (cmd) {
             case RS485_CMD_POLLING:
                 /* do nothing */
@@ -753,15 +757,16 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task(){
     fpm_release();
+    rs485_release();
     ctl_release();
     tty_release();
-    vTaskDelay(50);
-    tty_init();
-    ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
-             CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
-            CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
-    ctl_set_sensor_mode(1);
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    // vTaskDelay(50);
+    // tty_init();
+    // ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
+    //          CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
+    //         CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
+    // ctl_set_sensor_mode(1);
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     vTaskDelete(NULL);
 }
 static void ctl_event(int event, int status) {
@@ -788,7 +793,7 @@ static void ctl_event(int event, int status) {
         // tty_hw_timer_disable();
         // ctl_init();
         // ctl_set_sensor_mode(1);
-        xTaskCreate(release_task, "release task", 4096, NULL, 9, NULL);
+        // xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
         // change_value();
         // ulip_core_capture_finger(true, 4);
         // start_httpd();
@@ -812,12 +817,11 @@ static void rs485_rx_data(int tty, const char *data,
 }
 
 static void timer_callback() {
-    ESP_LOGI("main", "recived %d commands", cnt);
-    abort();
+    xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
 }
 void app_main(void)
 {
-
+    
     CFG_Load();
     CFG_set_ip_address("10.0.0.246");
     CFG_set_netmask("255.255.255.0");
@@ -826,10 +830,8 @@ void app_main(void)
     CFG_set_dhcp(true);
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(false);
-    // printf("%d", ++cnt);
-    // printf("%d", ++cnt);
-    // printf("%d", ++cnt);
+    CFG_set_wifi_disable(true);
+
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
             CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
@@ -837,16 +839,16 @@ void app_main(void)
     // printf("%d", ++cnt);
     ctl_set_sensor_mode(1);
 
-    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
-    qrcode_init(true, true,
-                    0,
-                    CFG_get_qrcode_panic_timeout(),
-                    CFG_get_qrcode_dynamic(),
-                    CFG_get_qrcode_validity(),
-                    qrcode_event_main, NULL, 3);
+    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    // qrcode_init(true, true,
+    //                 0,
+    //                 CFG_get_qrcode_panic_timeout(),
+    //                 CFG_get_qrcode_dynamic(),
+    //                 CFG_get_qrcode_validity(),
+    //                 qrcode_event_main, NULL, 3);
 
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // account_init();
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
@@ -864,7 +866,20 @@ void app_main(void)
     rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
                    rs485_event, NULL);
     printf("Hello world!\n");
-    
-    
+    // if (!initialized) {
+    //     esp_timer_create_args_t timer = {
+    //         .callback = &timer_callback
+    //     };
+        
+    //     esp_timer_create(&timer, &handle);
+    //     esp_timer_create_args_t timer2 = {
+    //         .callback = &app_main
+    //     };
+    //     esp_timer_create(&timer2, &handle2);
+    // }
+    // esp_timer_start_once(handle, 5000000);
 
+    // esp_timer_start_once(handle2, 10000000);
+    
+    // initialized = true;
 }
