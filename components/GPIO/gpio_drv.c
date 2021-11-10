@@ -137,7 +137,7 @@ int gpio_drv_init(void)
     ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT));
     gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
 
-    xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 9, &xHandle);
+    xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 11, &xHandle);
     
     // esp_task_wdt_init(TWDT_TIMEOUT_S, false);
     // esp_task_wdt_add(xHandle);

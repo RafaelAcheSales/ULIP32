@@ -9,7 +9,7 @@
 #define MAX_BUFFER_SIZE_TX      512
 #define MAX_FRAME_SIZE          (MAX_BUFFER_SIZE_TX -  sizeof(rs485_header_t))
 
-#define RS485_TTY               2
+#define RS485_TTY               3
 #define RS485_EN_PIN            4
 #define GPIO_OUTPUT_MASK   1ULL<<RS485_EN_PIN
 

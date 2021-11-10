@@ -3,7 +3,8 @@
         "task.h": "c",
         "config2.h": "c",
         "err.h": "c",
-        "uart_periph.h": "c"
+        "uart_periph.h": "c",
+        "*.ipp": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

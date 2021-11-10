@@ -30,6 +30,7 @@
 #include "rf433.h"
 #include "rfid.h"
 #include "rs485.h"
+#include "debug2.h"
 #include "sdkconfig.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
@@ -685,7 +686,7 @@ static void rs485_event(unsigned char from_addr,
 
 
 
-
+char tasks_info[1024];
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
 {
@@ -756,10 +757,12 @@ static tty_func_t test_event2(int tty, char *data,
     return t;
 }
 void release_task(){
-    fpm_release();
-    rs485_release();
-    ctl_release();
-    tty_release();
+    vTaskList(tasks_info);
+    ESP_LOGI("main", "\n%s", tasks_info);
+    // fpm_release();
+    // rs485_release();
+    // ctl_release();
+    // tty_release();
     // vTaskDelay(50);
     // tty_init();
     // ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
@@ -793,7 +796,7 @@ static void ctl_event(int event, int status) {
         // tty_hw_timer_disable();
         // ctl_init();
         // ctl_set_sensor_mode(1);
-        // xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
+        xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
         // change_value();
         // ulip_core_capture_finger(true, 4);
         // start_httpd();
@@ -823,7 +826,7 @@ void app_main(void)
 {
     
     CFG_Load();
-    CFG_set_ip_address("10.0.0.246");
+    CFG_set_ip_address("10.0.0.253");
     CFG_set_netmask("255.255.255.0");
     CFG_set_gateway("10.0.0.1");
     CFG_set_ap_mode(false);
@@ -831,15 +834,22 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.243", 64195);
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
             CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
     tty_init();
     // printf("%d", ++cnt);
     ctl_set_sensor_mode(1);
-
-    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    uint8_t mode;
+    uint8_t level;
+    char * host;
+    uint16_t port;
+    
+    CFG_get_debug(&mode, &level, &host, &port);
+    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask());
+    // vTaskDelay(200);
+    // start_debug(mode, level, host, port);
     // qrcode_init(true, true,
     //                 0,
     //                 CFG_get_qrcode_panic_timeout(),
@@ -861,11 +871,15 @@ void app_main(void)
     //               CFG_get_rfid_panic_timeout(),
     //               CFG_get_rfid_format(),
     //               rfid_event, NULL);
-    CFG_set_rs485_hwaddr(2);
-    CFG_set_rs485_server_hwaddr(1);
-    rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
-                   rs485_event, NULL);
+    // CFG_set_rs485_hwaddr(2);
+    // CFG_set_rs485_server_hwaddr(1);
+    // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
+    //                rs485_event, NULL);
     printf("Hello world!\n");
+    ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
+    
+    vTaskList(tasks_info);
+    ESP_LOGI("main", "\n%s", tasks_info);
     // if (!initialized) {
     //     esp_timer_create_args_t timer = {
     //         .callback = &timer_callback

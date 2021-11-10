@@ -9,7 +9,8 @@
 #include "uart_drv.h"
 #include <stdio.h>
 // #define TEST_BITBANG 1
-#define RS485_UART2 1
+
+// #define RS485_UART2 1
 #define TEST_PIN 15
 #define TTY_BSIZE 512
 #define TTY_BITBANG_BITS 10

@@ -141,7 +141,7 @@ void hw_timer_init(int us)
     example_tg_timer_init(TIMER_GROUP_0, TIMER_0, true, us);
     
     // example_tg_timer_init(TIMER_GROUP_1, TIMER_0, false, 5);
-    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192, NULL, 32, &xHandle, 1);
+    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192*2, NULL, 12, &xHandle, 1);
     
 }
 void  hw_timer_set_func(void (* user_hw_timer_cb_set)(void))
