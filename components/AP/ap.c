@@ -67,12 +67,11 @@ void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, b
 {
     
     ESP_ERROR_CHECK(nvs_flash_init());
-    //already done on ETH module
+    //already done on ETH module - mentira eh aqui msm kkk te enganei
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     if (disable)
         return;
-    //
     if (ap_mode) {
         esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
         
