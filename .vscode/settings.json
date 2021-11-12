@@ -4,7 +4,8 @@
         "config2.h": "c",
         "err.h": "c",
         "uart_periph.h": "c",
-        "*.ipp": "c"
+        "*.ipp": "c",
+        "udp_logging.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

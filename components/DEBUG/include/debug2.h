@@ -1,1 +1,0 @@
-void start_debug(uint8_t mode, uint8_t level, const char *host, uint16_t port);

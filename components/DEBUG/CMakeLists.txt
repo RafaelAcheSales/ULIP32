@@ -1,3 +1,3 @@
-idf_component_register(SRCS "debug2.c"
+idf_component_register(SRCS "udp_logging.c"
                     INCLUDE_DIRS "include"
                     PRIV_REQUIRES nvs_flash)
