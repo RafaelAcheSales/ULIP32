@@ -26,6 +26,7 @@
 
 static const char *TAG = "eth_example";
 const int use_dhcp = 1;
+static void (* got_ip_callback)(void) = NULL;
 /** Event handler for Ethernet events */
 static void eth_event_handler(void *arg, esp_event_base_t event_base,
                               int32_t event_id, void *event_data)
@@ -68,10 +69,14 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "ETHMASK:" IPSTR, IP2STR(&ip_info->netmask));
     ESP_LOGI(TAG, "ETHGW:" IPSTR, IP2STR(&ip_info->gw));
     ESP_LOGI(TAG, "~~~~~~~~~~~");
+    if (got_ip_callback != NULL) {
+        (*(got_ip_callback))();
+    }
 }
 
-void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask)
-{
+void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, void (* got_ip_callback_set)(void))
+{  
+    got_ip_callback = got_ip_callback_set;
     set_pin_17(1);
     // vTaskDelay(100);
     // Initialize TCP/IP network interface (should be called only once in application)
