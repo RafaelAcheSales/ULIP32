@@ -856,9 +856,9 @@ void app_main(void)
 
    
     
-    // vTaskDelay(200);
+    vTaskDelay(200);
     
-    // start_debug(mode, level, host, port);
+    start_debug(mode, level, host, port);
     // qrcode_init(true, true,
     //                 0,
     //                 CFG_get_qrcode_panic_timeout(),

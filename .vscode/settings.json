@@ -1,4 +1,5 @@
 {
+    
     "files.associations": {
         "task.h": "c",
         "config2.h": "c",
@@ -7,5 +8,5 @@
         "*.ipp": "c",
         "udp_logging.h": "c"
     },
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Disabled",
 }
