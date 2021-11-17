@@ -687,7 +687,12 @@ static void rs485_event(unsigned char from_addr,
 }
 
 
-
+static int rfid_event(int event, const char *data, int len,
+                      void *user_data)
+{
+    ESP_LOGE("main","event rfid %s", data);
+    return 1;
+}
 char tasks_info[1024];
 static void got_ip_event() {
     uint8_t mode;
@@ -696,6 +701,12 @@ static void got_ip_event() {
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
     udp_logging_init( host, port, udp_logging_vprintf );
+    // rfid_init(CFG_get_rfid_timeout(),
+    //             CFG_get_rfid_retries(),
+    //             CFG_get_rfid_nfc(),
+    //             CFG_get_rfid_panic_timeout(),
+    //             CFG_get_rfid_format(),
+    //             rfid_event, NULL);
 }
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
@@ -705,12 +716,7 @@ void ulip_core_capture_finger(bool status, int index)
     else
         fpm_cancel_enroll();
 }
-static int rfid_event(int event, const char *data, int len,
-                      void *user_data)
-{
-    ESP_LOGI("main","event rfid %s", data);
-    return 1;
-}
+
 static void fingerprint_event(int event, int index,
                               uint8_t *data, int len,
                               int error, void *user_data)
@@ -795,25 +801,7 @@ static void ctl_event(int event, int status) {
         
         break;
     case CTL_EVT_SENSOR:
-
-        // cnt += 1;
-        // gpio_set_level(GPIO_OUTPUT, cnt & 1);
-        // tty_write(2, cmd, 9);
-        // tty_write(2, (unsigned char *)"UUUUUUUUUU", 10);
-        // tty_write(3, (unsigned char *)"UUUUUUUUUU", 10);
-        // qrcode_module_initialize(0);
-        // print_status_debug();
-        // tty_hw_timer_disable();
-        // ctl_init();
-        // ctl_set_sensor_mode(1);
         xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
-        // change_value();
-        // ulip_core_capture_finger(true, 4);
-        // start_httpd();
-        // http://www.ibam.org.br
-        // http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/css/externo.css", NULL, "", "", 5, http_event);
-        // http_raw_request("www.ibam.org.br",CFG_get_server_port(), false, "", "", "/media/js/externo.js", NULL, "", "", 5, http_event2);
-        
         break;
     default:
         printf("ctl event not supoorted\n");
@@ -839,26 +827,31 @@ void app_main(void)
     CFG_set_ip_address("10.0.0.251");
     CFG_set_netmask("255.255.255.0");
     CFG_set_gateway("10.0.0.1");
-    CFG_set_ap_mode(true);
+    CFG_set_ap_mode(false);
     CFG_set_dhcp(true);
-    CFG_set_wifi_ssid("uTech-Wifiii");
+    CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.246", 64195);
+    ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
-            CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable());
+            CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
+    ESP_LOGI("main", "ctl init");
     tty_init();
     // printf("%d", ++cnt);
+    ESP_LOGI("main", "init tty");
     ctl_set_sensor_mode(1);
-    vTaskDelay(pdMS_TO_TICKS(500));
-    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
-
+    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+    // vTaskDelay(pdMS_TO_TICKS(5000));
+    ESP_LOGI("main", "init eth");
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
    
     
-    vTaskDelay(200);
+    // vTaskDelay(200);
     
-    start_debug(mode, level, host, port);
+    // start_debug(mode, level, host, port);
     // qrcode_init(true, true,
     //                 0,
     //                 CFG_get_qrcode_panic_timeout(),
@@ -872,16 +865,12 @@ void app_main(void)
     //                rf433_event, NULL);
     
     // bluetooth_start();
-    // rfid_init(CFG_get_rfid_timeout(),
-    //               CFG_get_rfid_retries(),
-    //               CFG_get_rfid_nfc(),
-    //               CFG_get_rfid_panic_timeout(),
-    //               CFG_get_rfid_format(),
-    //               rfid_event, NULL);
-    // CFG_set_rs485_hwaddr(2);
-    // CFG_set_rs485_server_hwaddr(1);
-    // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
-    //                rs485_event, NULL);
+
+
+    CFG_set_rs485_hwaddr(2);
+    CFG_set_rs485_server_hwaddr(1);
+    rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
+                   rs485_event, NULL);
     printf("Hello world!\n");
     ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
     
@@ -903,6 +892,5 @@ void app_main(void)
     // esp_timer_start_once(handle2, 10000000);
     
     // initialized = true;
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    
 }

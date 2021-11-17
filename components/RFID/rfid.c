@@ -139,7 +139,7 @@
 // LLCP timeout
 #define LLCP_TIMEOUT 5000
 
-#define RFID_TTY 1
+#define RFID_TTY 0
 #define RFID_TIMEOUT 1000 /* msec */
 #define RFID_BFSIZE 128
 #define RFID_CARDSIZE 64
@@ -261,7 +261,7 @@ static int llcp_symmetry(uint8_t *data, int len)
     int rc;
 
 
-    ESP_LOGD("RFID", "LLCP symmetry");
+    ESP_LOGI("RFID", "LLCP symmetry");
 
 
     /* Send SYMM */
@@ -470,7 +470,7 @@ static void rfid_event(int tty, const char *event,
     int rc;
     int i;
 
-    ESP_LOGD("RFID", "RFID read [%d] bytes len [%d]",
+    ESP_LOGI("RFID", "RFID read [%d] bytes len [%d]",
              len, rfid_buflen);
 
 
@@ -627,7 +627,7 @@ static void rfid_event(int tty, const char *event,
                             d = (now - rfid_timestamp) / 1000;
                             if (d <= (rfid_timeout << 1))
                             {
-                                ESP_LOGD("RFID", "Debounce card [%s]", card);
+                                ESP_LOGI("RFID", "Debounce card [%s]", card);
                                 /* Panic */
                                 if (rfid_panic_timestamp > 0)
                                 {
@@ -814,7 +814,7 @@ static void rfid_module_initialize(int stage)
 {
     uint8_t cmd[] = {0x55, 0x55, 0x00, 0x00, 0x00};
 
-    ESP_LOGD("RFID", "RFID init stage [%d]", stage);
+    ESP_LOGI("RFID", "RFID init stage [%d]", stage);
 
     switch (stage)
     {

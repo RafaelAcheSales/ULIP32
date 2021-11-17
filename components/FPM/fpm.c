@@ -304,7 +304,7 @@ static void fpm_event(int tty, const char *event,
 
     ESP_LOGD("FPM", "FPM read [%d] bytes len [%d]",
              len, fpm_buflen);
-    ESP_LOG_BUFFER_HEX("FPM", event, len);
+    // ESP_LOG_BUFFER_HEX("FPM", event, len);
 
     if (fpm_buflen + len > FPM_BFSIZE) {
         ESP_LOGW("FPM", "FPM buffer overflow");

@@ -12,18 +12,22 @@
 
 // #define RS485_UART2 1
 #define TEST_PIN 15
+// #define RFID 1
 #define TTY_BSIZE 512
 #define TTY_BITBANG_BITS 10
 #define TTY_TIMEOUT 100000
 
 #define UART0 0
-#define UART0_RX_PIN 8
-#define UART0_TX_PIN 9
+#define UART0_RX_PIN 3
+#define UART0_TX_PIN 1
+
 
 #define UART1 1
 #define UART1_RX_PIN 34
 #define UART1_TX_PIN 2
+
 #ifndef RS485_UART2
+
 #define UART2 2
 #define UART2_RX_PIN 35
 #define UART2_TX_PIN 13
@@ -33,6 +37,7 @@
 #define UART3_TX_PIN 12
 #define UART3_RX_INTR 3
 #else
+
 #define UART2               2
 #define UART2_RX_PIN        14
 #define UART2_TX_PIN        12
@@ -42,8 +47,16 @@
 #define UART3_TX_PIN        13
 #define UART3_RX_INTR       3
 #endif
-#define GPIO_INPUT_PIN_SEL (1ULL << UART3_RX_PIN) | (1ULL << UART2_RX_PIN) | (1ULL << UART1_RX_PIN)
-#define GPIO_OUTPUT_PIN_SEL (1ULL << UART3_TX_PIN) | (1ULL << UART2_TX_PIN) | (1ULL << UART1_TX_PIN) | (1ULL << TEST_PIN)
+
+#ifdef RFID
+#define GPIO_INPUT_PIN_SEL (1ULL << UART3_RX_PIN) | (1ULL << UART2_RX_PIN) | (1ULL << UART1_RX_PIN) | (1ULL << UART0_RX_PIN)
+#define GPIO_OUTPUT_PIN_SEL (1ULL << UART3_TX_PIN) | (1ULL << UART2_TX_PIN) | (1ULL << UART1_TX_PIN)  | (1ULL << TEST_PIN) | (1ULL << UART0_TX_PIN)
+#else 
+#define GPIO_INPUT_PIN_SEL (1ULL << UART3_RX_PIN) | (1ULL << UART2_RX_PIN) | (1ULL << UART1_RX_PIN) 
+#define GPIO_OUTPUT_PIN_SEL (1ULL << UART3_TX_PIN) | (1ULL << UART2_TX_PIN) | (1ULL << UART1_TX_PIN)  | (1ULL << TEST_PIN)
+#endif
+static uint8_t cmd[] = {0x55, 0x55, 0x55, 0x55, 0x55};
+
 
 #define TTY_FIFO_CNT(head, tail, size) \
     ((tail >= head) ? (tail - head) : (size - (head - tail)))
@@ -335,7 +348,7 @@ static void tty_task(void)
         {
             // ESP_LOGI("TTY", "read %d bytes from UART%d", size, UART2);
 
-            p->func(UART2, buf, len, p->user_data);
+            p->func(UART2, buf, size, p->user_data);
         }
     }
 
@@ -352,7 +365,7 @@ static void tty_task(void)
 
 int tty_init(void)
 {
-    // ESP_LOGI("TTY", "TTY init");
+    ESP_LOGI("TTY", "TTY init");
 
     gpio_config_t io_conf;
     io_conf.intr_type = GPIO_INTR_DISABLE;
@@ -362,6 +375,7 @@ int tty_init(void)
     io_conf.pull_up_en = 0;
     gpio_config(&io_conf);
 
+    ESP_LOGI("TTY", "setted output");
     gpio_config_t io_conf2;
     io_conf2.intr_type = GPIO_INTR_DISABLE;
     io_conf2.mode = GPIO_MODE_INPUT;
@@ -369,10 +383,11 @@ int tty_init(void)
     io_conf2.pull_down_en = 0;
     io_conf2.pull_up_en = 0;
     gpio_config(&io_conf2);
+    // ESP_LOGI("TTY", "setted input");
 
     ESP_LOGI("tty", "initialized gpios");
     uart_dev uart0_dev = {
-        .baud_rate = BIT_RATE_9600,
+        .baud_rate = BIT_RATE_115200,
         .data_bits = UART_DATA_8_BITS,
         .parity = UART_PARITY_DISABLE,
         .stop_bit = UART_STOP_BITS_1,
@@ -411,7 +426,9 @@ int tty_init(void)
         .cts = -1,
         .rts = -1,
     };
-    // uart_initialize(&uart0_dev);
+#ifdef RFID
+    uart_initialize(&uart0_dev);
+#endif
     uart_initialize(&uart1_dev);
     uart_initialize(&uart2_dev);
 
@@ -555,7 +572,10 @@ int tty_write(int tty, unsigned char *data, int len)
     switch (tty)
     {
     case UART0:
+        // ESP_LOGI("TTY", "writing uart0");
+        // ESP_LOG_BUFFER_HEX("TTY", data, len);
         rc = uart_write_bytes(tty, data, len);
+        // rc = uart_write_bytes(tty, cmd, 5);
         // for (i = 0; i < len; i++)
         //     rc = uart_tx_one_char(tty, data[i]);
         break;

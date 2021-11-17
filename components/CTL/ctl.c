@@ -159,7 +159,7 @@ bool ctl_check_ap_mode(void)
     return ap;
 }
 
-int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable) {
+int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable, void (* got_ip_callback_set)(void)) {
 
     //init qrcode
     gpio_config_t io_conf;
@@ -230,7 +230,7 @@ int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * ne
     ESP_ERROR_CHECK(esp_timer_create(&ctl_timer_args, &ctl_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(ctl_timer, CTL_TIMEOUT));
 
-    wifi_init_softap((ctl_check_ap_mode() || ap_mode), ip, netmask, gateway, dhcp, ssid, password, channel, disable);
+    wifi_init_softap((ctl_check_ap_mode() || ap_mode), ip, netmask, gateway, dhcp, ssid, password, channel, disable, got_ip_callback_set);
     return 1;
 }
 void ctl_release(void)

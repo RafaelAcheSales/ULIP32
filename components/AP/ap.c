@@ -33,6 +33,7 @@ const char * nvs_partition = "nvs";
 static const char *TAG = "wifi softAP"; 
 static int s_retry_num = 0;
 static bool initialized = false;
+static void (* got_ip_callback)(void) = NULL;
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                     int32_t event_id, void* event_data)
 {
@@ -60,18 +61,21 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
         s_retry_num = 0;
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        if (got_ip_callback != NULL) {
+            (*(got_ip_callback))();
+        }
     }
 }
 
-void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable)
+void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable, void (* got_ip_callback_set)(void))
 {
-    
     ESP_ERROR_CHECK(nvs_flash_init());
     //already done on ETH module - mentira eh aqui msm kkk te enganei
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     if (disable)
         return;
+    got_ip_callback = got_ip_callback_set;
     if (ap_mode) {
         esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
         
