@@ -8,10 +8,10 @@
 #include "soc/uart_periph.h"
 #include "uart_drv.h"
 #include <stdio.h>
-// #define TEST_BITBANG 1
+#define TEST_BITBANG 1
 
 // #define RS485_UART2 1
-#define TEST_PIN 15
+#define TEST_PIN 33
 // #define RFID 1
 #define TTY_BSIZE 512
 #define TTY_BITBANG_BITS 10
@@ -156,6 +156,11 @@ static void tty_hw_timeout(void)
     int rc = 0;
     // ets_printf("hwtime\n");
     taskENTER_CRITICAL(&my_mutex);
+#ifdef TEST_BITBANG
+                gpio_set_level(TEST_PIN, cnt & 1);
+                cnt++;
+                // ets_printf("%d\n", bit);
+#endif
 
     /* Only receive */
     // p = &tty_dev[UART1];
@@ -199,11 +204,7 @@ static void tty_hw_timeout(void)
                 p->recv_bits--;
                 /* Read GPIO */
                 bit = gpio_get_level(UART3_RX_PIN);
-#ifdef TEST_BITBANG
-                gpio_set_level(12, bit);
-                cnt++;
-                // ets_printf("%d\n", bit);
-#endif
+
                 // ESP_LOGI("tty","got bit %d", bit);
                 p->recv_xsr >>= 1;
                 p->recv_xsr |= (bit << (TTY_BITBANG_BITS - 1));

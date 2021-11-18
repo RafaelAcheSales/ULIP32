@@ -31,7 +31,9 @@
 #include "rfid.h"
 #include "rs485.h"
 #include "udp_logging.h"
+#include "esp32_perfmon.h"
 #include "sdkconfig.h"
+
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define GPIO_INPUT 16
@@ -772,7 +774,9 @@ static tty_func_t test_event2(int tty, char *data,
     return t;
 }
 void release_task(){
-
+    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     vTaskList(tasks_info);
     ESP_LOGI("main", "\n%s", tasks_info);
     // fpm_release();
@@ -832,7 +836,7 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.246", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
@@ -842,16 +846,11 @@ void app_main(void)
     // printf("%d", ++cnt);
     ESP_LOGI("main", "init tty");
     ctl_set_sensor_mode(1);
-    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+
     // vTaskDelay(pdMS_TO_TICKS(5000));
     ESP_LOGI("main", "init eth");
-    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-   
+    // perfmon_start();
     
-    // vTaskDelay(200);
-    
-    // start_debug(mode, level, host, port);
     // qrcode_init(true, true,
     //                 0,
     //                 CFG_get_qrcode_panic_timeout(),
@@ -865,7 +864,6 @@ void app_main(void)
     //                rf433_event, NULL);
     
     // bluetooth_start();
-
 
     CFG_set_rs485_hwaddr(2);
     CFG_set_rs485_server_hwaddr(1);

@@ -6,7 +6,10 @@
         "err.h": "c",
         "uart_periph.h": "c",
         "*.ipp": "c",
-        "udp_logging.h": "c"
+        "udp_logging.h": "c",
+        "esp32_perfmon.h": "c",
+        "sdkconfig.h": "c",
+        "httpd.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
 }
