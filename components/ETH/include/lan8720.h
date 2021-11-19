@@ -23,7 +23,7 @@
 #include "gpio17.h"
 
 #endif // CONFIG_ETH_USE_SPI_ETHERNET
-
+static esp_eth_handle_t eth_handle = NULL;
 static const char *TAG = "eth_example";
 const int use_dhcp = 1;
 static void (* got_ip_callback)(void) = NULL;
@@ -73,7 +73,10 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
         (*(got_ip_callback))();
     }
 }
-
+void eth_release() {
+    
+    ESP_ERROR_CHECK(esp_eth_stop(eth_handle));
+}
 void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, void (* got_ip_callback_set)(void))
 {  
     got_ip_callback = got_ip_callback_set;
@@ -170,7 +173,7 @@ void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, voi
 #endif
 #endif // CONFIG_ETH_USE_SPI_ETHERNET
     esp_eth_config_t config = ETH_DEFAULT_CONFIG(mac, phy);
-    esp_eth_handle_t eth_handle = NULL;
+
     ESP_ERROR_CHECK(esp_eth_driver_install(&config, &eth_handle));
 #if !CONFIG_USE_INTERNAL_ETHERNET
     /* The SPI Ethernet module might doesn't have a burned factory MAC address, we cat to set it manually.

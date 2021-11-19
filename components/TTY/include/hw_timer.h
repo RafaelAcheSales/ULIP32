@@ -45,18 +45,30 @@ static void (* user_hw_timer_cb)(void) = NULL;
 static void IRAM_ATTR hw_timer_task(void* arg) {
     while (1) {
         example_timer_event_t evt;
-        if (xQueueReceive(s_timer_queue, &evt, portMAX_DELAY)) {
-            if (evt.info.alarm_interval == -1) {
-                vTaskDelete(NULL);
-            }
-            if (user_hw_timer_cb != NULL) {
-                (*(user_hw_timer_cb))();
-            }
-    #ifdef TEST_INTR
-            gpio_set_level(GPIO_OUTPUT, count & 1);
-            count++;
-    #endif
+        xQueueReceive(s_timer_queue, &evt, portMAX_DELAY) ;
+        if (evt.info.alarm_interval == -1) {
+            vTaskDelete(NULL);
         }
+        if (user_hw_timer_cb != NULL) {
+            (*(user_hw_timer_cb))();
+        }
+#ifdef TEST_INTR
+        gpio_set_level(GPIO_OUTPUT, count & 1);
+        count++;
+#endif
+        
+    //     if (xQueueReceive(s_timer_queue, &evt, portMAX_DELAY)) {
+    //         if (evt.info.alarm_interval == -1) {
+    //             vTaskDelete(NULL);
+    //         }
+    //         if (user_hw_timer_cb != NULL) {
+    //             (*(user_hw_timer_cb))();
+    //         }
+    // #ifdef TEST_INTR
+    //         gpio_set_level(GPIO_OUTPUT, count & 1);
+    //         count++;
+    // #endif
+    //     }
     }
 }
 static bool IRAM_ATTR timer_group_isr_callback(void *args)
@@ -141,7 +153,7 @@ void hw_timer_init(int us)
     example_tg_timer_init(TIMER_GROUP_0, TIMER_0, true, us);
     
     // example_tg_timer_init(TIMER_GROUP_1, TIMER_0, false, 5);
-    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192*2, NULL, 24, &xHandle, 0);
+    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192*2, NULL, 25, &xHandle, 0);
     
 }
 void  hw_timer_set_func(void (* user_hw_timer_cb_set)(void))

@@ -47,7 +47,7 @@
 #define ULIP_MODEL "MLI-1WB"
 #define MAGIC_CODE "uTech"
     
-    
+static int clicks = 0;
 static int64_t cnt = 0;
 static double average = 0;
 static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
@@ -702,7 +702,7 @@ static void got_ip_event() {
     char * host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    udp_logging_init( host, port, udp_logging_vprintf );
+    // udp_logging_init( host, port, udp_logging_vprintf );
     // rfid_init(CFG_get_rfid_timeout(),
     //             CFG_get_rfid_retries(),
     //             CFG_get_rfid_nfc(),
@@ -774,11 +774,20 @@ static tty_func_t test_event2(int tty, char *data,
     return t;
 }
 void release_task(){
-    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+    if (clicks == 0) {
+        start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+    } else if (clicks == 1 ){
+        vTaskList(tasks_info);
+        ESP_LOGI("main", "\n%s", tasks_info);
+    } else if (clicks == 2 ){
+        release_eth();
+    } else {
+        vTaskList(tasks_info);
+        ESP_LOGI("main", "\n%s", tasks_info);
+    }
+    clicks++;
     // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-    vTaskList(tasks_info);
-    ESP_LOGI("main", "\n%s", tasks_info);
     // fpm_release();
     // rs485_release();
     // ctl_release();
@@ -828,7 +837,7 @@ void app_main(void)
 {
     
     CFG_Load();
-    CFG_set_ip_address("10.0.0.251");
+    CFG_set_ip_address("10.0.0.140");
     CFG_set_netmask("255.255.255.0");
     CFG_set_gateway("10.0.0.1");
     CFG_set_ap_mode(false);
@@ -836,7 +845,7 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.220", 64195);
     ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
