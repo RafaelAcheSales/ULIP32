@@ -105,8 +105,9 @@ static void IRAM_ATTR gpio_task_example(void* arg)
                         // printf("disabling gpio: %d", p->gpio);
                         gpio_set_intr_type(p->gpio, GPIO_INTR_DISABLE);
                     }
-                    
                     SET_PERI_REG_MASK(GPIO_STATUS_W1TC_REG, status);
+                    // SET_PERI_REG_MASK(GPIO_STATUS1_W1TC_REG, status);
+
                     //GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, status);
                     // esp_task_wdt_reset();
                     p->func(p->intr, p->user_data);

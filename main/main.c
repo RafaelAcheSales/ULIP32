@@ -118,6 +118,7 @@ static void rs485_event(unsigned char from_addr,
         int64_t time_elapsed = esp_timer_get_time()/1000000;
         average = (double)cnt / (double)time_elapsed;
         ESP_LOGE("main","cmd: %02x media: %f", cmd, average);
+        ctl_beep(1);
         switch (cmd) {
             case RS485_CMD_POLLING:
                 /* do nothing */
@@ -702,7 +703,7 @@ static void got_ip_event() {
     char * host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    // udp_logging_init( host, port, udp_logging_vprintf );
+    udp_logging_init( host, port, udp_logging_vprintf );
     // rfid_init(CFG_get_rfid_timeout(),
     //             CFG_get_rfid_retries(),
     //             CFG_get_rfid_nfc(),
@@ -775,8 +776,9 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task(){
     if (clicks == 0) {
-        start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
-    } else if (clicks == 1 ){
+         start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+    } else if (clicks > 0 ){
+        // vTaskGetRunTimeStats(tasks_info);
         vTaskList(tasks_info);
         ESP_LOGI("main", "\n%s", tasks_info);
     } else if (clicks == 2 ){
@@ -786,8 +788,8 @@ void release_task(){
         ESP_LOGI("main", "\n%s", tasks_info);
     }
     clicks++;
-    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // fpm_release();
     // rs485_release();
     // ctl_release();
@@ -845,7 +847,7 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.220", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.42.0.79", 64195);
     ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
@@ -856,7 +858,7 @@ void app_main(void)
     ESP_LOGI("main", "init tty");
     ctl_set_sensor_mode(1);
 
-    // vTaskDelay(pdMS_TO_TICKS(5000));
+    // vTaskDelay(pdMS_TO_TICKS(5000));1313
     ESP_LOGI("main", "init eth");
     // perfmon_start();
     

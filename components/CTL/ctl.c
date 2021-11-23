@@ -277,6 +277,7 @@ void ctl_beep(uint8_t beep)
 
 void ctl_buzzer_on(uint32_t time)
 {
+    ESP_LOGI("CTL", "buzzer on ");
     gpio_set_level(BUZZER_PIN, 1);
     ctl_buzzer_time = time;
     if (ctl_event_func)
