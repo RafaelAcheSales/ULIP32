@@ -49,6 +49,7 @@
     
 static int clicks = 0;
 static int64_t cnt = 0;
+static int priority = 10;
 static double average = 0;
 static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
 static bool initialized = false;
@@ -777,19 +778,20 @@ static tty_func_t test_event2(int tty, char *data,
 void release_task(){
     if (clicks == 0) {
          start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
-    } else if (clicks > 0 ){
+    } else if (0){
+        priority -= 1;
         // vTaskGetRunTimeStats(tasks_info);
-        vTaskList(tasks_info);
-        ESP_LOGI("main", "\n%s", tasks_info);
-    } else if (clicks == 2 ){
+        // vTaskList(tasks_info);
+        // ESP_LOGI("main", "\n%s", tasks_info);
+        ESP_LOGI("main", "priority %d", priority);
+    } else if (clicks == -1 ){
         release_eth();
     } else {
         vTaskList(tasks_info);
         ESP_LOGI("main", "\n%s", tasks_info);
     }
     clicks++;
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    
     // fpm_release();
     // rs485_release();
     // ctl_release();
@@ -804,7 +806,7 @@ void release_task(){
     vTaskDelete(NULL);
 }
 static void ctl_event(int event, int status) {
-    printf("event rolou ctl: %d status %d\n", event, status);
+    // printf("event rolou ctl: %d status %d\n", event, status);
     switch (event)
     {
     case CTL_EVT_RELAY:
@@ -847,7 +849,7 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.42.0.79", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.252", 64195);
     ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
@@ -901,5 +903,6 @@ void app_main(void)
     // esp_timer_start_once(handle2, 10000000);
     
     // initialized = true;
-    
+    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
 }

@@ -132,7 +132,7 @@ void tty_hw_timer_disable(void)
     }
 }
 
-static void tty_gpio_interrupt(int intr, void *user_data)
+static void IRAM_ATTR tty_gpio_interrupt(int intr, void *user_data)
 {
     tty_dev_t *p = user_data;
     // ESP_LOGI("TTY", "iterrupto via intr: %d", intr);
@@ -147,47 +147,15 @@ static void tty_gpio_interrupt(int intr, void *user_data)
     taskEXIT_CRITICAL(&my_mutex);
 }
 
-static void tty_hw_timeout(void)
+static void IRAM_ATTR tty_hw_timeout(void)
 {
     // ets_printf("hwtiem\n");
 
     tty_dev_t *p;
     uint32_t bit;
     int rc = 0;
-    // ets_printf("hwtime\n");
     taskENTER_CRITICAL(&my_mutex);
 
-
-    /* Only receive */
-    // p = &tty_dev[UART1];
-    // if (p->func) {
-
-    // }
-    //     if (!(hw_timer_counter & 1)) {
-    //         if (p->recv_bits > 0) {
-    //             p->recv_bits--;
-    //             /* Read GPIO */
-    //             bit = GPIO_INPUT_GET(UART1_RX_PIN);
-    //             p->recv_xsr >>= 1;
-    //             p->recv_xsr |= (bit << (TTY_BITBANG_BITS - 1));
-    //             if (!p->recv_bits) {
-    //                 /* Check stop bit */
-    //                 if (bit) {
-    //                     p->recv_xsr >>= 1;
-    //                     p->recv_buf[p->recv_tail] = p->recv_xsr & 0xFF;
-    //                     p->recv_tail = ++p->recv_tail & (TTY_BSIZE - 1);
-    //                 }
-    //                 p->recv_xsr = 0;
-    //                 /* Enable interrupt */
-    //                 gpio_pin_intr_state_set(UART1_RX_PIN, GPIO_PIN_INTR_NEGEDGE);
-    //             }
-    //         }
-    //     }
-    //     /* Work pending */
-    //     if (p->recv_bits) {
-    //         rc++;
-    //     }
-    // }
 
     /* Transmit and Receive */
     p = &tty_dev[UART3];

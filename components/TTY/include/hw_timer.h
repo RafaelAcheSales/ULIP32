@@ -44,18 +44,13 @@ static void (* user_hw_timer_cb)(void) = NULL;
 
 static void IRAM_ATTR hw_timer_task(void* arg) {
     while (1) {
-        example_timer_event_t evt;
-        xQueueReceive(s_timer_queue, &evt, portMAX_DELAY) ;
-        if (evt.info.alarm_interval == -1) {
-            vTaskDelete(NULL);
-        }
-        if (user_hw_timer_cb != NULL) {
-            (*(user_hw_timer_cb))();
-        }
-#ifdef TEST_INTR
-        gpio_set_level(GPIO_OUTPUT, count & 1);
-        count++;
-#endif
+        int evt;
+        xQueueReceive(s_timer_queue, &evt, portMAX_DELAY);
+        // if (evt.info.alarm_interval == -1) {
+        //     vTaskDelete(NULL);
+        // }
+        
+
         
     //     if (xQueueReceive(s_timer_queue, &evt, portMAX_DELAY)) {
     //         if (evt.info.alarm_interval == -1) {
@@ -74,26 +69,17 @@ static void IRAM_ATTR hw_timer_task(void* arg) {
 static bool IRAM_ATTR timer_group_isr_callback(void *args)
 {
     BaseType_t high_task_awoken = pdFALSE;
-    example_timer_info_t *info = (example_timer_info_t *) args;
-
-    uint64_t timer_counter_value = timer_group_get_counter_value_in_isr(info->timer_group, info->timer_idx);
-
-    /* Prepare basic event data that will be then sent back to task */
-    example_timer_event_t evt = {
-        .info.timer_group = info->timer_group,
-        .info.timer_idx = info->timer_idx,
-        .info.auto_reload = info->auto_reload,
-        .info.alarm_interval = info->alarm_interval,
-        .timer_counter_value = timer_counter_value
-    };
-
-    if (!info->auto_reload) {
-        timer_counter_value += info->alarm_interval * TIMER_SCALE;
-        timer_group_set_alarm_value_in_isr(info->timer_group, info->timer_idx, timer_counter_value);
+#ifdef TEST_INTR
+        gpio_set_level(GPIO_OUTPUT, count & 1);
+        count++;
+#endif
+    if (user_hw_timer_cb != NULL) {
+        (*(user_hw_timer_cb))();
     }
-
-    /* Now just send the event data back to the main program task */
-    xQueueSendFromISR(s_timer_queue, &evt, &high_task_awoken);
+    
+    // int evt = 1;
+    // /* Now just send the event data back to the main program task */
+    // xQueueSendFromISR(s_timer_queue, &evt , &high_task_awoken);
 
     return high_task_awoken == pdTRUE; // return whether we need to yield at the end of ISR
 }
@@ -148,12 +134,11 @@ void hw_timer_init(int us)
     };
     gpio_config(&config);
 #endif
-    s_timer_queue = xQueueCreate(10, sizeof(example_timer_event_t));
+    s_timer_queue = xQueueCreate(40, sizeof(int));
 
     example_tg_timer_init(TIMER_GROUP_0, TIMER_0, true, us);
-    
     // example_tg_timer_init(TIMER_GROUP_1, TIMER_0, false, 5);
-    xTaskCreatePinnedToCore(hw_timer_task, "hw_timer_task", 8192*2, NULL, 25, &xHandle, 0);
+    // xTaskCreate(hw_timer_task, "hw_timer_task", 8192*2, NULL, configMAX_PRIORITIES-2, &xHandle);
     
 }
 void  hw_timer_set_func(void (* user_hw_timer_cb_set)(void))

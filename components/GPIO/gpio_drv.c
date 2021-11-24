@@ -12,10 +12,8 @@
 #define GPIO_OUTPUT_PIN_SEL   (1ULL<<GPIO_OUTPUT)
 #define ESP_INTR_FLAG_DEFAULT 0
 static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
-static xQueueHandle gpio_evt_queue = NULL;
-static int delete_task_number = 55;
 static int cnt = 0;
-static TaskHandle_t xHandle;
+
 typedef struct gpio_intr {
     int intr;
     int gpio;
@@ -69,66 +67,44 @@ static gpio_intr_t gpio_intr[GPIO_NUM_INTERRUPT] = {
 };
 
 
-static void IRAM_ATTR gpio_task_example(void* arg)
-{
-    // ets_printf("gpiotask\n");
-    uint32_t io_num;
-    for(;;) {
-        // ets_printf("for\n");
-        if(xQueueReceiveFromISR(gpio_evt_queue, &io_num, NULL)) {
-            // ets_printf("recivefromisr\n");
-#if defined(TEST_INTR)
-            cnt += 1;
-            gpio_set_level(GPIO_OUTPUT, cnt & 1);
-#endif
-            if (io_num == delete_task_number)
-            {
-                ESP_LOGE("GPIO", "vtaskdeleted");
-                vQueueDelete(gpio_evt_queue);
-                gpio_evt_queue = NULL;
-                ESP_LOGD("GPIO", "deleteD queue");
-                
-                vTaskDelete(NULL);
-            }
-            
-            gpio_intr_t *p;
-            int status;
-            int i;
-            
-            for (i = 0; i < GPIO_NUM_INTERRUPT; i++) {
-                p = &gpio_intr[i];
-                if (!p->func) continue;
-                status = BIT(p->gpio);
-                if (io_num == p->gpio) {
-                    /* Disable interrupt */
-                    if (p->flags & GPIO_INTR_DISABLED) {
-                        // printf("disabling gpio: %d", p->gpio);
-                        gpio_set_intr_type(p->gpio, GPIO_INTR_DISABLE);
-                    }
-                    SET_PERI_REG_MASK(GPIO_STATUS_W1TC_REG, status);
-                    // SET_PERI_REG_MASK(GPIO_STATUS1_W1TC_REG, status);
-
-                    //GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, status);
-                    // esp_task_wdt_reset();
-                    p->func(p->intr, p->user_data);
-                }
-            }
-            //taskENTER_CRITICAL(&my_mutex);
-        }
-    }
-}
 
 static void IRAM_ATTR gpio_interrupt_handler(void *arg)
 {
     gpio_intr_t * p = (gpio_intr_t *) arg;
-    uint32_t gpio_num = p->gpio;
+    uint32_t io_num = p->gpio;
 
-    // ESP_LOGI("GPIO", "interrupt detected %d", io_num);
-    // 
-    // // printf("GPIO[%d] intr, val: %d\n", io_num, gpio_get_level(io_num));
+    // ets_printf("recivefromisr\n");
+#if defined(TEST_INTR)
+    cnt += 1;
+    gpio_set_level(GPIO_OUTPUT, cnt & 1);
+#endif
+    int status;
+    int i;
     
-    xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
-    // }
+    for (i = 0; i < GPIO_NUM_INTERRUPT; i++) {
+        p = &gpio_intr[i];
+        if (!p->func) continue;
+        status = BIT(p->gpio);
+        if (io_num == p->gpio) {
+            /* Disable interrupt */
+            if (p->flags & GPIO_INTR_DISABLED) {
+                // printf("disabling gpio: %d", p->gpio);
+                gpio_set_intr_type(p->gpio, GPIO_INTR_DISABLE);
+            }
+            if (p->gpio < 32) {
+                SET_PERI_REG_MASK(GPIO_STATUS_W1TC_REG, status);
+
+            } else {
+                SET_PERI_REG_MASK(GPIO_STATUS1_W1TC_REG, status);
+
+            }
+
+            //GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, status);
+            // esp_task_wdt_reset();
+            p->func(p->intr, p->user_data);
+        }
+    }
+
 }
 
 
@@ -136,9 +112,9 @@ int gpio_drv_init(void)
 {
     
     ESP_ERROR_CHECK_WITHOUT_ABORT(gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT));
-    gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
+    // gpio_evt_queue = xQueueCreate(10, sizeof(uint32_t));
 
-    xTaskCreatePinnedToCore(gpio_task_example, "gpio_task_example", 8192, NULL, 8, &xHandle, 1);
+    // xTaskCreate(gpio_task_example, "gpio_task_example", 8192, NULL, 16, &xHandle);
     
     // esp_task_wdt_init(TWDT_TIMEOUT_S, false);
     // esp_task_wdt_add(xHandle);
@@ -173,11 +149,6 @@ void gpio_drv_release(void)
     // }
     
     // gpio_intr_disable
-
-    ESP_LOGD("GPIO", "deleting task");
-    xQueueSend(gpio_evt_queue, &delete_task_number, NULL);
-    ESP_LOGD("GPIO", "task deleted");
-    
     // gpio_uninstall_isr_service();
     // vTaskSuspend(xHandle);
     // taskEXIT_CRITICAL(&my_mutex);

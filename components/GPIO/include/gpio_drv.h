@@ -14,7 +14,7 @@ typedef void (*gpio_func_t)(int intr, void *user_data);
 int gpio_drv_init(void);
 
 void gpio_drv_release(void);
-
+void setPriority(int pri);
 /* Interrupt */
 
 int gpio_interrupt_open(int intr, int gpio,
