@@ -8,7 +8,7 @@
 #include "soc/uart_periph.h"
 #include "uart_drv.h"
 #include <stdio.h>
-#define TEST_BITBANG 1
+// #define TEST_BITBANG 1
 
 // #define RS485_UART2 1
 #define TEST_PIN 33

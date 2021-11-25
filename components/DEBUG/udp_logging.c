@@ -78,13 +78,14 @@ int udp_logging_vprintf( const char *str, va_list l ) {
 	char task_name[16];
 	char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
 	strncpy(task_name, cur_task, 16);
+	vprintf( cur_task, l );
 	task_name[15] = 0;
 	if (strncmp(task_name, "tiT", 16) != 0)
 	{
 		len = vsprintf((char*)buf, str, l);
 		if( (err = sendto(udp_log_fd, buf, len, 0, (struct sockaddr *)&serveraddr, sizeof(serveraddr))) < 0 )
 		{
-			// show_socket_error_reason(udp_log_fd);
+			show_socket_error_reason(udp_log_fd);
 			//vprintf("\nFreeing UDP Logging. sendto failed!\n", l);
 			// udp_logging_free(l);
 			// return vprintf("UDP Logging freed!\n\n", l);

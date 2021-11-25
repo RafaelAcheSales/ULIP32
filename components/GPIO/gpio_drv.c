@@ -6,9 +6,9 @@
 #include "esp_log.h"
 // #include "esp_task_wdt.h"
 // #include "soc/gpio_periph.h"
-// #define TEST_INTR             1
+#define TEST_INTR             1
 // #define TWDT_TIMEOUT_S        3
-#define GPIO_OUTPUT           15
+#define GPIO_OUTPUT           33
 #define GPIO_OUTPUT_PIN_SEL   (1ULL<<GPIO_OUTPUT)
 #define ESP_INTR_FLAG_DEFAULT 0
 static portMUX_TYPE my_mutex = portMUX_INITIALIZER_UNLOCKED;
@@ -74,10 +74,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
     uint32_t io_num = p->gpio;
 
     // ets_printf("recivefromisr\n");
-#if defined(TEST_INTR)
-    cnt += 1;
-    gpio_set_level(GPIO_OUTPUT, cnt & 1);
-#endif
+
     int status;
     int i;
     
@@ -88,6 +85,10 @@ static void IRAM_ATTR gpio_interrupt_handler(void *arg)
         if (io_num == p->gpio) {
             /* Disable interrupt */
             if (p->flags & GPIO_INTR_DISABLED) {
+#if defined(TEST_INTR)
+                cnt += 1;
+                gpio_set_level(GPIO_OUTPUT, cnt & 1);
+#endif
                 // printf("disabling gpio: %d", p->gpio);
                 gpio_set_intr_type(p->gpio, GPIO_INTR_DISABLE);
             }

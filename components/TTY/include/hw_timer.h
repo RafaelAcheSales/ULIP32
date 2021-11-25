@@ -134,7 +134,7 @@ void hw_timer_init(int us)
     };
     gpio_config(&config);
 #endif
-    s_timer_queue = xQueueCreate(40, sizeof(int));
+    // s_timer_queue = xQueueCreate(40, sizeof(int));
 
     example_tg_timer_init(TIMER_GROUP_0, TIMER_0, true, us);
     // example_tg_timer_init(TIMER_GROUP_1, TIMER_0, false, 5);
@@ -153,16 +153,4 @@ void hw_timer_arm() {
 }
 void hw_timer_release() {
     timer_deinit(TIMER_GROUP_0, TIMER_0);
-    example_timer_info_t info = {
-        .alarm_interval = -1,
-        .auto_reload = false,
-        .timer_group = -1,
-        .timer_idx = -1
-        
-    };
-    example_timer_event_t evt = {
-        .info = info,
-        .timer_counter_value = 0xffffffffffffffff
-    };
-    xQueueSend(s_timer_queue, &evt, portMAX_DELAY);
 }

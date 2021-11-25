@@ -21,7 +21,7 @@
 #define RS485_BROADCAST_ADDR    0xFF
 #define MAX_SEQ_NUMBER          0x3
 
-#define ACK_DELAY               10000
+#define ACK_DELAY               10
 
 #define ARP_PROTO_SIZE          2
 #define ARP_PROTO_CONTROL       0xF
@@ -394,7 +394,7 @@ static void hdlc_rx_frame(void *user_data, unsigned char ok,
 
                     ESP_ERROR_CHECK_WITHOUT_ABORT(esp_timer_stop(p->ack_delay_timer));
                 }
-                ESP_ERROR_CHECK(esp_timer_start_once(p->ack_delay_timer, ACK_DELAY));
+                ESP_ERROR_CHECK(esp_timer_start_once(p->ack_delay_timer, ACK_DELAY*1000));
                 // timer_disarm(&p->ack_delay_timer);
                 // timer_arm(&p->ack_delay_timer, ACK_DELAY, false);
             }

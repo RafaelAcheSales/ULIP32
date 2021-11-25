@@ -849,7 +849,7 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.252", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.220", 64195);
     ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
@@ -903,6 +903,9 @@ void app_main(void)
     // esp_timer_start_once(handle2, 10000000);
     
     // initialized = true;
+
     fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
             CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
+    printf(cur_task);
 }
