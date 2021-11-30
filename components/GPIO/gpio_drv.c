@@ -6,7 +6,7 @@
 #include "esp_log.h"
 // #include "esp_task_wdt.h"
 // #include "soc/gpio_periph.h"
-#define TEST_INTR             1
+// #define TEST_INTR             1
 // #define TWDT_TIMEOUT_S        3
 #define GPIO_OUTPUT           33
 #define GPIO_OUTPUT_PIN_SEL   (1ULL<<GPIO_OUTPUT)

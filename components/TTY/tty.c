@@ -8,7 +8,7 @@
 #include "soc/uart_periph.h"
 #include "uart_drv.h"
 #include <stdio.h>
-// #define TEST_BITBANG 1
+#define TEST_BITBANG 1
 
 // #define RS485_UART2 1
 #define TEST_PIN 33
@@ -327,6 +327,7 @@ static void tty_task(void)
         // printf("reading fifo\n");
         size = tty_read_fifo(UART3, buf, sizeof(buf));
         // ESP_LOGI("TTY", "reading from uart3 size %d", size);
+        // ESP_LOG_BUFFER_HEX("TTY", buf, size);
         if (size)
             p->func(UART3, buf, size, p->user_data);
     }
