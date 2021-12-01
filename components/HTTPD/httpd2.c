@@ -8,7 +8,7 @@
 */
 
 #include <stdio.h>
-#include "httpd.h"
+#include "httpd2.h"
 #include <esp_wifi.h>
 #include <esp_event.h>
 #include <esp_log.h>
@@ -66,6 +66,7 @@ static char *http_auth_basic(const char *username, const char *password)
     free(user_info);
     return digest;
 }
+
 
 /* An HTTP GET handler */
 static esp_err_t basic_auth_get_handler(httpd_req_t *req)
@@ -252,7 +253,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
 }
 
 static const httpd_uri_t hello = {
-    .uri = "/hello",
+    .uri = "/*",
     .method = HTTP_GET,
     .handler = hello_get_handler,
     /* Let's pass response string in user
@@ -380,6 +381,7 @@ static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.uri_match_fn = httpd_uri_match_wildcard;
     config.lru_purge_enable = true;
 
     // Start the httpd server

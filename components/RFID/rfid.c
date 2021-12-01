@@ -470,7 +470,7 @@ static void rfid_event(int tty, const char *event,
     int rc;
     int i;
 
-    ESP_LOGI("RFID", "RFID read [%d] bytes len [%d]",
+    ESP_LOGD("RFID", "RFID read [%d] bytes len [%d]",
              len, rfid_buflen);
 
 

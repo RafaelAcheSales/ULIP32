@@ -23,7 +23,7 @@
 #include "fpm.h"
 #include "ap.h"
 #include "http.h"
-#include "httpd.h"
+#include "httpd2.h"
 #include "esp_log.h"
 #include "account.h"
 #include "bluetooth.h"
@@ -708,6 +708,12 @@ static void got_ip_event2() {
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
     udp_logging_init( host, port, udp_logging_vprintf );
+    // rfid_init(CFG_get_rfid_timeout(),
+    //             CFG_get_rfid_retries(),
+    //             CFG_get_rfid_nfc(),
+    //             CFG_get_rfid_panic_timeout(),
+    //             CFG_get_rfid_format(),
+    //             rfid_event, NULL);
 }
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
@@ -738,7 +744,7 @@ static int rf433_event(int event, const char *data, int len,
 }
 static int qrcode_event_main(int event, const char *data, int len, void *user_data)
 {
-    printf(RED "%s and compare %d\n", data, strcmp(data, MAGIC_CODE));
+    ESP_LOGE("main", "%s", data);
     if (1) {
         ctl_beep(3);
     }
@@ -772,9 +778,11 @@ static tty_func_t test_event2(int tty, char *data,
     tty_func_t t = NULL;
     return t;
 }
+
+
 void release_task(){
     if (clicks == 0) {
-         start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event);
+         
     } else if (0){
         priority -= 1;
         // vTaskGetRunTimeStats(tasks_info);
@@ -783,7 +791,7 @@ void release_task(){
         ESP_LOGI("main", "priority %d", priority);
     } else if (clicks ==  1 ){
         // release_eth();
-        got_ip_event2();
+        // got_ip_event2();
     } else {
         vTaskList(tasks_info);
         ESP_LOGI("main", "\n%s", tasks_info);
@@ -837,7 +845,6 @@ static void timer_callback() {
 }
 void app_main(void)
 {
-    
     CFG_Load();
     CFG_set_ip_address("10.0.0.140");
     CFG_set_netmask("255.255.255.0");
@@ -847,7 +854,7 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(true);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.204", 64195);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
@@ -878,8 +885,8 @@ void app_main(void)
 
     CFG_set_rs485_hwaddr(2);
     CFG_set_rs485_server_hwaddr(1);
-    rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
-                   rs485_event, NULL);
+    // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
+    //                rs485_event, NULL);
     printf("Hello world!\n");
     ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
     
@@ -902,8 +909,10 @@ void app_main(void)
     
     // initialized = true;
 
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     printf(cur_task);
+    start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event2);
+    start_httpd();
 }

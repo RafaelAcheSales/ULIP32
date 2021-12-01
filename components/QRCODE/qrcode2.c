@@ -104,7 +104,7 @@ static int qrcode_send_command(uint8_t cmd, uint16_t addr,
     crc = crc16(buf + 2, len + 4);
     *p.b++ = (crc >> 8) & 0xff;
     *p.b++ = crc & 0xff;
-    ESP_LOGI("QRCODE","sending command: ");
+    ESP_LOGD("QRCODE","sending command: ");
     for (int i = 0; i < p.b-buf; i++)
     {
         //ESP_LOGI("","%02X", buf[i]);
@@ -161,7 +161,7 @@ void qrcode_module_initialize(int stage)
 static void qrcode_led_enable(void)
 {
     uint8_t data;
-    ESP_LOGE("QRCODE", "led enable");
+    // ESP_LOGE("QRCODE", "led enable");
 
     /* Enable LED */
     data = 0x88;
@@ -172,7 +172,7 @@ static void qrcode_led_enable(void)
 static void qrcode_led_disable(void)
 {
     uint8_t data;
-    ESP_LOGE("QRCODE", "led disable");
+    // ESP_LOGE("QRCODE", "led disable");
 
     /* Disable LED */
     data = 0x80;
@@ -236,8 +236,8 @@ static void qrcode_led_blink(void)
 static void qrcode_event(int tty, const char *event,
                          int len, void *user_data)
 {
-    ESP_LOGI("QRCODE", "qrcode event: ");
-    ESP_LOG_BUFFER_HEX("qrcode", event, len);
+    ESP_LOGD("QRCODE", "qrcode event: ");
+    // ESP_LOG_BUFFER_HEX("qrcode", event, len);
     char card[QRCODE_CARDSIZE];
     uint64_t now;
     struct timeval tv_now;
@@ -281,7 +281,7 @@ static void qrcode_event(int tty, const char *event,
     p.b = qrcode_buf;
     while (qrcode_buflen >= 3) {
         /* Check header */
-        ESP_LOGI("QRCODE", "header %02X", p.b[0]);
+        ESP_LOGD("QRCODE", "header %02X", p.b[0]);
         if (p.b[0] == 0x03) {
             size = (p.b[1] << 8) | p.b[2];
             if (!size) {
@@ -308,12 +308,12 @@ static void qrcode_event(int tty, const char *event,
             gettimeofday(&tv_now, NULL);
             now = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
 
-            ESP_LOGI("QRCODE", "now is :%lld timestamp is: %d ", (long long int)now, qrcode_timestamp);
+            // ESP_LOGI("QRCODE", "now is :%lld timestamp is: %d ", (long long int)now, qrcode_timestamp);
 
             if (qrcode_timestamp) {
                 if (!strcmp(qrcode_card, card)) {
                     d = (now - qrcode_timestamp);// * 1000000; /// 1000;
-                    ESP_LOGI("QRCODE", "D value is: %d, qrcodetimeout is: %d", d, qrcode_timeout<<1);
+                    // ESP_LOGI("QRCODE", "D value is: %d, qrcodetimeout is: %d", d, qrcode_timeout<<1);
                     if (d <= (qrcode_timeout << 1)) {
                         ESP_LOGD("QRCODE", "Debounce card [%s]", card);
                         /* Panic */
@@ -486,10 +486,10 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
             .name = "polling timeout"
     };
     
-    ESP_LOGI("QRCODE", "timeout is %d", qrcode_timeout);
+    // ESP_LOGI("QRCODE", "timeout is %d", qrcode_timeout);
     ESP_ERROR_CHECK(esp_timer_create(&polling_timer_args, &polling_timer));
     ESP_ERROR_CHECK(esp_timer_start_periodic(polling_timer, qrcode_timeout>>1));
-    ESP_LOGI("QRCODE", "poling timer started");
+    // ESP_LOGI("QRCODE", "poling timer started");
     const esp_timer_create_args_t led_timer_args = {
             .callback = &qrcode_led_timeout,
             /* name is optional, but may help identify the timer when debugging */
