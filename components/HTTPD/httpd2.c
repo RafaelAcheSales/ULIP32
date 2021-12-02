@@ -170,7 +170,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
 {
     char *buf;
     size_t buf_len;
-
+    
     /* Get header value string length and allocate memory for length + 1,
      * extra byte for null termination */
     buf_len = httpd_req_get_hdr_value_len(req, "Host") + 1;
@@ -206,7 +206,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
         }
         free(buf);
     }
-
+    
     /* Read URL query string length and allocate memory for length + 1,
      * extra byte for null termination */
     buf_len = httpd_req_get_url_query_len(req) + 1;
@@ -241,7 +241,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
     /* Send response with custom headers and body set as the
      * string passed in user context*/
     const char *resp_str = "maicon boiola\n";//(const char *)req->user_ctx;
-    httpd_resp_send(req, resp_str, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, INDEXREDE, HTTPD_RESP_USE_STRLEN);
 
     /* After sending the HTTP response the old HTTP request
      * headers are lost. Check if HTTP request headers can be read now. */
@@ -253,7 +253,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
 }
 
 static const httpd_uri_t hello = {
-    .uri = "/*",
+    .uri = "/hello",
     .method = HTTP_GET,
     .handler = hello_get_handler,
     /* Let's pass response string in user
