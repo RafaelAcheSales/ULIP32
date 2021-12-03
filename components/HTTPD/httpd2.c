@@ -71,9 +71,11 @@ static char *http_auth_basic(const char *username, const char *password)
 /* An HTTP GET handler */
 static esp_err_t basic_auth_get_handler(httpd_req_t *req)
 {
+
     char *buf = NULL;
     size_t buf_len = 0;
     basic_auth_info_t *basic_auth_info = req->user_ctx;
+    esp_err_t rc = ESP_OK;
 
     buf_len = httpd_req_get_hdr_value_len(req, "Authorization") + 1;
     if (buf_len > 1)
@@ -110,24 +112,12 @@ static esp_err_t basic_auth_get_handler(httpd_req_t *req)
             httpd_resp_set_hdr(req, "Connection", "keep-alive");
             httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Hello\"");
             httpd_resp_send(req, NULL, 0);
+            rc = ESP_FAIL;
         }
         else
         {
             ESP_LOGI(TAG, "Authenticated!");
-            char *basic_auth_resp = NULL;
-            httpd_resp_set_status(req, HTTPD_200);
-            httpd_resp_set_type(req, "application/json");
-            httpd_resp_set_hdr(req, "Connection", "keep-alive");
-            asprintf(&basic_auth_resp, "{\"authenticated\": true,\"user\": \"%s\"}", basic_auth_info->username);
-            if (!basic_auth_resp)
-            {
-                ESP_LOGE(TAG, "No enough memory for basic authorization response");
-                free(auth_credentials);
-                free(buf);
-                return ESP_ERR_NO_MEM;
-            }
-            httpd_resp_send(req, basic_auth_resp, strlen(basic_auth_resp));
-            free(basic_auth_resp);
+            rc = ESP_OK;
         }
         free(auth_credentials);
         free(buf);
@@ -140,9 +130,10 @@ static esp_err_t basic_auth_get_handler(httpd_req_t *req)
         httpd_resp_set_hdr(req, "Connection", "keep-alive");
         httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Hello\"");
         httpd_resp_send(req, NULL, 0);
+        rc = ESP_FAIL;
     }
 
-    return ESP_OK;
+    return rc;
 }
 
 static httpd_uri_t basic_auth = {
@@ -151,16 +142,16 @@ static httpd_uri_t basic_auth = {
     .handler = basic_auth_get_handler,
 };
 
-static void httpd_register_basic_auth(httpd_handle_t server)
+static void httpd_register_basic_auth(httpd_handle_t server, httpd_uri_t *uri_handler)
 {
     basic_auth_info_t *basic_auth_info = calloc(1, sizeof(basic_auth_info_t));
     if (basic_auth_info)
     {
         basic_auth_info->username = CONFIG_EXAMPLE_BASIC_AUTH_USERNAME;
         basic_auth_info->password = CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD;
-
-        basic_auth.user_ctx = basic_auth_info;
-        httpd_register_uri_handler(server, &basic_auth);
+        ESP_LOGI("httpd", "user_uri %s", uri_handler->uri);
+        uri_handler->user_ctx = basic_auth_info;
+        httpd_register_uri_handler(server, uri_handler);
     }
 }
 #endif
@@ -168,6 +159,10 @@ static void httpd_register_basic_auth(httpd_handle_t server)
 /* An HTTP GET handler */
 static esp_err_t hello_get_handler(httpd_req_t *req)
 {
+    esp_err_t rc = basic_auth_get_handler(req);
+    ESP_LOGE("httpd", "uri %s", req->uri);
+    if (rc != ESP_OK)
+        return rc;
     char *buf;
     size_t buf_len;
     
@@ -249,16 +244,15 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Request headers lost");
     }
+
     return ESP_OK;
+    
 }
 
-static const httpd_uri_t hello = {
+static httpd_uri_t hello = {
     .uri = "/hello",
     .method = HTTP_GET,
-    .handler = hello_get_handler,
-    /* Let's pass response string in user
-     * context to demonstrate it's usage */
-    .user_ctx = "Hello World!"};
+    .handler = hello_get_handler};
 
 /* An HTTP POST handler */
 static esp_err_t echo_post_handler(httpd_req_t *req)
@@ -390,10 +384,10 @@ static httpd_handle_t start_webserver(void)
     {
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
-        httpd_register_uri_handler(server, &hello);
+        httpd_register_basic_auth(server, &hello);
         httpd_register_uri_handler(server, &echo);
         httpd_register_uri_handler(server, &ctrl);
-        httpd_register_basic_auth(server);
+        httpd_register_basic_auth(server, &basic_auth);
 #if 1
 #endif
         return server;
