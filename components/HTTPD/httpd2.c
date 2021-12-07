@@ -23,12 +23,13 @@
 #include <esp_http_server.h>
 #define CONFIG_EXAMPLE_BASIC_AUTH_USERNAME "user"
 #define CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD "password"
+// #define GET_REQ_TEST 0
 /* A simple example that demonstrates how to create GET and POST
  * handlers for the web server.
  */
 
 static const char *TAG = "example";
-
+static void (* httpd_get_cb)(httpd_req_t *req) = NULL;
 #if 1
 
 typedef struct
@@ -69,7 +70,7 @@ static char *http_auth_basic(const char *username, const char *password)
 
 
 /* An HTTP GET handler */
-static esp_err_t basic_auth_get_handler(httpd_req_t *req)
+esp_err_t basic_auth_get_handler(httpd_req_t *req)
 {
 
     char *buf = NULL;
@@ -159,8 +160,14 @@ static void httpd_register_basic_auth(httpd_handle_t server, httpd_uri_t *uri_ha
 /* An HTTP GET handler */
 static esp_err_t hello_get_handler(httpd_req_t *req)
 {
+    if (httpd_get_cb != NULL) {
+        (*(httpd_get_cb))(req);
+    } else {
+        ESP_LOGE(TAG, "user_hw_timer_cb is NULL");
+    }
+#ifdef GET_REQ_TEST
     esp_err_t rc = basic_auth_get_handler(req);
-    ESP_LOGE("httpd", "uri %s", req->uri);
+    // ESP_LOGE("httpd", "uri %s", req->uri);
     if (rc != ESP_OK)
         return rc;
     char *buf;
@@ -244,13 +251,13 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
     {
         ESP_LOGI(TAG, "Request headers lost");
     }
-
+#endif
     return ESP_OK;
     
 }
 
 static httpd_uri_t hello = {
-    .uri = "/hello",
+    .uri = "/",
     .method = HTTP_GET,
     .handler = hello_get_handler};
 
@@ -426,8 +433,9 @@ static void connect_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-void start_httpd(void)
+void start_httpd(void (* httpd_get_cb_set)(httpd_req_t *req))
 {
+    httpd_get_cb = httpd_get_cb_set;
     static httpd_handle_t server = NULL;
     /* Start the server for the first time */
     server = start_webserver();

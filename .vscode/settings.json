@@ -10,7 +10,8 @@
         "esp32_perfmon.h": "c",
         "sdkconfig.h": "c",
         "httpd.h": "c",
-        "freertos.h": "c"
+        "freertos.h": "c",
+        "httpd2.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
 }

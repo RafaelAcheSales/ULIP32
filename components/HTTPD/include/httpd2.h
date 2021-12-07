@@ -1,6 +1,7 @@
 #pragma once
-void start_httpd(void);
-
+#include <esp_http_server.h>
+void start_httpd(void (* httpd_get_cb_set)(httpd_req_t *req));
+esp_err_t basic_auth_get_handler(httpd_req_t *req);
 static const char STYLE[] = {
 "body{\
 margin:0;\
