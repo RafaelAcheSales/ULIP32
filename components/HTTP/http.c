@@ -4,7 +4,7 @@
 #include "string.h"
 #define MAX_HTTP_buffer 5000
 #define MAX_URL_SIZE 2048
-const char * TAG = "HTTP";
+static const char * TAG = "HTTP";
 esp_err_t _http_event_handle(esp_http_client_event_t *evt)
 {
     static char * buffer;
@@ -96,6 +96,7 @@ void http_raw_request(const char *hostname, int port, bool secure,
     char key[256];
     char *value;
 
+    
 
     esp_http_client_config_t config = {
         .port = port,
@@ -103,12 +104,11 @@ void http_raw_request(const char *hostname, int port, bool secure,
         .host = hostname,
         .path = path,
         .user_data = local_response_buffer,
-        .event_handler = _http_event_handle
+        .event_handler = _http_event_handle,
+        .username = user,
+        .password = passwd,
     };
-    if (secure) {
-        config.username = user;
-        config.password = passwd;
-    }
+
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (post_data != NULL)
     {
@@ -119,11 +119,14 @@ void http_raw_request(const char *hostname, int port, bool secure,
         //GET
         esp_http_client_set_method(client, HTTP_METHOD_GET);
     }
-
+    if (!strcmp(header_key, ""))
+    {
+        esp_http_client_set_header(client, header_key, header_value);
+    }
     // esp_http_client_set_header(client, header_key, header_value);
 
     esp_err_t err = esp_http_client_perform(client);
-
+    
     if (err == ESP_OK) {
         ESP_LOGI(TAG, "HTTP Basic Auth Status = %d, content_length = %d",
                 esp_http_client_get_status_code(client),

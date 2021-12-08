@@ -20,6 +20,7 @@
 #include "esp_eth.h"
 #include "protocol_examples_common.h"
 #include "esp_tls_crypto.h"
+#include "mbedtls/base64.h"
 #include <esp_http_server.h>
 #define CONFIG_EXAMPLE_BASIC_AUTH_USERNAME "user"
 #define CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD "password"
@@ -154,6 +155,59 @@ static void httpd_register_basic_auth(httpd_handle_t server, httpd_uri_t *uri_ha
         uri_handler->user_ctx = basic_auth_info;
         httpd_register_uri_handler(server, uri_handler);
     }
+}
+
+int authBasicGetUsername(httpd_req_t *req,
+                                           char *username, int len)
+{
+    char auth[AUTH_MAX_USER_LEN + AUTH_MAX_PASS_LEN + 2];
+    char *user = NULL;
+    char *pass = NULL;
+    char hdr[512];
+    long r;
+
+    if (!req || !username) return -1;
+    r = httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr)-1);
+    // r = httpdGetHeader(connData, "Authorization", hdr, sizeof(hdr) - 1);
+    if (r == ESP_OK && strncmp(hdr, "Basic", 5) == 0) {
+        mbedtls_base64_decode((unsigned char *) auth, sizeof(auth), &r, (const unsigned char *)hdr + 6, strlen(hdr) - 6);
+        ESP_LOGI("httpd", "auth %s", auth);
+        if (r < 0) r = 0;
+        auth[r] = 0;
+        user = strtok_r(auth, ":", &pass);
+        strncpy(username, user, len - 1);
+        username[len - 1] = '\0';
+        return 0;
+    }
+
+    return -1;
+}
+
+int authBasicGetPassword(httpd_req_t *req,
+                                           char *password, int len)
+{
+    char auth[AUTH_MAX_USER_LEN + AUTH_MAX_PASS_LEN + 2];
+    char *user = NULL;
+    char *pass = NULL;
+    char hdr[512];
+    long r;
+
+    if (!req || !password) return -1;
+    r = httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr)-1);
+    // r = httpdGetHeader(connData, "Authorization", hdr, sizeof(hdr) - 1);
+    if (r && strncmp(hdr, "Basic", 5) == 0) {
+        // r = base64Decode(strlen(hdr) - 6, hdr + 6, sizeof(auth),
+                        //  (unsigned char *)auth);
+        mbedtls_base64_decode( (unsigned char *)auth, sizeof(auth), &r, (const unsigned char *) hdr + 6, strlen(hdr) - 6);
+        if (r < 0) r = 0;
+        auth[r] = 0;
+        user = strtok_r(auth, ":", &pass);
+        strncpy(password, pass, len - 1);
+        password[len - 1] = '\0';
+        return 0;
+    }
+
+    return -1;
 }
 #endif
 
@@ -382,6 +436,7 @@ static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.stack_size = 4096*4;
     config.uri_match_fn = httpd_uri_match_wildcard;
     config.lru_purge_enable = true;
 

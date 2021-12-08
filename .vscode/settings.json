@@ -11,7 +11,12 @@
         "sdkconfig.h": "c",
         "httpd.h": "c",
         "freertos.h": "c",
-        "httpd2.h": "c"
+        "httpd2.h": "c",
+        "esp_tls_crypto.h": "c",
+        "base64.h": "c",
+        "account.h": "c",
+        "http.h": "c",
+        "random": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
 }

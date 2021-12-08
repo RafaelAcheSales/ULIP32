@@ -1,7 +1,14 @@
 #pragma once
 #include <esp_http_server.h>
+
+#define AUTH_MAX_USER_LEN   64
+#define AUTH_MAX_PASS_LEN   64
+
 void start_httpd(void (* httpd_get_cb_set)(httpd_req_t *req));
+int authBasicGetUsername(httpd_req_t *req, char *username, int len);
+int authBasicGetPassword(httpd_req_t *req, char *password, int len);
 esp_err_t basic_auth_get_handler(httpd_req_t *req);
+
 static const char STYLE[] = {
 "body{\
 margin:0;\

@@ -32,6 +32,7 @@ static uint8_t ctl_alarm_state;
 static uint8_t ctl_panic_state;
 static uint8_t ctl_breakin_state;
 static uint8_t ctl_relay_pin;
+static uint8_t ctl_relay_pin_status = 0;
 
 
 static uint32_t ctl_relay_time;
@@ -189,6 +190,7 @@ int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * ne
     //configure GPIO with the given settings
     gpio_config(&io_conf2);
     gpio_set_level(RELAY_EXT_PIN, 1);
+    ctl_relay_pin_status = 0;
     if (!mode) {
 
         gpio_set_level(QRCODE_PIN, 1);
@@ -245,6 +247,7 @@ void ctl_release(void)
         ctl_set_sensor_mode(0);
     gpio_set_level(QRCODE_PIN, 1);
     gpio_set_level(RELAY_EXT_PIN, 1);
+    ctl_relay_pin_status = 0;
     gpio_set_level(BUZZER_PIN, 0);
     ctl_alarm_state = CTL_ALARM_OFF;
     ctl_panic_state = CTL_PANIC_OFF;
@@ -296,6 +299,7 @@ void ctl_relay_on(uint32_t time)
     ESP_LOGI("ctl", "relay on\n");
 
     gpio_set_level(RELAY_EXT_PIN, 0);
+    ctl_relay_pin_status = 1;
     ctl_relay_time = time;
 
     
@@ -308,6 +312,7 @@ void ctl_relay_off(void)
     ESP_LOGI("ctl", "relay off\n");
 
     gpio_set_level(RELAY_EXT_PIN, 1);
+    ctl_relay_pin_status = 0;
     ctl_relay_time = 0;
    
     if (ctl_event_func)
@@ -359,8 +364,8 @@ void ctl_set_sensor_mode(uint8_t mode)
     }
 }
 
-uint8_t ctl_relay_ext_status(void)
+uint8_t ctl_relay_status(void)
 {
-    return !gpio_get_level(RELAY_EXT_PIN);
+    return ctl_relay_pin_status;
 }
 

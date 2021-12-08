@@ -26,7 +26,7 @@
 static esp_eth_handle_t eth_handle = NULL;
 static const char *TAG = "eth_example";
 const int use_dhcp = 1;
-static void (* got_ip_callback)(void) = NULL;
+static void (* got_ip_callback)(char * ip_address) = NULL;
 /** Event handler for Ethernet events */
 static void eth_event_handler(void *arg, esp_event_base_t event_base,
                               int32_t event_id, void *event_data)
@@ -69,15 +69,17 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "ETHMASK:" IPSTR, IP2STR(&ip_info->netmask));
     ESP_LOGI(TAG, "ETHGW:" IPSTR, IP2STR(&ip_info->gw));
     ESP_LOGI(TAG, "~~~~~~~~~~~");
+    char ip[16];
+    sprintf(ip, "%d.%d.%d.%d", IP2STR(&ip_info->ip));
     if (got_ip_callback != NULL) {
-        (*(got_ip_callback))();
+        (*(got_ip_callback))(ip);
     }
 }
 void eth_release() {
     
     ESP_ERROR_CHECK(esp_eth_stop(eth_handle));
 }
-void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, void (* got_ip_callback_set)(void))
+void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, void (* got_ip_callback_set)(char * ip_address))
 {  
     got_ip_callback = got_ip_callback_set;
     set_pin_17(1);

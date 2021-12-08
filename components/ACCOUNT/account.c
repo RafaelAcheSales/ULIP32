@@ -48,7 +48,7 @@
     ((i % DB_LOG_NODE_PER_SECTOR) * DB_LOG_NODE_SIZE)
 
 #define DB_NODE_FLAG            0x55
-const char * TAG = "ACCOUNT"; 
+static const char * TAG = "ACCOUNT"; 
 union account_u
 {
     struct {

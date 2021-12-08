@@ -16,6 +16,7 @@
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "esp_netif.h"
+#include "esp_sntp.h"
 #include "eth.h"
 #include "fpm.h"
 #include "freertos/FreeRTOS.h"
@@ -56,6 +57,10 @@ static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x
 static bool initialized = false;
 static esp_timer_handle_t handle;
 static esp_timer_handle_t handle2;
+const char *weekday[7];
+const char *monthday[12];
+
+
 typedef union
 {
     unsigned char *b;
@@ -804,7 +809,13 @@ char tasks_info[1024];
 static void got_ip_event()
 {
 }
-static void got_ip_event2()
+static void ulip_core_http_callback(char *uri, char *response_body, int http_status,
+                                    char *response_headers, int body_size)
+{
+    ESP_LOGI("ULIP", "HTTP response [%s] status [%d]",
+            uri, http_status);
+}
+static void got_ip_event2(char * ip_address)
 {
     uint8_t mode;
     uint8_t level;
@@ -812,6 +823,9 @@ static void got_ip_event2()
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
     udp_logging_init(host, port, udp_logging_vprintf);
+    CFG_set_server_ip(ip_address);
+
+    
     // rfid_init(CFG_get_rfid_timeout(),
     //             CFG_get_rfid_retries(),
     //             CFG_get_rfid_nfc(),
@@ -948,8 +962,59 @@ unsigned char *data = (unsigned char *)"\x88";
 
 static void rs485_rx_data(int tty, const char *data,
                           int len, void *user_data)
+
 {
     printf("data %s", data);
+}
+static int ulip_core_http_request(const char *url)
+{
+    const char *server = NULL;
+    const char *user = NULL;
+    const char *pass = NULL;
+    const char *param = NULL;
+    int port = 0;
+    char auth[128] = "";
+    char stmp[1024];
+    char *p;
+    char *l;
+    char *t;
+
+    if (!url) return -1;
+
+    /* Parse URL */
+    strncpy(stmp, url, sizeof(stmp));
+    p = strtok_r(stmp, "/", &l);
+    if (strcmp(p, "http:")) return -1;
+    p = strtok_r(NULL, "/", &l);
+    if (!p) return -1;
+    /* User:Password */
+    if ((t = strchr(p, '@'))) {
+        if (t < l) {
+            *t = '\0';
+            user = strtok_r(p, ":", &p);
+            pass = strtok_r(NULL, ":", &p);
+            p = ++t;
+        }
+    }
+
+    /* Server:Port */
+    if ((t = strchr(p, ':'))) {
+        if (t < l) {
+            server = strtok_r(p, ":", &p);
+            if (!p) return -1;
+            port = strtol(p, NULL, 10);
+        }
+    } else {
+        server = p;
+    }
+    param = l;
+    if (user && pass)
+        sprintf(auth, "%s:%s", user, pass);
+
+    http_raw_request(server, port, false, user,pass, param, NULL,
+                     "", "", 0, ulip_core_http_callback);
+
+    return 0;
 }
 static int ulip_core_httpd_request(httpd_req_t *req)
 {
@@ -1005,6 +1070,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
     const char *volume;
     const char *volumestatus;
     struct tm *tm;
+    time_t rawtime;
     char date[64];
     int index;
     char *p;
@@ -1024,16 +1090,17 @@ static int ulip_core_httpd_request(httpd_req_t *req)
     if (rc != ESP_OK)
         return rc;
 
-    if (buffer_len > 1)
+    buf = malloc(buffer_len);
+    if (buffer_len > 1 && httpd_req_get_url_query_str(req, buf, buffer_len) == ESP_OK)
     {
-        buf = malloc(buffer_len);
-        if (httpd_req_get_url_query_str(req, buf, buffer_len) == ESP_OK)
+        ESP_LOGI("main", "Found URL query => %s", buf);
+        // char param[32];
+        if (httpd_query_key_value(buf, "request", request, sizeof(request)) == ESP_OK)
         {
-            ESP_LOGI("main", "Found URL query => %s", buf);
-            char param[32];
-            if (httpd_query_key_value(buf, "version", param, sizeof(param)) == ESP_OK)
+            
+            if (!strcmp(request, "version"))
             {
-                ESP_LOGI("ULIP", "version %s", param);
+                ESP_LOGI("ULIP", "version %s", request);
                 /* JSON */
                 body = (char *)malloc(128);
                 if (!body)
@@ -1052,120 +1119,127 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 free(buf);
                 return ESP_OK;
             }
-        }
-        free(buf);
-    }
-    return ESP_OK;
-#if 0
-        else if (!os_strcmp(request, "status"))
-        {
-            /* JSON */
-            body = (char *)os_malloc(256);
-            if (!body)
+            else if (!strcmp(request, "status"))
             {
-                httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-                httpdStartResponse(connData, 500);
-                httpdHeader(connData, "Content-Length", "0");
-                httpdEndHeaders(connData);
-                return HTTPD_CGI_DONE;
-            }
-            len = sprintf(body, "{\"description\":\"%s\",\"relay\":\"%s\",\"sensor\":\"%s\"}",
-                             CFG_get_control_description() ? CFG_get_control_description() : "",
-                             ctl_relay_status() == CTL_RELAY_OFF ? "off" : "on",
-                             ctl_sensor_status() == CTL_SENSOR_OFF ? "off" : "on");
-            httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-            httpdStartResponse(connData, 200);
-            tm = rtc_gmtime(rtc_time());
-            sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
-                       rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
-                       tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
-            httpdHeader(connData, "Date", date);
-            httpdHeader(connData, "Content-Type", "application/json");
-            sprintf(slen, "%d", len);
-            httpdHeader(connData, "Content-Length", slen);
-            httpdEndHeaders(connData);
-            httpdSendData(connData, body, len);
-            os_free(body);
-            return HTTPD_CGI_DONE;
-        }
-        else if (!os_strcmp(request, "relay"))
-        {
-            httpdFindArg(connData->getArgs, "state",
-                         state, sizeof(state));
-            server = CFG_get_server_ip();
-            port = CFG_get_server_port();
-            if (!port)
-                port = 80;
-            retries = CFG_get_server_retries();
-            if (CFG_get_server_user() && CFG_get_server_passwd())
-                sprintf(auth, "%s:%s", CFG_get_server_user(),
-                           CFG_get_server_passwd());
-            if (!os_strcmp(state, "on") || !os_strcmp(state, "hold"))
-            {
-                if (!CFG_get_control_external())
+                body = (char *)malloc(256);
+                if (!body)
                 {
-                    /* Local control */
-                    if (!os_strcmp(state, "on"))
+                    ESP_LOGE("ULIP", "malloc failed");
+                    httpd_resp_send_500(req);
+                    free(buf);
+                    return ESP_FAIL;
+                }
+                len = sprintf(body, "{\"description\":\"%s\",\"relay\":\"%s\",\"sensor\":\"%s\"}",
+                                CFG_get_control_description() ? CFG_get_control_description() : "",
+                                ctl_relay_status() == CTL_RELAY_OFF ? "off" : "on",
+                                ctl_sensor_status() == CTL_SENSOR_OFF ? "off" : "on");
+                rawtime = time(NULL);
+                tm = gmtime (&rawtime);
+                
+                // tm = localtime(&rawtime);
+                // printf("%d, %lu, %s\n", tm->tm_year, rawtime, weekday[tm->tm_wday]);
+                sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
+                        weekday[tm->tm_wday], tm->tm_mday, monthday[tm->tm_mon],
+                        tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+                httpd_resp_set_hdr(req, "Date", date);
+                httpd_resp_set_type(req, "application/json");
+                sprintf(slen, "%d", len);
+                httpd_resp_send(req, (const char *)body, len);
+                free(body);
+                free(buf);
+                return ESP_OK;
+                
+            }
+            else if (!strcmp(request, "relay"))
+            {
+                httpd_query_key_value(buf, "state", state, sizeof(state));
+                // httpdFindArg(connData->getArgs, "state",
+                //             state, sizeof(state));
+                server = CFG_get_server_ip();
+                port = CFG_get_server_port();
+                if (!port)
+                    port = 80;
+                retries = CFG_get_server_retries();
+                if (CFG_get_server_user() && CFG_get_server_passwd())
+                    sprintf(auth, "%s:%s", CFG_get_server_user(),
+                            CFG_get_server_passwd());
+                if (!strcmp(state, "on") || !strcmp(state, "hold"))
+                {
+                    if (!CFG_get_control_external())
                     {
-                        if (CFG_get_control_mode() == CFG_CONTROL_MODE_AUTO)
-                            ctl_relay_on(CFG_get_control_timeout());
+                        /* Local control */
+                        if (!strcmp(state, "on"))
+                        {
+                            if (CFG_get_control_mode() == CFG_CONTROL_MODE_AUTO)
+                                ctl_relay_on(CFG_get_control_timeout());
+                            else
+                                ctl_relay_on(0);
+                        }
                         else
+                        {
                             ctl_relay_on(0);
+                        }
                     }
                     else
                     {
-                        ctl_relay_on(0);
+                        /* External control */
+                        ulip_core_http_request(CFG_get_control_url());
                     }
-                }
-                else
-                {
-                    /* External control */
-                    ulip_core_http_request(CFG_get_control_url());
-                }
-                if (!authBasicGetUsername(connData, username, sizeof(username)))
-                {
-                    index = account_db_find(NULL, username, NULL, NULL,
-                                            NULL, NULL, NULL);
-                    if (index != -1)
+
+                    if (!authBasicGetUsername(req, username, sizeof(username)))
                     {
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYTE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
-                        /* LOG */
-                        log = account_log_new();
-                        if (log)
+                        index = account_db_find(NULL, username, NULL, NULL,
+                                                NULL, NULL, NULL);
+                        ESP_LOGI("main", "index %d", index);                       
+                        if (index != -1)
                         {
-                            acc = account_db_get_index(index);
-                            account_log_set_name(log, account_get_name(acc));
-                            tm = rtc_localtime();
-                            sprintf(date, "%02d/%02d/%02d %02d:%02d:%02d",
-                                       tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
-                                       tm->tm_hour, tm->tm_min, tm->tm_sec);
-                            account_log_set_date(log, date);
-                            account_log_set_code(log, username);
-                            account_log_set_granted(log, TRUE);
-                            if (acc_log[acc_log_count])
-                                account_log_destroy(acc_log[acc_log_count]);
-                            acc_log[acc_log_count] = log;
-                            acc_log_count = ++acc_log_count & (MAX_ACC_LOG - 1);
-                            account_db_log_insert(log);
-                            account_destroy(acc);
+    #if 0
+    // #if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && 
+    //     !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYTE__) && 
+    //     !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && 
+    //     !defined(__MLI_1WLC_TYPE__)
+                            /* LOG */
+                            log = account_log_new();
+                            if (log)
+                            {
+                                acc = account_db_get_index(index);
+                                account_log_set_name(log, account_get_name(acc));
+                                tm = rtc_localtime();
+                                sprintf(date, "%02d/%02d/%02d %02d:%02d:%02d",
+                                        tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
+                                        tm->tm_hour, tm->tm_min, tm->tm_sec);
+                                account_log_set_date(log, date);
+                                account_log_set_code(log, username);
+                                account_log_set_granted(log, TRUE);
+                                if (acc_log[acc_log_count])
+                                    account_log_destroy(acc_log[acc_log_count]);
+                                acc_log[acc_log_count] = log;
+                                acc_log_count = ++acc_log_count & (MAX_ACC_LOG - 1);
+                                account_db_log_insert(log);
+                                account_destroy(acc);
+                            }
+    #endif
+                            if (CFG_get_server_url())
+                                sprintf(url, "/%s?request=user&user=%s&state=granted",
+                                        CFG_get_server_url(), username);
+                            else
+                                sprintf(url, "/?request=user&user=%s&state=granted",
+                                        username);
+                            printf("HTTP request to host %s path %s\n", server, url);
+                            http_raw_request(server, port, false, CFG_get_server_user(), CFG_get_server_passwd(), url, NULL,
+                                            "", "", retries, ulip_core_http_callback);
+                            ctl_beep(0);
                         }
-#endif
-                        if (CFG_get_server_url())
-                            sprintf(url, "/%s?request=user&user=%s&state=granted",
-                                       CFG_get_server_url(), username);
-                        else
-                            sprintf(url, "/?request=user&user=%s&state=granted",
-                                       username);
-                        http_raw_request(server, port, false, auth, url, NULL,
-                                         "", retries, ulip_core_http_callback);
-                        ctl_beep(0);
                     }
                 }
             }
-            else if (!os_strcmp(state, "off"))
+        
+        }
+    }
+    free(buf);
+    return ESP_OK;
+#if 0
+            else if (!strcmp(state, "off"))
             {
                 if (!CFG_get_control_external())
                 {
@@ -1179,11 +1253,11 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "alarm"))
+        else if (!strcmp(request, "alarm"))
         {
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
-            if (!os_strcmp(state, "on"))
+            if (!strcmp(state, "on"))
             {
                 ctl_alarm_on();
             }
@@ -1197,11 +1271,11 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "panic"))
+        else if (!strcmp(request, "panic"))
         {
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
-            if (!os_strcmp(state, "on"))
+            if (!strcmp(state, "on"))
             {
                 ctl_panic_on();
             }
@@ -1215,7 +1289,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "update"))
+        else if (!strcmp(request, "update"))
         {
             httpdFindArg(connData->getArgs, "url",
                          url, sizeof(url));
@@ -1233,7 +1307,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "reboot"))
+        else if (!strcmp(request, "reboot"))
         {
             httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
             httpdStartResponse(connData, 200);
@@ -1244,7 +1318,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             os_timer_arm(&reboot_timer, 1000, false);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "setconfig"))
+        else if (!strcmp(request, "setconfig"))
         {
             if (!connData->post || !connData->post->buff)
             {
@@ -1266,21 +1340,21 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 10;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_hotspot(!os_strcmp(p, "on"));
+                    CFG_set_hotspot(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"ap_mode\":", p, 10))
                 {
                     p += 10;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_ap_mode(!os_strcmp(p, "on"));
+                    CFG_set_ap_mode(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"standalone\":", p, 13))
                 {
                     p += 13;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_standalone(!os_strcmp(p, "on"));
+                    CFG_set_standalone(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"ssid\":", p, 7))
                 {
@@ -1315,14 +1389,14 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_ssid_hidden(!os_strcmp(p, "on"));
+                    CFG_set_ssid_hidden(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"dhcp\":", p, 7))
                 {
                     p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_dhcp(!os_strcmp(p, "on"));
+                    CFG_set_dhcp(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"ip\":", p, 5))
                 {
@@ -1378,7 +1452,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 6;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_dst(!os_strcmp(p, "on"));
+                    CFG_set_dst(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"dst_date\":", p, 11))
                 {
@@ -1434,7 +1508,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 12;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_user_auth(!os_strcmp(p, "on"));
+                    CFG_set_user_auth(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"ota_url\":", p, 10))
                 {
@@ -1448,7 +1522,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_rfid_enable(!os_strcmp(p, "on"));
+                    CFG_set_rfid_enable(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"rfid_timeout\":", p, 15))
                 {
@@ -1469,7 +1543,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 11;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_rfid_nfc(!os_strcmp(p, "on"));
+                    CFG_set_rfid_nfc(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"rfid_panic_timeout\":", p, 21))
                 {
@@ -1490,7 +1564,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 9;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_qrcode_enable(!os_strcmp(p, "on"));
+                    CFG_set_qrcode_enable(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"qrcode_timeout\":", p, 17))
                 {
@@ -1525,14 +1599,14 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 16;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_qrcode_config(!os_strcmp(p, "on"));
+                    CFG_set_qrcode_config(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"control_external\":", p, 19))
                 {
                     p += 19;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_control_external(!os_strcmp(p, "true"));
+                    CFG_set_control_external(!strcmp(p, "true"));
                 }
                 else if (!os_strncmp("\"control_url\":", p, 14))
                 {
@@ -1581,7 +1655,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 8;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_rs485_enable(!os_strcmp(p, "on"));
+                    CFG_set_rs485_enable(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"rs485_address\":", p, 16))
                 {
@@ -1638,14 +1712,14 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 8;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_rf433_enable(!os_strcmp(p, "on"));
+                    CFG_set_rf433_enable(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"fingerprint\":", p, 14))
                 {
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_fingerprint_enable(!os_strcmp(p, "on"));
+                    CFG_set_fingerprint_enable(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"fingerprint_timeout\":", p, 22))
                 {
@@ -1694,7 +1768,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_ddns(!os_strcmp(p, "on"));
+                    CFG_set_ddns(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"ddns_domain\":", p, 14))
                 {
@@ -1722,7 +1796,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 11;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_rf433_rc(!os_strcmp(p, "on"));
+                    CFG_set_rf433_rc(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"rf433_hc\":", p, 11))
                 {
@@ -1736,7 +1810,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 11;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_rf433_bc(!os_strcmp(p, "on"));
+                    CFG_set_rf433_bc(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"rf433_bp\":", p, 11))
                 {
@@ -1764,7 +1838,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_lora_enable(!os_strcmp(p, "on"));
+                    CFG_set_lora_enable(!strcmp(p, "on"));
                 }
                 else if (!os_strncmp("\"lora_channel\":", p, 15))
                 {
@@ -2124,7 +2198,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "getconfig"))
+        else if (!strcmp(request, "getconfig"))
         {
             uint8_t mode = 0;
             uint8_t level = 0;
@@ -2375,14 +2449,14 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "restoreconfig"))
+        else if (!strcmp(request, "restoreconfig"))
         {
             ulip_core_restore_config(TRUE);
         }
-        else if (!os_strcmp(request, "users"))
+        else if (!strcmp(request, "users"))
         {
             httpdFindArg(connData->getArgs, "file", file, sizeof(file));
             if (!connData->cgiData)
@@ -2423,7 +2497,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 len = account_db_json(index, body, 2048);
             httpdSendData(connData, body, len);
             connData->cgiData = (void *)(index | (1 << 31));
-            os_free(body);
+            free(body);
             if (index == account_db_get_last())
             {
                 if (*file == '\0')
@@ -2437,7 +2511,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             }
             return HTTPD_CGI_MORE;
         }
-        else if (!os_strcmp(request, "usersummary"))
+        else if (!strcmp(request, "usersummary"))
         {
             body = (char *)os_malloc(512);
             if (!body)
@@ -2456,14 +2530,14 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
 #if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
     !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
     !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
     !defined(__MLI_1WLC_TYPE__)
         }
-        else if (!os_strcmp(request, "accesslog"))
+        else if (!strcmp(request, "accesslog"))
         {
             httpdFindArg(connData->getArgs, "file", file, sizeof(file));
             /* Check filter */
@@ -2530,7 +2604,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 log = account_db_log_get_index(index);
                 if (log)
                 {
-                    if (os_strcmp(end, account_log_get_date(log)) < 0)
+                    if (strcmp(end, account_log_get_date(log)) < 0)
                     {
                         if (connData->cgiData)
                         {
@@ -2539,18 +2613,18 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                                 index |= (1 << 30);
                         }
                         connData->cgiData = (void *)(index | (1 << 31));
-                        os_free(log);
+                        free(log);
                         return HTTPD_CGI_MORE;
                     }
-                    if (os_strcmp(start, account_log_get_date(log)) > 0)
+                    if (strcmp(start, account_log_get_date(log)) > 0)
                     {
                         if (*file == '\0')
                             httpdSendData(connData, "]", 1);
-                        os_free(log);
+                        free(log);
                         return HTTPD_CGI_DONE;
                     }
                     httpdSuspend(connData, 0);
-                    os_free(log);
+                    free(log);
                 }
             }
             body = (char *)os_malloc(1024);
@@ -2569,18 +2643,18 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 }
                 httpdSendData(connData, body, len);
                 connData->cgiData = (void *)(index | (3 << 30));
-                os_free(body);
+                free(body);
                 return HTTPD_CGI_MORE;
             }
             else
             {
                 if (*file == '\0')
                     httpdSendData(connData, "]", 1);
-                os_free(body);
+                free(body);
                 return HTTPD_CGI_DONE;
             }
         }
-        else if (!os_strcmp(request, "delaccesslog"))
+        else if (!strcmp(request, "delaccesslog"))
         {
             ulip_core_log_remove();
             httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -2590,7 +2664,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             return HTTPD_CGI_DONE;
 #endif
         }
-        else if (!os_strcmp(request, "adduser"))
+        else if (!strcmp(request, "adduser"))
         {
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
             if (connData->cgiData)
@@ -2624,7 +2698,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 httpdHeader(connData, "Content-Length", slen);
                 httpdEndHeaders(connData);
                 httpdSendData(connData, body, len);
-                os_free(body);
+                free(body);
                 return HTTPD_CGI_DONE;
             }
 #endif
@@ -2787,27 +2861,27 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     httpdEndHeaders(connData);
                     return HTTPD_CGI_DONE;
                 }
-                if (name && os_strcmp(name, account_get_name(acc) ? account_get_name(acc) : ""))
+                if (name && strcmp(name, account_get_name(acc) ? account_get_name(acc) : ""))
                 {
                     update = TRUE;
                 }
-                else if (user && os_strcmp(user, account_get_user(acc) ? account_get_user(acc) : ""))
+                else if (user && strcmp(user, account_get_user(acc) ? account_get_user(acc) : ""))
                 {
                     update = TRUE;
                 }
-                else if (password && os_strcmp(password, account_get_password(acc) ? account_get_password(acc) : ""))
+                else if (password && strcmp(password, account_get_password(acc) ? account_get_password(acc) : ""))
                 {
                     update = TRUE;
                 }
-                else if (card && os_strcmp(card, account_get_card(acc) ? account_get_card(acc) : ""))
+                else if (card && strcmp(card, account_get_card(acc) ? account_get_card(acc) : ""))
                 {
                     update = TRUE;
                 }
-                else if (qrcode && os_strcmp(qrcode, account_get_code(acc) ? account_get_code(acc) : ""))
+                else if (qrcode && strcmp(qrcode, account_get_code(acc) ? account_get_code(acc) : ""))
                 {
                     update = TRUE;
                 }
-                else if (rfcode && os_strcmp(rfcode, account_get_rfcode(acc) ? account_get_rfcode(acc) : ""))
+                else if (rfcode && strcmp(rfcode, account_get_rfcode(acc) ? account_get_rfcode(acc) : ""))
                 {
                     update = TRUE;
                 }
@@ -2829,7 +2903,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 {
                     update = TRUE;
                 }
-                else if (key && os_strcmp(key, account_get_key(acc) ? account_get_key(acc) : ""))
+                else if (key && strcmp(key, account_get_key(acc) ? account_get_key(acc) : ""))
                 {
                     update = TRUE;
                 }
@@ -2841,7 +2915,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 {
                     update = TRUE;
                 }
-                else if (finger && os_strcmp(finger, account_get_finger(acc) ? account_get_finger(acc) : ""))
+                else if (finger && strcmp(finger, account_get_finger(acc) ? account_get_finger(acc) : ""))
                 {
                     update = TRUE;
                 }
@@ -2852,7 +2926,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     {
                         for (i = 0; i < ACCOUNT_PERMISSIONS; i++)
                         {
-                            if (os_strcmp(perm[i], k[i]))
+                            if (strcmp(perm[i], k[i]))
                             {
                                 update = TRUE;
                                 break;
@@ -2864,7 +2938,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                         update = TRUE;
                     }
                 }
-                os_free(acc);
+                free(acc);
                 if (!update)
                 {
                     /* JSON */
@@ -2886,7 +2960,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     httpdHeader(connData, "Content-Length", slen);
                     httpdEndHeaders(connData);
                     httpdSendData(connData, body, len);
-                    os_free(body);
+                    free(body);
                     return HTTPD_CGI_DONE;
                 }
             }
@@ -2973,11 +3047,11 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
 #endif
         }
-        else if (!os_strcmp(request, "getuser"))
+        else if (!strcmp(request, "getuser"))
         {
             if (!connData->post || !connData->post->buff)
             {
@@ -3066,10 +3140,10 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "deluser"))
+        else if (!strcmp(request, "deluser"))
         {
             if (!connData->post || !connData->post->buff)
             {
@@ -3180,7 +3254,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "probeuser"))
+        else if (!strcmp(request, "probeuser"))
         {
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
@@ -3239,7 +3313,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 else
                     index = strtol(uid, NULL, 10);
             }
-            if (!os_strcmp(state, "off"))
+            if (!strcmp(state, "off"))
             {
                 probe_user = false;
                 probe_index = -1;
@@ -3255,11 +3329,11 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "eraseuser"))
+        else if (!strcmp(request, "eraseuser"))
         {
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
-            if (!os_strcmp(state, "off"))
+            if (!strcmp(state, "off"))
                 erase_user = false;
             else
                 erase_user = TRUE;
@@ -3269,7 +3343,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "checkuser"))
+        else if (!strcmp(request, "checkuser"))
         {
             if (!connData->post || !connData->post->buff)
             {
@@ -3357,7 +3431,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "eraseall"))
+        else if (!strcmp(request, "eraseall"))
         {
             account_db_remove_all();
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
@@ -3370,7 +3444,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             return HTTPD_CGI_DONE;
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
         }
-        else if (!os_strcmp(request, "finger"))
+        else if (!strcmp(request, "finger"))
         {
             if (!connData->post || !connData->post->buff)
             {
@@ -3448,7 +3522,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             }
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
-            if (!os_strcmp(state, "off"))
+            if (!strcmp(state, "off"))
             {
                 ulip_core_capture_finger(false, index);
             }
@@ -3472,7 +3546,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             return HTTPD_CGI_DONE;
 #endif
         }
-        else if (!os_strcmp(request, "location"))
+        else if (!strcmp(request, "location"))
         {
             /* JSON */
             body = (char *)os_malloc(256);
@@ -3494,10 +3568,10 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "alarms"))
+        else if (!strcmp(request, "alarms"))
         {
             /* JSON */
             body = (char *)os_malloc(256);
@@ -3520,10 +3594,10 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "getdatetime"))
+        else if (!strcmp(request, "getdatetime"))
         {
             /* JSON */
             body = (char *)os_malloc(256);
@@ -3549,10 +3623,10 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "setdatetime"))
+        else if (!strcmp(request, "setdatetime"))
         {
             if (!connData->post || !connData->post->buff)
             {
@@ -3633,7 +3707,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
 #if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || \
     defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
         }
-        else if (!os_strcmp(request, "getqrcode"))
+        else if (!strcmp(request, "getqrcode"))
         {
             /* Check account */
             if (!qrcode_get_dynamic() ||
@@ -3693,17 +3767,17 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
             account_destroy(acc);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
 #endif
         }
-        else if (!os_strcmp(request, "beep"))
+        else if (!strcmp(request, "beep"))
         {
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
-            if (!os_strcmp(state, "granted") || !os_strcmp(state, "panic"))
+            if (!strcmp(state, "granted") || !strcmp(state, "panic"))
                 ctl_beep(0);
-            else if (!os_strcmp(state, "blocked"))
+            else if (!strcmp(state, "blocked"))
                 ctl_buzzer_on(CTL_BUZZER_ERROR);
             httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
             httpdStartResponse(connData, 200);
@@ -3715,7 +3789,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
     defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
     defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__) || \
     defined(__MLI_1WLC_TYPE__)
-        else if (!os_strcmp(request, "telemetry"))
+        else if (!strcmp(request, "telemetry"))
         {
             /* JSON */
             body = (char *)os_malloc(512);
@@ -3826,10 +3900,10 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSendData(connData, body, len);
-            os_free(body);
+            free(body);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "deltelemetry"))
+        else if (!strcmp(request, "deltelemetry"))
         {
             sensor_cycles = 0;
             if (CFG_get_sensor_cycles())
@@ -3843,7 +3917,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "telemetrylog"))
+        else if (!strcmp(request, "telemetrylog"))
         {
             httpdFindArg(connData->getArgs, "file", file, sizeof(file));
             /* Check filter */
@@ -3910,7 +3984,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 log = telemetry_db_get_index(index);
                 if (log)
                 {
-                    if (os_strcmp(end, telemetry_get_date(log)) < 0)
+                    if (strcmp(end, telemetry_get_date(log)) < 0)
                     {
                         if (connData->cgiData)
                         {
@@ -3919,18 +3993,18 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                                 index |= (1 << 30);
                         }
                         connData->cgiData = (void *)(index | (1 << 31));
-                        os_free(log);
+                        free(log);
                         return HTTPD_CGI_MORE;
                     }
-                    if (os_strcmp(start, telemetry_get_date(log)) > 0)
+                    if (strcmp(start, telemetry_get_date(log)) > 0)
                     {
                         if (*file == '\0')
                             httpdSendData(connData, "]", 1);
-                        os_free(log);
+                        free(log);
                         return HTTPD_CGI_DONE;
                     }
                     httpdSuspend(connData, 0);
-                    os_free(log);
+                    free(log);
                 }
             }
             body = (char *)os_malloc(1024);
@@ -3949,18 +4023,18 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 }
                 httpdSendData(connData, body, len);
                 connData->cgiData = (void *)(index | (3 << 30));
-                os_free(body);
+                free(body);
                 return HTTPD_CGI_MORE;
             }
             else
             {
                 if (*file == '\0')
                     httpdSendData(connData, "]", 1);
-                os_free(body);
+                free(body);
                 return HTTPD_CGI_DONE;
             }
         }
-        else if (!os_strcmp(request, "deltelemetrylog"))
+        else if (!strcmp(request, "deltelemetrylog"))
         {
             ulip_core_telemetry_remove();
             httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3969,13 +4043,13 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-        else if (!os_strcmp(request, "relayaux"))
+        else if (!strcmp(request, "relayaux"))
         {
             httpdFindArg(connData->getArgs, "state",
                          state, sizeof(state));
-            if (!os_strcmp(state, "on") || !os_strcmp(state, "hold"))
+            if (!strcmp(state, "on") || !strcmp(state, "hold"))
             {
-                if (!os_strcmp(state, "on"))
+                if (!strcmp(state, "on"))
                 {
                     ctl_relay_ext_on(CFG_get_control_timeout());
                 }
@@ -3984,7 +4058,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     ctl_relay_ext_on(0);
                 }
             }
-            else if (!os_strcmp(state, "off"))
+            else if (!strcmp(state, "off"))
             {
                 ctl_relay_ext_off();
             }
@@ -4010,9 +4084,34 @@ static void timer_callback()
 {
     xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
 }
+void set_time_names() {
+    weekday[0] = "Sun";
+    weekday[1] = "Mon";
+    weekday[2] = "Tue";
+    weekday[3] = "Wed";
+    weekday[4] = "Thu";
+    weekday[5] = "Fri";
+    weekday[6] = "Sat";
+    monthday[0] = "Jan";
+    monthday[1] = "Feb";
+    monthday[2] = "Mar";
+    monthday[3] = "Apr";
+    monthday[4] = "May";
+    monthday[5] = "Jun";
+    monthday[6] = "Jul";
+    monthday[7] = "Aug";
+    monthday[8] = "Sep";
+    monthday[9] = "Oct";
+    monthday[10] = "Nov";
+    monthday[11] = "Dec";
+}
 void app_main(void)
 {
+    set_time_names();
+    
     CFG_Load();
+    CFG_set_control_mode(0);
+    CFG_set_control_timeout(2);
     CFG_set_ip_address("10.0.0.140");
     CFG_set_netmask("255.255.255.0");
     CFG_set_gateway("10.0.0.1");
@@ -4043,7 +4142,12 @@ void app_main(void)
     //                 CFG_get_qrcode_validity(),
     //                 qrcode_event_main, NULL, 3);
 
-    // account_init();
+    account_init();
+    // account_t *account = account_new();
+    // account_set_user(account, "user");
+    // account_set_key(account, "password");
+    // account_db_insert(account);
+    
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
     //                rf433_event, NULL);
@@ -4056,7 +4160,9 @@ void app_main(void)
     //                rs485_event, NULL);
     printf("Hello world!\n");
     ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
-
+    sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    sntp_setservername(0, "pool.ntp.org");
+    sntp_init();
     vTaskList(tasks_info);
     ESP_LOGI("main", "\n%s", tasks_info);
     // if (!initialized) {
