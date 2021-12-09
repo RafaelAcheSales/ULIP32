@@ -16,6 +16,8 @@
 #define CFG_WIFI_SSID           "uTech-AP"
 #define CFG_WIFI_PASSWD         "adminutech"
 
+#define CFG_ETH_IP
+
 #define CFG_IP_ADDRESS          "10.0.0.222"
 #define CFG_NETMASK             "255.255.255.0"
 #define CFG_GATEWAY             "10.0.0.1"

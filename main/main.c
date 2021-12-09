@@ -2188,20 +2188,12 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     }
                 }
                 CFG_Save();
-                // httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-                // httpdStartResponse(connData, 200);
-                // httpdHeader(connData, "Content-Length", "0");
-                // httpdEndHeaders(connData);
-                // return HTTPD_CGI_DONE;
+
                 httpd_resp_send(req, NULL, 0);
                 free(buf);
                 return ESP_OK;
             }
-        }
-    }
-    free(buf);
-    return ESP_OK;
-#if 0
+            #if 0
             else if (!strcmp(request, "getconfig"))
             {
                 uint8_t mode = 0;
@@ -2212,15 +2204,13 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 body = (char *)os_malloc(2048);
                 if (!body)
                 {
-                    httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-                    httpdStartResponse(connData, 500);
-                    httpdHeader(connData, "Content-Length", "0");
-                    httpdEndHeaders(connData);
-                    return HTTPD_CGI_DONE;
+                    httpd_resp_send_500(req);
+                    free(buf);
+                    return ESP_OK;
                 }
                 if (CFG_get_hotspot())
                 {
-                    wifi_get_ip_info(SOFTAP_IF, &ipInfo);
+                    wifi_get_ip_info(&ipInfo);
                 }
                 else
                 {
@@ -2456,6 +2446,12 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 free(body);
                 return HTTPD_CGI_DONE;
             }
+            #endif
+        }
+    }
+    free(buf);
+    return ESP_OK;
+#if 0
             else if (!strcmp(request, "restoreconfig"))
             {
                 ulip_core_restore_config(TRUE);

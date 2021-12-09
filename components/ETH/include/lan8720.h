@@ -24,6 +24,7 @@
 
 #endif // CONFIG_ETH_USE_SPI_ETHERNET
 static esp_eth_handle_t eth_handle = NULL;
+static esp_netif_t *eth_netif = NULL;
 static const char *TAG = "eth_example";
 const int use_dhcp = 1;
 static void (* got_ip_callback)(char * ip_address) = NULL;
@@ -75,6 +76,14 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
         (*(got_ip_callback))(ip);
     }
 }
+void get_eth_ip(esp_netif_ip_info_t *ip_info)) {
+    if (eth_netif != NULL) {
+        esp_netif_get_ip_info(eth_netif, ip_info);
+    } else {
+        ESP_LOGE(TAG, "eth_netif is NULL");
+        ip_info = NULL;
+    }
+}
 void eth_release() {
     
     ESP_ERROR_CHECK(esp_eth_stop(eth_handle));
@@ -83,13 +92,8 @@ void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, voi
 {  
     got_ip_callback = got_ip_callback_set;
     set_pin_17(1);
-    // vTaskDelay(100);
-    // Initialize TCP/IP network interface (should be called only once in application)
-    // ESP_ERROR_CHECK(esp_netif_init());
-    // Create default event loop that running in background
-    // ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
-    esp_netif_t *eth_netif = esp_netif_new(&cfg);
+    eth_netif = esp_netif_new(&cfg);
     // Set default handlers to process TCP/IP stuffs
     ESP_ERROR_CHECK(esp_eth_set_default_handlers(eth_netif));
     // Register user defined event handers
@@ -201,6 +205,7 @@ void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, voi
         esp_netif_str_to_ip4((const char *)gateway,(esp_ip4_addr_t *) &info_t.gw.addr);
         esp_netif_str_to_ip4((const char *)netmask,(esp_ip4_addr_t *) &info_t.netmask.addr);
         esp_netif_set_ip_info(eth_netif, &info_t);
+
     }
 }
 #endif

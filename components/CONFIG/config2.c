@@ -28,6 +28,11 @@ typedef struct {
     uint32_t cfg_holder;
     char wifi_ssid[32];
     char wifi_passwd[64];
+    bool eth_enable;
+    bool eth_dhcp;
+    char eth_ip_adress[16];
+    char eth_netmask[16];
+    char eth_gateway[16];
     bool dhcp;
     char ip_address[16];
     char netmask[16];
@@ -256,7 +261,12 @@ CFG_Default(void)
     sysCfg.cfg_holder = CFG_HOLDER;
     strcpy(sysCfg.wifi_ssid, CFG_WIFI_SSID);
     strcpy(sysCfg.wifi_passwd, CFG_WIFI_PASSWD);
+    sysCfg.eth_dhcp = true;
+    sysCfg.eth_enable = true;
     sysCfg.dhcp = true;
+    strcpy(sysCfg.eth_ip, CFG_ETH_IP);
+    strcpy(sysCfg.eth_netmask, CFG_ETH_NETMASK);
+    strcpy(sysCfg.eth_gateway, CFG_ETH_GATEWAY);
     strcpy(sysCfg.ip_address, CFG_IP_ADDRESS);
     strcpy(sysCfg.netmask, CFG_NETMASK);
     strcpy(sysCfg.gateway, CFG_GATEWAY);
@@ -483,6 +493,13 @@ void CFG_set_dhcp(bool dhcp)
 bool CFG_get_dhcp(void)
 {
     return sysCfg.dhcp;
+}
+
+void CFG_set_eth_ip_adress(const char *ip)
+{
+    memset(sysCfg.eth_ip_adress, 0, sizeof(sysCfg.eth_ip_adress));
+    if (ip)
+        strcpy(sysCfg.eth_ip_adress, ip);
 }
 
 void CFG_set_ip_address(const char *ip)
