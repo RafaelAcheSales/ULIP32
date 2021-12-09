@@ -25,6 +25,9 @@ extern "C" {
 
 #include <string.h>
 extern int udp_log_fd;
+#define DEBUG_MODE_NONE         0
+#define DEBUG_MODE_SERIAL       1
+#define DEBUG_MODE_NETWORK      2
 
 int udp_logging_init(const char *ipaddr, unsigned long port, vprintf_like_t func);
 int udp_logging_vprintf( const char *str, va_list l );

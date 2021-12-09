@@ -152,6 +152,7 @@ static void httpd_register_basic_auth(httpd_handle_t server, httpd_uri_t *uri_ha
         basic_auth_info->username = CONFIG_EXAMPLE_BASIC_AUTH_USERNAME;
         basic_auth_info->password = CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD;
         ESP_LOGI("httpd", "user_uri %s", uri_handler->uri);
+        ESP_LOGI("httpd", "ctx %p", basic_auth_info);
         uri_handler->user_ctx = basic_auth_info;
         httpd_register_uri_handler(server, uri_handler);
     }
@@ -350,11 +351,10 @@ static esp_err_t echo_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-static const httpd_uri_t echo = {
-    .uri = "/echo",
+static httpd_uri_t echo = {
+    .uri = "/",
     .method = HTTP_POST,
-    .handler = echo_post_handler,
-    .user_ctx = NULL};
+    .handler = hello_get_handler};
 
 /* This handler allows the custom error handling functionality to be
  * tested from client side. For that, when a PUT request 0 is sent to
@@ -447,9 +447,10 @@ static httpd_handle_t start_webserver(void)
         // Set URI handlers
         ESP_LOGI(TAG, "Registering URI handlers");
         httpd_register_basic_auth(server, &hello);
-        httpd_register_uri_handler(server, &echo);
+        // httpd_register_uri_handler(server, &echo);
         httpd_register_uri_handler(server, &ctrl);
         httpd_register_basic_auth(server, &basic_auth);
+        httpd_register_basic_auth(server, &echo);
 #if 1
 #endif
         return server;

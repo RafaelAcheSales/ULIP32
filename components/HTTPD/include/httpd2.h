@@ -3,7 +3,16 @@
 
 #define AUTH_MAX_USER_LEN   64
 #define AUTH_MAX_PASS_LEN   64
-
+//Max length of request head. This is statically allocated for each connection.
+#define HTTPD_MAX_HEAD_LEN		1024
+//Max post buffer len. This is dynamically malloc'ed if needed.
+#define HTTPD_MAX_POST_LEN		2048
+//Max send buffer len. This is allocated on the stack.
+#define HTTPD_MAX_SENDBUFF_LEN	1024
+//If some data can't be sent because the underlaying socket doesn't accept the data (like the nonos
+//layer is prone to do), we put it in a backlog that is dynamically malloc'ed. This defines the max
+//size of the backlog.
+#define HTTPD_MAX_BACKLOG_SIZE	(4*1024)
 void start_httpd(void (* httpd_get_cb_set)(httpd_req_t *req));
 int authBasicGetUsername(httpd_req_t *req, char *username, int len);
 int authBasicGetPassword(httpd_req_t *req, char *password, int len);
@@ -2360,12 +2369,11 @@ static const char INDEXADMIN_DEBUG[] = {
 <TD>\
 <SELECT class=\"form-control\" name=\"debug_level\">\
 <OPTION value=\"0\">Nenhum</OPTION>\
-<OPTION value=\"2\">ERROR</OPTION>\
-<OPTION value=\"3\">CRITICAL</OPTION>\
-<OPTION value=\"4\">WARNING</OPTION>\
-<OPTION value=\"5\">MESSAGE</OPTION>\
-<OPTION value=\"6\">INFO</OPTION>\
-<OPTION value=\"7\">DEBUG</OPTION>\
+<OPTION value=\"1\">ERROR</OPTION>\
+<OPTION value=\"2\">WARNING</OPTION>\
+<OPTION value=\"3\">INFO</OPTION>\
+<OPTION value=\"4\">DEBUG</OPTION>\
+<OPTION value=\"5\">VERBOSE</OPTION>\
 </SELECT>\
 </TD>\
 </tr><tr>\

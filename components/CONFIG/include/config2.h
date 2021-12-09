@@ -482,6 +482,12 @@ bool CFG_get_temt_enable(void);
 
 void CFG_set_temt_timeout(uint32_t timeout);
 
+void CFG_set_control_acc_timeout(uint32_t timeout);
+
+void CFG_set_control_doublepass_timeout(uint32_t timeout);
+
+void CFG_set_pir_chime(bool chime);
+
 uint32_t CFG_get_temt_timeout(void);
 
 void CFG_set_temt_upper(uint16_t temp);

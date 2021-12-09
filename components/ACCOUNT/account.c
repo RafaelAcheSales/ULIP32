@@ -1269,16 +1269,16 @@ account_t *account_db_get_index(int index)
         return NULL;
 
     acc = (account_t *)malloc(sizeof(account_t));
-    ESP_LOGI(TAG, "malloced");
+    // ESP_LOGI(TAG, "malloced");
     if (!acc) return NULL;
 
     addr = DB_NODE_ADDR(index);
-    ESP_LOGI(TAG, "addr of node: %x", addr);
+    // ESP_LOGI(TAG, "addr of node: %x", addr);
     // vTaskDelay(100);
     // taskENTER_CRITICAL(&my_mutex);
     esp_err_t error = esp_partition_read(partition, addr, (void *) acc, DB_NODE_SIZE);
     // taskEXIT_CRITICAL(&my_mutex);
-    ESP_LOGI(TAG, "read partition and error: %x", error);
+    // ESP_LOGI(TAG, "read partition and error: %x", error);
     // ets_intr_lock(); 
     // spi_flash_read(addr, (uint32 *)acc, DB_NODE_SIZE);
     // ets_intr_unlock(); 
