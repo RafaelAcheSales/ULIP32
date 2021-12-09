@@ -264,9 +264,9 @@ CFG_Default(void)
     sysCfg.eth_dhcp = true;
     sysCfg.eth_enable = true;
     sysCfg.dhcp = true;
-    strcpy(sysCfg.eth_ip, CFG_ETH_IP);
-    strcpy(sysCfg.eth_netmask, CFG_ETH_NETMASK);
-    strcpy(sysCfg.eth_gateway, CFG_ETH_GATEWAY);
+    // strcpy(sysCfg.eth_ip, CFG_ETH_IP);
+    // strcpy(sysCfg.eth_netmask, CFG_ETH_NETMASK);
+    // strcpy(sysCfg.eth_gateway, CFG_ETH_GATEWAY);
     strcpy(sysCfg.ip_address, CFG_IP_ADDRESS);
     strcpy(sysCfg.netmask, CFG_NETMASK);
     strcpy(sysCfg.gateway, CFG_GATEWAY);

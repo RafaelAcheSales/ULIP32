@@ -175,7 +175,6 @@ int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * ne
     io_conf.pull_up_en = 0;
     //configure GPIO with the given settings
     gpio_config(&io_conf);
-
      //init qrcode
     gpio_config_t io_conf2;
     //disable interrupt
@@ -189,6 +188,7 @@ int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * ne
     io_conf2.pull_up_en = 0;
     //configure GPIO with the given settings
     gpio_config(&io_conf2);
+    gpio_set_pull_mode(FPM_PIN, GPIO_PULLDOWN_ONLY);
     gpio_set_level(RELAY_EXT_PIN, 1);
     ctl_relay_pin_status = 0;
     if (!mode) {

@@ -14,7 +14,7 @@
 
 #define FPM_TTY                     1
 #define FPM_BFSIZE                  1024
-#define FPM_TIMEOUT                 1000000  /* usec */
+#define FPM_TIMEOUT                 100000  /* usec */
 #define FPM_SECURITY_LEVEL          3
 #define FPM_TEMPSIZE                498
 
@@ -685,6 +685,7 @@ static void fpm_polling_timeout(void *data)
         if (fpm_enroll_stage == FPM_ENROLL_NONE) {
             /* Check LED status */
             touch = ctl_fpm_get();
+            printf("touch %d\n", touch);
             if (touch) {
                 /* Enable LED */
                 if (fpm_led_status == 0) {
