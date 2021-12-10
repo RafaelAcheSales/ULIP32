@@ -31,6 +31,8 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 const char * nvs_partition = "nvs";
 static const char *TAG = "wifi softAP"; 
+static esp_netif_t *ap_netif;
+static esp_netif_t *sta_netif;
 static int s_retry_num = 0;
 static bool initialized = false;
 static void (* got_ip_callback)(void) = NULL;
@@ -77,7 +79,7 @@ void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, b
         return;
     got_ip_callback = got_ip_callback_set;
     if (ap_mode) {
-        esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+        ap_netif = esp_netif_create_default_wifi_ap();
         
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
         // cfg.nvs_enable = 1;
@@ -129,7 +131,7 @@ void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, b
             // ESP_ERROR_CHECK(esp_netif_init());
 
             // ESP_ERROR_CHECK(esp_event_loop_create_default());
-            esp_netif_t *sta_netif = esp_netif_create_default_wifi_sta();
+            sta_netif = esp_netif_create_default_wifi_sta();
 
             wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
             ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -216,6 +218,13 @@ void wifi_release(){
     ESP_ERROR_CHECK(esp_event_loop_delete_default());
     // ESP_ERROR_CHECK(esp_netif_deinit());
     initialized = false;
+}
+void get_wifi_ip(bool ap_mode, esp_netif_ip_info_t *info){
+    if (ap_mode && ap_netif != NULL) {
+        esp_netif_get_ip_info(ap_netif, info);
+    } else if (!ap_mode && sta_netif != NULL) {
+        esp_netif_get_ip_info(sta_netif, info);
+    }
 }
 
 

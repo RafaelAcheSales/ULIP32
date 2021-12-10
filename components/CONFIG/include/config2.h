@@ -16,7 +16,9 @@
 #define CFG_WIFI_SSID           "uTech-AP"
 #define CFG_WIFI_PASSWD         "adminutech"
 
-#define CFG_ETH_IP
+#define CFG_ETH_IP              "10.0.0.235"
+#define CFG_ETH_NETMASK         "255.255.255.0"
+#define CFG_ETH_GATEWAY         "10.0.0.1"
 
 #define CFG_IP_ADDRESS          "10.0.0.222"
 #define CFG_NETMASK             "255.255.255.0"
@@ -75,6 +77,9 @@ void  CFG_Save();
 void  CFG_Load();
 void  CFG_Default();
 
+uint32_t CFG_get_control_doublepass_timeout(void);
+
+uint32_t CFG_get_control_acc_timeout(void);
 
 const char *CFG_get_ethaddr(void);
 
@@ -85,6 +90,27 @@ const char *CFG_get_board(void);
 const char *CFG_get_release(void);
 uint16_t CFG_Get_blobs(void);
 void CFG_reset_all_flash(void);
+
+void CFG_set_eth_enable(bool enable);
+
+bool CFG_get_eth_enable(void);
+
+void CFG_set_eth_dhcp(bool dhcp);
+
+bool CFG_get_eth_dhcp(void);
+
+void CFG_set_eth_ip_adress(const char *ip);
+
+void CFG_set_eth_netmask(const char *netmask);
+
+void CFG_set_eth_gateway(const char *gateway);
+
+const char *CFG_get_eth_ip_adress(void);
+
+const char *CFG_get_eth_netmask(void);
+
+const char *CFG_get_eth_gateway(void);
+
 void CFG_set_wifi_disable(bool disable);
 
 bool CFG_get_wifi_disable(void);

@@ -76,7 +76,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
         (*(got_ip_callback))(ip);
     }
 }
-void get_eth_ip(esp_netif_ip_info_t *ip_info) {
+void eth_get_ip_info(esp_netif_ip_info_t *ip_info) {
     if (eth_netif != NULL) {
         esp_netif_get_ip_info(eth_netif, ip_info);
     } else {

@@ -264,9 +264,9 @@ CFG_Default(void)
     sysCfg.eth_dhcp = true;
     sysCfg.eth_enable = true;
     sysCfg.dhcp = true;
-    // strcpy(sysCfg.eth_ip, CFG_ETH_IP);
-    // strcpy(sysCfg.eth_netmask, CFG_ETH_NETMASK);
-    // strcpy(sysCfg.eth_gateway, CFG_ETH_GATEWAY);
+    strcpy(sysCfg.eth_ip_adress, CFG_ETH_IP);
+    strcpy(sysCfg.eth_netmask, CFG_ETH_NETMASK);
+    strcpy(sysCfg.eth_gateway, CFG_ETH_GATEWAY);
     strcpy(sysCfg.ip_address, CFG_IP_ADDRESS);
     strcpy(sysCfg.netmask, CFG_NETMASK);
     strcpy(sysCfg.gateway, CFG_GATEWAY);
@@ -435,7 +435,60 @@ const char *CFG_get_board(void)
 {
     return sysEnv.board;
 }
+//ETH
+//
+void CFG_set_eth_enable(bool enable)
+{
+    sysCfg.eth_enable = enable;
+}
 
+bool CFG_get_eth_enable(void)
+{
+    return sysCfg.eth_enable;
+}
+
+void CFG_set_eth_dhcp(bool dhcp)
+{
+    sysCfg.eth_dhcp = dhcp;
+}
+
+bool CFG_get_eth_dhcp(void)
+{
+    return sysCfg.eth_dhcp;
+}
+
+
+void CFG_set_eth_ip_adress(const char *ip)
+{
+    memset(sysCfg.eth_ip_adress, 0, sizeof(sysCfg.eth_ip_adress));
+    if (ip)
+        strcpy(sysCfg.eth_ip_adress, ip);
+}
+
+const char *CFG_get_eth_ip_adress(void)
+{
+    return sysCfg.eth_ip_adress;
+}
+void CFG_set_eth_netmask(const char *mask)
+{
+    memset(sysCfg.eth_netmask, 0, sizeof(sysCfg.eth_netmask));
+    if (mask)
+        strcpy(sysCfg.eth_netmask, mask);
+}
+const char *CFG_get_eth_netmask(void)
+{
+    return sysCfg.eth_netmask;
+}
+void CFG_set_eth_gateway(const char *gateway)
+{
+    memset(sysCfg.eth_gateway, 0, sizeof(sysCfg.eth_gateway));
+    if (gateway)
+        strcpy(sysCfg.eth_gateway, gateway);
+}
+const char *CFG_get_eth_gateway(void)
+{
+    return sysCfg.eth_gateway;
+}
 const char *CFG_get_release(void)
 {
     return sysEnv.release;
@@ -495,13 +548,8 @@ bool CFG_get_dhcp(void)
     return sysCfg.dhcp;
 }
 
-void CFG_set_eth_ip_adress(const char *ip)
-{
-    memset(sysCfg.eth_ip_adress, 0, sizeof(sysCfg.eth_ip_adress));
-    if (ip)
-        strcpy(sysCfg.eth_ip_adress, ip);
-}
 
+//wifi
 void CFG_set_ip_address(const char *ip)
 {
     memset(sysCfg.ip_address, 0, sizeof(sysCfg.ip_address));

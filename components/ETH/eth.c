@@ -8,3 +8,6 @@ void start_eth(bool dhcp, char * ip_address, char * gateway, char * netmask, voi
 void release_eth(void) {
     eth_release();
 }
+void get_eth_ip(esp_netif_ip_info_t *ip_info) {
+    eth_get_ip_info(ip_info);
+}

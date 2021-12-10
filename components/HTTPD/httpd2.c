@@ -30,7 +30,7 @@
  */
 
 static const char *TAG = "example";
-static void (* httpd_get_cb)(httpd_req_t *req) = NULL;
+static esp_err_t (* httpd_get_cb)(httpd_req_t *req) = NULL;
 #if 1
 
 typedef struct
@@ -489,7 +489,7 @@ static void connect_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-void start_httpd(void (* httpd_get_cb_set)(httpd_req_t *req))
+void start_httpd(esp_err_t (* httpd_get_cb_set)(httpd_req_t *req))
 {
     httpd_get_cb = httpd_get_cb_set;
     static httpd_handle_t server = NULL;

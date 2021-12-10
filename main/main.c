@@ -57,7 +57,7 @@ static double average = 0;
 // static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
 // static bool initialized = false;
 static esp_timer_handle_t reboot_timer;
-
+static esp_netif_ip_info_t wifi_ip_info;
 const char *weekday[7];
 const char *monthday[12];
 
@@ -832,12 +832,12 @@ static void got_ip_event2(char * ip_address)
     CFG_set_server_ip(ip_address);
 
     
-    // rfid_init(CFG_get_rfid_timeout(),
-    //             CFG_get_rfid_retries(),
-    //             CFG_get_rfid_nfc(),
-    //             CFG_get_rfid_panic_timeout(),
-    //             CFG_get_rfid_format(),
-    //             rfid_event, NULL);
+    rfid_init(CFG_get_rfid_timeout(),
+                CFG_get_rfid_retries(),
+                CFG_get_rfid_nfc(),
+                CFG_get_rfid_panic_timeout(),
+                CFG_get_rfid_format(),
+                rfid_event, NULL);
 }
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
@@ -908,15 +908,10 @@ static tty_func_t test_event2(int tty, char *data,
 
 void release_task()
 {
-    cnt++;
-    if ((cnt&1) ==1)
-    {
-        ctl_relay_on(0);
-    }
-    else
-    {
-        ctl_relay_off();
-    }
+    get_wifi_ip(CFG_get_ap_mode(), &wifi_ip_info);
+    ESP_LOGI("main", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
+    ESP_LOGI("main" , "ETHMASK:" IPSTR, IP2STR(&wifi_ip_info.netmask));
+    ESP_LOGI("main", "ETHGW:" IPSTR, IP2STR(&wifi_ip_info.gw));
     vTaskDelete(NULL);
 }
 static void ctl_event(int event, int status)
@@ -997,7 +992,7 @@ static int ulip_core_http_request(const char *url)
 
     return 0;
 }
-static int ulip_core_httpd_request(httpd_req_t *req)
+static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
 {
     char request[128] = "";
     char state[32] = "";
@@ -1026,7 +1021,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
     char *start = NULL;
     char *end = NULL;
     char filter[128];
-    esp_netif_ip_info_t ipInfo;
+    // esp_netif_ip_info_t wifi_ip_info;
     char ip_address[16] = "";
     char netmask[16] = "";
     char gateway[16] = "";
@@ -1305,6 +1300,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 ESP_LOGI("main", "config %s", config);
                 while ((p = strtok(config, ",")))
                 {
+                    ESP_LOGI("main", "p %s", p);
                     config = NULL;
                     strdelimit(p, "{}\r\n", ' ');
                     strstrip(p);
@@ -2168,7 +2164,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 free(buf);
                 return ESP_OK;
             }
-            #if 0
+            #if 1
             else if (!strcmp(request, "getconfig"))
             {
                 uint8_t mode = 0;
@@ -2176,24 +2172,18 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 const char *server = NULL;
                 uint16_t port = 0;
                 /* JSON */
-                body = (char *)os_malloc(2048);
+                body = (char *)malloc(2048);
                 if (!body)
                 {
                     httpd_resp_send_500(req);
                     free(buf);
                     return ESP_OK;
                 }
-                if (CFG_get_hotspot())
-                {
-                    wifi_get_ip_info(&ipInfo);
-                }
-                else
-                {
-                    wifi_get_ip_info(STATION_IF, &ipInfo);
-                }
-                sprintf(ip_address, IPSTR, IP2STR(&ipInfo.ip.addr));
-                sprintf(netmask, IPSTR, IP2STR(&ipInfo.netmask.addr));
-                sprintf(gateway, IPSTR, IP2STR(&ipInfo.gw.addr));
+                // get_wifi_ip(CFG_get_hotspot(),&wifi_ip_info);
+                sprintf(ip_address, IPSTR, IP2STR(&wifi_ip_info.ip));
+                ESP_LOGI("main", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
+                sprintf(netmask, IPSTR, IP2STR(&wifi_ip_info.netmask));
+                sprintf(gateway, IPSTR, IP2STR(&wifi_ip_info.gw));
                 CFG_get_debug(&mode, &level, &server, &port);
                 len = sprintf(body, "{\"model\":\"%s\",\"serial\":\"%s\",\"mac\":\"%s\",\"release\":\"%s\",\"hotspot\":\"%s\",\"ap_mode\":\"%s\","
                                     "\"standalone\":\"%s\",\"ssid\":\"%s\",\"password\":\"%s\",\"channel\":\"%d\",\"beacon_interval\":\"%d\","
@@ -2411,15 +2401,18 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                                 CFG_get_energy_total_limit()
     #endif
                 );
-                httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-                httpdStartResponse(connData, 200);
-                httpdHeader(connData, "Content-Type", "application/json");
-                sprintf(slen, "%d", len);
-                httpdHeader(connData, "Content-Length", slen);
-                httpdEndHeaders(connData);
-                httpdSendData(connData, body, len);
+                // httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
+                // httpdStartResponse(connData, 200);
+                // httpdHeader(connData, "Content-Type", "application/json");
+                httpd_resp_set_type(req, "application/json");
+                // sprintf(slen, "%d", len);
+                // httpdHeader(connData, "Content-Length", slen);
+                // httpdEndHeaders(connData);
+                // httpdSendData(connData, body, len);
+                httpd_resp_send(req, body, len);
                 free(body);
-                return HTTPD_CGI_DONE;
+                free(buf);
+                return ESP_OK;
             }
             #endif
         }
@@ -2463,7 +2456,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     index = (int)connData->cgiData & ~(1 << 31);
                     index = account_db_get_next(index);
                 }
-                body = (char *)os_malloc(2048);
+                body = (char *)malloc(2048);
                 if (!body)
                     return HTTPD_CGI_DONE;
                 if (*file != '\0')
@@ -2488,7 +2481,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             }
             else if (!strcmp(request, "usersummary"))
             {
-                body = (char *)os_malloc(512);
+                body = (char *)malloc(512);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -2602,7 +2595,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                         free(log);
                     }
                 }
-                body = (char *)os_malloc(1024);
+                body = (char *)malloc(1024);
                 if (!body)
                     return HTTPD_CGI_DONE;
                 if (*file == '\0')
@@ -2652,7 +2645,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                         return HTTPD_CGI_MORE;
                     }
                     /* JSON */
-                    body = (char *)os_malloc(128);
+                    body = (char *)malloc(128);
                     if (!body)
                     {
                         httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -2917,7 +2910,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     if (!update)
                     {
                         /* JSON */
-                        body = (char *)os_malloc(128);
+                        body = (char *)malloc(128);
                         if (!body)
                         {
                             httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3004,7 +2997,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                 return HTTPD_CGI_MORE;
     #else
                 /* JSON */
-                body = (char *)os_malloc(128);
+                body = (char *)malloc(128);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3098,7 +3091,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     return HTTPD_CGI_DONE;
                 }
                 /* JSON */
-                body = (char *)os_malloc(2048);
+                body = (char *)malloc(2048);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3524,7 +3517,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             else if (!strcmp(request, "location"))
             {
                 /* JSON */
-                body = (char *)os_malloc(256);
+                body = (char *)malloc(256);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3549,7 +3542,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             else if (!strcmp(request, "alarms"))
             {
                 /* JSON */
-                body = (char *)os_malloc(256);
+                body = (char *)malloc(256);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3575,7 +3568,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             else if (!strcmp(request, "getdatetime"))
             {
                 /* JSON */
-                body = (char *)os_malloc(256);
+                body = (char *)malloc(256);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3716,7 +3709,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                     return HTTPD_CGI_DONE;
                 }
                 /* JSON */
-                body = (char *)os_malloc(256);
+                body = (char *)malloc(256);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3767,7 +3760,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
             else if (!strcmp(request, "telemetry"))
             {
                 /* JSON */
-                body = (char *)os_malloc(512);
+                body = (char *)malloc(512);
                 if (!body)
                 {
                     httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3982,7 +3975,7 @@ static int ulip_core_httpd_request(httpd_req_t *req)
                         free(log);
                     }
                 }
-                body = (char *)os_malloc(1024);
+                body = (char *)malloc(1024);
                 if (!body)
                     return HTTPD_CGI_DONE;
                 if (*file == '\0')
@@ -4085,6 +4078,7 @@ void app_main(void)
     set_time_names();
     
     CFG_Load();
+    // CFG_Default();
     CFG_set_control_mode(0);
     CFG_set_control_timeout(2);
     CFG_set_ip_address("10.0.0.140");
@@ -4094,7 +4088,10 @@ void app_main(void)
     CFG_set_dhcp(true);
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(true);
+    CFG_set_wifi_disable(false);
+    CFG_set_eth_dhcp(false);
+    CFG_set_eth_enable(false);
+    CFG_set_eth_ip_adress("10.0.0.210");
     CFG_set_fingerprint_timeout(100000);
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ESP_LOGI("main", "set config");
@@ -4111,12 +4108,12 @@ void app_main(void)
     ESP_LOGI("main", "init eth");
     // perfmon_start();
 
-    qrcode_init(true, true,
-                    0,
-                    CFG_get_qrcode_panic_timeout(),
-                    CFG_get_qrcode_dynamic(),
-                    CFG_get_qrcode_validity(),
-                    qrcode_event_main, NULL, 3);
+    // qrcode_init(true, true,
+    //                 0,
+    //                 CFG_get_qrcode_panic_timeout(),
+    //                 CFG_get_qrcode_dynamic(),
+    //                 CFG_get_qrcode_validity(),
+    //                 qrcode_event_main, NULL, 3);
 
     account_init();
     // account_t *account = account_new();
@@ -4158,10 +4155,11 @@ void app_main(void)
 
     // initialized = true;
 
-    fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     // printf(cur_task);
-    // start_eth(CFG_get_dhcp(), CFG_get_ip_address(), CFG_get_gateway(), CFG_get_netmask(), &got_ip_event2);
+    if (CFG_get_eth_enable())
+        start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_adress(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
     // start_httpd(&ulip_core_httpd_request);
 }
