@@ -9,5 +9,7 @@ void release_eth(void) {
     eth_release();
 }
 void get_eth_ip(esp_netif_ip_info_t *ip_info) {
-    eth_get_ip_info(ip_info);
+    esp_netif_get_ip_info(eth_netif, ip_info);
+    // ESP_LOGI("eth", "info point: %p", ip_info);
+    // eth_get_ip_info(ip_info);
 }

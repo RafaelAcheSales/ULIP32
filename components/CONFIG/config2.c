@@ -458,14 +458,14 @@ bool CFG_get_eth_dhcp(void)
 }
 
 
-void CFG_set_eth_ip_adress(const char *ip)
+void CFG_set_eth_ip_address(const char *ip)
 {
     memset(sysCfg.eth_ip_adress, 0, sizeof(sysCfg.eth_ip_adress));
     if (ip)
         strcpy(sysCfg.eth_ip_adress, ip);
 }
 
-const char *CFG_get_eth_ip_adress(void)
+const char *CFG_get_eth_ip_address(void)
 {
     return sysCfg.eth_ip_adress;
 }

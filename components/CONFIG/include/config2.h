@@ -16,7 +16,7 @@
 #define CFG_WIFI_SSID           "uTech-AP"
 #define CFG_WIFI_PASSWD         "adminutech"
 
-#define CFG_ETH_IP              "10.0.0.235"
+#define CFG_ETH_IP              "10.0.0.210"
 #define CFG_ETH_NETMASK         "255.255.255.0"
 #define CFG_ETH_GATEWAY         "10.0.0.1"
 
@@ -99,13 +99,13 @@ void CFG_set_eth_dhcp(bool dhcp);
 
 bool CFG_get_eth_dhcp(void);
 
-void CFG_set_eth_ip_adress(const char *ip);
+void CFG_set_eth_ip_address(const char *ip);
 
 void CFG_set_eth_netmask(const char *netmask);
 
 void CFG_set_eth_gateway(const char *gateway);
 
-const char *CFG_get_eth_ip_adress(void);
+const char *CFG_get_eth_ip_address(void);
 
 const char *CFG_get_eth_netmask(void);
 

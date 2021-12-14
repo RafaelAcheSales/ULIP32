@@ -24,7 +24,7 @@
 
 #endif // CONFIG_ETH_USE_SPI_ETHERNET
 static esp_eth_handle_t eth_handle = NULL;
-static esp_netif_t *eth_netif = NULL;
+extern esp_netif_t *eth_netif = NULL;
 static const char *TAG = "eth_example";
 const int use_dhcp = 1;
 static void (* got_ip_callback)(char * ip_address) = NULL;
@@ -79,6 +79,7 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
 void eth_get_ip_info(esp_netif_ip_info_t *ip_info) {
     if (eth_netif != NULL) {
         esp_netif_get_ip_info(eth_netif, ip_info);
+        // ESP_LOGI(TAG, "ETHIP:" IPSTR, IP2STR(&ip_info->ip));
     } else {
         ESP_LOGE(TAG, "eth_netif is NULL");
         ip_info = NULL;

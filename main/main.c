@@ -58,6 +58,7 @@ static double average = 0;
 // static bool initialized = false;
 static esp_timer_handle_t reboot_timer;
 static esp_netif_ip_info_t wifi_ip_info;
+esp_netif_ip_info_t eth_ip_info;
 const char *weekday[7];
 const char *monthday[12];
 
@@ -832,12 +833,12 @@ static void got_ip_event2(char * ip_address)
     CFG_set_server_ip(ip_address);
 
     
-    rfid_init(CFG_get_rfid_timeout(),
-                CFG_get_rfid_retries(),
-                CFG_get_rfid_nfc(),
-                CFG_get_rfid_panic_timeout(),
-                CFG_get_rfid_format(),
-                rfid_event, NULL);
+    // rfid_init(CFG_get_rfid_timeout(),
+    //             CFG_get_rfid_retries(),
+    //             CFG_get_rfid_nfc(),
+    //             CFG_get_rfid_panic_timeout(),
+    //             CFG_get_rfid_format(),
+    //             rfid_event, NULL);
 }
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
@@ -905,14 +906,24 @@ static tty_func_t test_event2(int tty, char *data,
     tty_func_t t = NULL;
     return t;
 }
-
 void release_task()
 {
-    get_wifi_ip(CFG_get_ap_mode(), &wifi_ip_info);
-    ESP_LOGI("main", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
-    ESP_LOGI("main" , "ETHMASK:" IPSTR, IP2STR(&wifi_ip_info.netmask));
-    ESP_LOGI("main", "ETHGW:" IPSTR, IP2STR(&wifi_ip_info.gw));
+    CFG_Default();
+    CFG_Save();
     vTaskDelete(NULL);
+}
+void update_ip_info()
+{
+    get_wifi_ip(CFG_get_ap_mode(), &wifi_ip_info);
+    // ESP_LOGI("main", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
+    // ESP_LOGI("main" , "wifinet:" IPSTR, IP2STR(&wifi_ip_info.netmask));
+    // ESP_LOGI("main", "wifigw:" IPSTR, IP2STR(&wifi_ip_info.gw));
+    get_eth_ip(&eth_ip_info);
+    ESP_LOGI("main", "ponter %p", &eth_ip_info);
+    ESP_LOGI("main", "ethIP:" IPSTR, IP2STR(&eth_ip_info.ip));
+    ESP_LOGI("main" , "ETHMASK:" IPSTR, IP2STR(&eth_ip_info.netmask));
+    ESP_LOGI("main", "ETHGW:" IPSTR, IP2STR(&eth_ip_info.gw));
+    // vTaskDelete(NULL);
 }
 static void ctl_event(int event, int status)
 {
@@ -1025,6 +1036,9 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
     char ip_address[16] = "";
     char netmask[16] = "";
     char gateway[16] = "";
+    char eth_ip_address[16] = "";
+    char eth_netmask[16] = "";
+    char eth_gateway[16] = "";
     const char *server;
     int port;
     int retries;
@@ -1296,6 +1310,7 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                     return ESP_OK;
                 }
                 /* JSON */
+                strchr(buffer, '}')[1] = '\0';
                 config = buffer;
                 ESP_LOGI("main", "config %s", config);
                 while ((p = strtok(config, ",")))
@@ -1387,6 +1402,39 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                         strdelimit(p, "\"", ' ');
                         strstrip(p);
                         CFG_set_gateway(p);
+                    }
+                    else if (!strncmp("\"eth_dhcp\":", p, 11))
+                    {
+                        p += 11;
+                        strdelimit(p, "\"", ' ');
+                        strstrip(p);
+                        CFG_set_eth_dhcp(!strcmp(p, "on"));
+                        ESP_LOGI("main", "eth_dhcp %s", p);
+                    }
+                    else if (!strncmp("\"eth_ip\":", p, 9))
+                    {
+                        p += 9;
+                        strdelimit(p, "\"", ' ');
+                        strstrip(p);
+                        CFG_set_eth_ip_address(p);
+                        ESP_LOGI("main", "eth_ip %s", CFG_get_eth_ip_address());
+                    }
+                    else if (!strncmp("\"eth_netmask\":", p, 14))
+                    {
+                        p += 14;
+                        strdelimit(p, "\"", ' ');
+                        strstrip(p);
+                        CFG_set_eth_netmask(p);
+                        ESP_LOGI("main", "eth_netmask %s", CFG_get_eth_netmask());
+                    }
+                    else if (!strncmp("\"eth_gateway\":", p, 14))
+                    {
+                        p += 14;
+                        ESP_LOGI("main", "eth_gateway %s", p);
+                        strdelimit(p, "\"", ' ');
+                        strstrip(p);
+                        CFG_set_eth_gateway(p);
+                        ESP_LOGI("main", "eth_gateway %s", p);
                     }
                     else if (!strncmp("\"dns\":", p, 6))
                     {
@@ -2179,15 +2227,21 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                     free(buf);
                     return ESP_OK;
                 }
-                // get_wifi_ip(CFG_get_hotspot(),&wifi_ip_info);
+
+                update_ip_info();
+
                 sprintf(ip_address, IPSTR, IP2STR(&wifi_ip_info.ip));
-                ESP_LOGI("main", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
+                ESP_LOGI("main_httpd", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
                 sprintf(netmask, IPSTR, IP2STR(&wifi_ip_info.netmask));
                 sprintf(gateway, IPSTR, IP2STR(&wifi_ip_info.gw));
+                sprintf(eth_ip_address, IPSTR, IP2STR(&eth_ip_info.ip));
+                ESP_LOGI("main_httpd", "ETHIP:" IPSTR, IP2STR(&eth_ip_info.ip));
+                sprintf(eth_netmask, IPSTR, IP2STR(&eth_ip_info.netmask));
+                sprintf(eth_gateway, IPSTR, IP2STR(&eth_ip_info.gw));
                 CFG_get_debug(&mode, &level, &server, &port);
                 len = sprintf(body, "{\"model\":\"%s\",\"serial\":\"%s\",\"mac\":\"%s\",\"release\":\"%s\",\"hotspot\":\"%s\",\"ap_mode\":\"%s\","
                                     "\"standalone\":\"%s\",\"ssid\":\"%s\",\"password\":\"%s\",\"channel\":\"%d\",\"beacon_interval\":\"%d\","
-                                    "\"ssid_hidden\":\"%s\",\"dhcp\":\"%s\",\"ip\":\"%s\",\"netmask\":\"%s\",\"gateway\":\"%s\",\"dns\":\"%s\","
+                                    "\"ssid_hidden\":\"%s\",\"dhcp\":\"%s\",\"ip\":\"%s\",\"netmask\":\"%s\",\"gateway\":\"%s\",\"eth_dhcp\":\"%s\",\"eth_ip\":\"%s\",\"eth_netmask\":\"%s\",\"eth_gateway\":\"%s\" ,\"dns\":\"%s\","
                                     "\"ntp\":\"%s\",\"hostname\":\"%s\",\"ddns\":\"%s\",\"ddns_domain\":\"%s\",\"ddns_user\":\"%s\",\"ddns_password\":\"%s\","
                                     "\"timezone\":\"%d\",\"dst\":\"%s\",\"dst_date\":\"%s\",\"server\":\"%s\",\"server_port\":\"%d\",\"server_user\":\"%s\","
                                     "\"server_password\":\"%s\",\"server_url\":\"%s\",\"server_retries\":\"%d\",\"ota_url\":\"%s\""
@@ -2260,6 +2314,8 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                                 CFG_get_ssid_hidden() ? "on" : "off",
                                 CFG_get_dhcp() ? "on" : "off",
                                 ip_address, netmask, gateway,
+                                CFG_get_eth_dhcp() ? "on" : "off",
+                                eth_ip_address, eth_netmask, eth_gateway,
                                 CFG_get_dns() ? CFG_get_dns() : "",
                                 CFG_get_ntp() ? CFG_get_ntp() : "",
                                 CFG_get_hostname() ? CFG_get_hostname() : "",
@@ -4089,9 +4145,12 @@ void app_main(void)
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
     CFG_set_wifi_disable(false);
-    CFG_set_eth_dhcp(false);
-    CFG_set_eth_enable(false);
-    CFG_set_eth_ip_adress("10.0.0.210");
+    // CFG_set_eth_dhcp(false);
+    // CFG_set_eth_enable(true);
+    // CFG_set_eth_ip_address("10.0.0.210");
+    // CFG_set_eth_netmask("255.255.255.0");
+    // CFG_set_eth_gateway("10.0.0.1");
+    // CFG_Save();
     CFG_set_fingerprint_timeout(100000);
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ESP_LOGI("main", "set config");
@@ -4160,6 +4219,8 @@ void app_main(void)
     // char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     // printf(cur_task);
     if (CFG_get_eth_enable())
-        start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_adress(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
-    // start_httpd(&ulip_core_httpd_request);
+        start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
+    ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
+             CFG_get_eth_enable(), CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask());
+    start_httpd(&ulip_core_httpd_request);
 }
