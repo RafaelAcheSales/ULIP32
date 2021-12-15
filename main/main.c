@@ -58,6 +58,7 @@ static double average = 0;
 // static bool initialized = false;
 static esp_timer_handle_t reboot_timer;
 static esp_netif_ip_info_t wifi_ip_info;
+static bool system_restored = false;
 esp_netif_ip_info_t eth_ip_info;
 const char *weekday[7];
 const char *monthday[12];
@@ -69,6 +70,32 @@ typedef union
     unsigned short *w;
     unsigned long *dw;
 } pgen_t;
+
+void ulip_core_restore_config(bool restart)
+{
+    // uint32 rf_cal_sec = 0;
+
+    /* System settings */
+    CFG_Default();
+    /* Account settings */
+    account_db_remove_all();
+#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
+    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
+    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+    account_db_log_remove_all();
+    // telemetry_db_remove_all();
+#endif
+#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+    fpm_delete_all();
+#endif
+    wifi_reset();
+
+    /* Restart system */
+    if (restart)
+        esp_restart();
+
+    system_restored = true;
+}
 
 void ulip_core_system_reboot() {
     ESP_LOGI("main", "Rebooting...");
@@ -833,12 +860,12 @@ static void got_ip_event2(char * ip_address)
     CFG_set_server_ip(ip_address);
 
     
-    // rfid_init(CFG_get_rfid_timeout(),
-    //             CFG_get_rfid_retries(),
-    //             CFG_get_rfid_nfc(),
-    //             CFG_get_rfid_panic_timeout(),
-    //             CFG_get_rfid_format(),
-    //             rfid_event, NULL);
+    rfid_init(CFG_get_rfid_timeout(),
+                CFG_get_rfid_retries(),
+                CFG_get_rfid_nfc(),
+                CFG_get_rfid_panic_timeout(),
+                CFG_get_rfid_format(),
+                rfid_event, NULL);
 }
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
@@ -908,8 +935,15 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
-    CFG_Default();
-    CFG_Save();
+    for (int i = 0; i < 5; i++) {
+        char user[32];
+        sprintf(user, "user%d", i);
+        account_t *account = account_new();
+        account_set_user(account, user);
+        account_set_key(account, "password");
+        account_db_insert(account);
+        ESP_LOGI("main", "account added %s", account_get_user(account));
+    }
     vTaskDelete(NULL);
 }
 void update_ip_info()
@@ -1067,7 +1101,7 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
     int len;
     esp_err_t rc;
     int i;
-
+    httpdConnData *connData = (httpdConnData *)req->user_ctx;
     char *buf;
     size_t buffer_len = httpd_req_get_url_query_len(req) + 1;
     // esp_err_t has_query = httpd_req_get_url_query_str(req, buf, buffer_len);
@@ -1102,7 +1136,8 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                 }
                 len = sprintf(body, "{\"version\":\"%s\",\"serial\":\"%s\",\"release\":\"%s\"}",
                                 ULIP_MODEL, CFG_get_serialnum(), CFG_get_release());
-                httpd_resp_set_hdr(req, "Content-Type", "application/json");
+                // httpd_resp_set_hdr(req, "Content-Type", "application/json");
+                httpd_resp_set_type(req, "application/json");
                 httpd_resp_send(req, (const char *)body, len);
                 sprintf(slen, "%d", len);
                 free(body);
@@ -2471,70 +2506,98 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                 return ESP_OK;
             }
             #endif
-        }
-    }
-    free(buf);
-    return ESP_OK;
-#if 0
             else if (!strcmp(request, "restoreconfig"))
             {
-                ulip_core_restore_config(TRUE);
+                ulip_core_restore_config(true);
             }
             else if (!strcmp(request, "users"))
             {
-                httpdFindArg(connData->getArgs, "file", file, sizeof(file));
+                httpd_query_key_value(buf, "file", file, sizeof(file));
+                // httpdFindArg(connData->getArgs, "file", file, sizeof(file));
+                ESP_LOGE("main", "cgidata %u", (int)connData->cgiData);
                 if (!connData->cgiData)
                 {
-                    httpdStartResponse(connData, 200);
+                        
+                    // httpdStartResponse(connData, 200);
                     if (*file != '\0')
                     {
                         /* CSV */
-                        httpdHeader(connData, "Content-type", "text/csv");
-                        httpdHeader(connData, "Content-Disposition", "attachment; filename=accounts.csv");
+                        httpd_resp_set_type(req, "text/csv");
+                        httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=users.csv");
+
+                        // httpdHeader(connData, "Content-type", "text/csv");
+                        // httpdHeader(connData, "Content-Disposition", "attachment; filename=accounts.csv");
                     }
                     else
                     {
                         /* JSON */
-                        httpdHeader(connData, "Content-type", "application/json; charset=iso-8859-1");
+                        // httpd_resp_set_type(req, "application/json; charset=iso-8859-1");
+                        httpd_resp_set_type(req, "application/json");
+                        // httpdHeader(connData, "Content-type", "application/json; charset=iso-8859-1");
+                        // httpd_resp_set_hdr(req, "Content-type", "application/json; charset=iso-8859-1");
                     }
-                    httpdEndHeaders(connData);
+                    // httpdEndHeaders(connData);
                     /* Empty database */
-                    if (!account_db_get_size())
-                        return HTTPD_CGI_DONE;
+                    if (!account_db_get_size()) {
+                        free(buf);
+                        return ESP_OK;
+                    }
                     if (*file == '\0')
-                        httpdSendData(connData, "[", 1);
+                    {
+                        // httpdSendData(connData, "[", 1);
+                        httpd_resp_sendstr_chunk(req, "[");
+                    }
+
                     /* Get first user */
                     index = account_db_get_first();
+                    ESP_LOGI("main", "index first %d", index);
                 }
                 else
                 {
                     /* Get next user */
                     index = (int)connData->cgiData & ~(1 << 31);
                     index = account_db_get_next(index);
+                    ESP_LOGI("main", "index %d", index);
                 }
                 body = (char *)malloc(2048);
-                if (!body)
-                    return HTTPD_CGI_DONE;
+                if (!body) {
+                    free(buf);
+                    return ESP_OK;
+                }
                 if (*file != '\0')
                     len = account_db_string(index, body, 2048);
                 else
                     len = account_db_json(index, body, 2048);
-                httpdSendData(connData, body, len);
+                httpd_resp_send_chunk(req, body, len);
+                // httpdSendData(connData, body, len);
                 connData->cgiData = (void *)(index | (1 << 31));
+                ESP_LOGI("main", "cgidata %u", (int)connData->cgiData);
                 free(body);
                 if (index == account_db_get_last())
                 {
                     if (*file == '\0')
-                        httpdSendData(connData, "]", 1);
-                    return HTTPD_CGI_DONE;
+                    {
+                        // httpdSendData(connData, "]", 1);
+                        httpd_resp_sendstr_chunk(req, "]");
+                    }
+                    free(buf);
+                    return ESP_OK;
                 }
                 else
                 {
-                    if (*file == '\0')
-                        httpdSendData(connData, ",", 1);
+                    if (*file == '\0') {
+                        // httpdSendData(connData, ",", 1);
+                        httpd_resp_sendstr_chunk(req, ",");
+                    }
                 }
-                return HTTPD_CGI_MORE;
+                free(buf);
+                return ESP_OK;
             }
+        }
+    }
+    free(buf);
+    return ESP_OK;
+#if 0
             else if (!strcmp(request, "usersummary"))
             {
                 body = (char *)malloc(512);
@@ -4144,12 +4207,12 @@ void app_main(void)
     CFG_set_dhcp(true);
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(false);
-    // CFG_set_eth_dhcp(false);
-    // CFG_set_eth_enable(true);
-    // CFG_set_eth_ip_address("10.0.0.210");
-    // CFG_set_eth_netmask("255.255.255.0");
-    // CFG_set_eth_gateway("10.0.0.1");
+    CFG_set_wifi_disable(true);
+    CFG_set_eth_dhcp(false);
+    CFG_set_eth_enable(true);
+    CFG_set_eth_ip_address("10.0.0.8");
+    CFG_set_eth_netmask("255.255.255.0");
+    CFG_set_eth_gateway("10.0.0.1");
     // CFG_Save();
     CFG_set_fingerprint_timeout(100000);
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
@@ -4175,10 +4238,7 @@ void app_main(void)
     //                 qrcode_event_main, NULL, 3);
 
     account_init();
-    // account_t *account = account_new();
-    // account_set_user(account, "user");
-    // account_set_key(account, "password");
-    // account_db_insert(account);
+
     
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
@@ -4195,8 +4255,8 @@ void app_main(void)
     // sntp_setoperatingmode(SNTP_OPMODE_POLL);
     // sntp_setservername(0, "pool.ntp.org");
     // sntp_init();
-    vTaskList(tasks_info);
-    ESP_LOGI("main", "\n%s", tasks_info);
+    // vTaskList(tasks_info);
+    // ESP_LOGI("main", "\n%s", tasks_info);
     // if (!initialized) {
     //     esp_timer_create_args_t timer = {
     //         .callback = &timer_callback
@@ -4222,5 +4282,5 @@ void app_main(void)
         start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
     ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
              CFG_get_eth_enable(), CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask());
-    start_httpd(&ulip_core_httpd_request);
+    // start_httpd(&ulip_core_httpd_request);
 }

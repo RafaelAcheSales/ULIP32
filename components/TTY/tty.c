@@ -12,7 +12,7 @@
 
 // #define RS485_UART2 1
 #define TEST_PIN 33
-#define RFID 1
+// #define RFID 1
 #define TTY_BSIZE 512
 #define TTY_BITBANG_BITS 10
 #define TTY_TIMEOUT 100000

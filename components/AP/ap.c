@@ -51,7 +51,7 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         ESP_ERROR_CHECK(esp_wifi_connect());
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         if (s_retry_num < ESP_MAXIMUM_RETRY) {
-            ESP_ERROR_CHECK(esp_wifi_connect());
+            ESP_ERROR_CHECK_WITHOUT_ABORT(esp_wifi_connect());
             s_retry_num++;
             ESP_LOGI(TAG, "retry to connect to the AP");
         } else {
@@ -211,6 +211,10 @@ void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, b
     }
     initialized = true;
 }
+void wifi_reset() {
+    ESP_ERROR_CHECK(esp_wifi_restore());
+}
+
 void wifi_release(){
     if (initialized) {
         ESP_ERROR_CHECK(esp_wifi_stop());

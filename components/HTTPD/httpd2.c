@@ -33,11 +33,6 @@ static const char *TAG = "example";
 static esp_err_t (* httpd_get_cb)(httpd_req_t *req) = NULL;
 #if 1
 
-typedef struct
-{
-    char *username;
-    char *password;
-} basic_auth_info_t;
 
 #define HTTPD_401 "401 UNAUTHORIZED" /*!< HTTP Response 401 */
 
@@ -76,7 +71,7 @@ esp_err_t basic_auth_get_handler(httpd_req_t *req)
 
     char *buf = NULL;
     size_t buf_len = 0;
-    basic_auth_info_t *basic_auth_info = req->user_ctx;
+    httpdConnData *basic_auth_info = req->user_ctx;
     esp_err_t rc = ESP_OK;
 
     buf_len = httpd_req_get_hdr_value_len(req, "Authorization") + 1;
@@ -146,13 +141,14 @@ static httpd_uri_t basic_auth = {
 
 static void httpd_register_basic_auth(httpd_handle_t server, httpd_uri_t *uri_handler)
 {
-    basic_auth_info_t *basic_auth_info = calloc(1, sizeof(basic_auth_info_t));
+    httpdConnData *basic_auth_info = calloc(1, sizeof(httpdConnData));
     if (basic_auth_info)
     {
         basic_auth_info->username = CONFIG_EXAMPLE_BASIC_AUTH_USERNAME;
         basic_auth_info->password = CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD;
-        ESP_LOGI("httpd", "user_uri %s", uri_handler->uri);
-        ESP_LOGI("httpd", "ctx %p", basic_auth_info);
+        // basic_auth_info->cgiData = (void *)0;
+        // ESP_LOGI("httpd", "user_uri %s", uri_handler->uri);
+        // ESP_LOGI("httpd", "ctx %p", &basic_auth_info->cgiData);
         uri_handler->user_ctx = basic_auth_info;
         httpd_register_uri_handler(server, uri_handler);
     }
