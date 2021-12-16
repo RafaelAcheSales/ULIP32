@@ -199,12 +199,12 @@ static void
 CFG_ENV_Save(void)
 {
     nvs_handle_t my_handle;
-    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
     // ESP_LOGI("CONFIG", "cfg_env_save");
     // ESP_ERROR_CHECK(nvs_erase_key(my_handle, SYSENV_KEY));
     // ESP_ERROR_CHECK(nvs_commit(my_handle));
-    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SYSENV_KEY,&sysEnv, sizeof(SYSENV)));
-    ESP_ERROR_CHECK(nvs_commit(my_handle));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_set_blob(my_handle, SYSENV_KEY,&sysEnv, sizeof(SYSENV)));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_commit(my_handle));
     // ESP_LOGI("CONFIG", "sysenv erase and write");
     nvs_close(my_handle);
 }
@@ -229,11 +229,11 @@ CFG_ENV_Init(void)
     if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         // NVS partition was truncated and needs to be erased
         // Retry nvs_flash_init
-        ESP_ERROR_CHECK(nvs_flash_erase_partition(PARTITION_NAME));
+        ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_flash_erase_partition(PARTITION_NAME));
         err = nvs_flash_init_partition(PARTITION_NAME);
     }
-    ESP_ERROR_CHECK( err );
-    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE ,NVS_READWRITE, &my_handle));
+    ESP_ERROR_CHECK_WITHOUT_ABORT( err );
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_open_from_partition(PARTITION_NAME, NAMESPACE ,NVS_READWRITE, &my_handle));
     // ESP_LOGI("CONFIG", "handler is %d", my_handle);
     ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(my_handle, SYSENV_KEY, &sysEnv, &sysEnvSize));
     // ESP_ERROR_CHECK(nvs_commit(my_handle));
@@ -379,7 +379,7 @@ void
 CFG_Save(void)
 {
     nvs_handle_t my_handle;
-    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_open_from_partition(PARTITION_NAME, NAMESPACE, NVS_READWRITE, &my_handle));
     ESP_LOGI("CONFIG", "Save configuration to flash ...");
 
     ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(my_handle, "saveflag", &saveFlag, &saveFlagSize));
@@ -387,13 +387,13 @@ CFG_Save(void)
 
     saveFlag.flag = (saveFlag.flag == 0) ? 1 : 0;
 
-    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SYSENV_KEY, &sysEnv, sizeof(SYSENV)));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_set_blob(my_handle, SYSENV_KEY, &sysEnv, sizeof(SYSENV)));
     // ESP_LOGI("CONFIG", "write sysenv");
-    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SYSCFG_KEY, &sysCfg, sizeof(SYSCFG)));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_set_blob(my_handle, SYSCFG_KEY, &sysCfg, sizeof(SYSCFG)));
     // ESP_LOGI("CONFIG", "write syscfg");
-    ESP_ERROR_CHECK(nvs_set_blob(my_handle, SAVEFLAG_KEY, &saveFlag, sizeof(SAVE_FLAG)));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_set_blob(my_handle, SAVEFLAG_KEY, &saveFlag, sizeof(SAVE_FLAG)));
     // ESP_LOGI("CONFIG", "write save flag");
-    ESP_ERROR_CHECK(nvs_commit(my_handle));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_commit(my_handle));
     nvs_close(my_handle);
 }
 
@@ -406,7 +406,7 @@ CFG_Load(void)
     CFG_ENV_Init();
 
     nvs_handle_t load_handler;
-    ESP_ERROR_CHECK(nvs_open_from_partition(PARTITION_NAME, NAMESPACE,NVS_READWRITE, &load_handler));
+    ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_open_from_partition(PARTITION_NAME, NAMESPACE,NVS_READWRITE, &load_handler));
     // ESP_LOGI("CONFIG", "handler is %d", load_handler);
 
     ESP_ERROR_CHECK_WITHOUT_ABORT(nvs_get_blob(load_handler, SAVEFLAG_KEY, &saveFlag, &saveFlagSize));

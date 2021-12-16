@@ -163,7 +163,7 @@ static void rs485_event(unsigned char from_addr,
         ++cnt;
         int64_t time_elapsed = esp_timer_get_time() / 1000000;
         average = (double)cnt / (double)time_elapsed;
-        ESP_LOGE("main", "cmd: %02x media: %f", cmd, average);
+        // ESP_LOGE("main", "cmd: %02x media: %f", cmd, average);
         ctl_beep(1);
         switch (cmd)
         {
@@ -859,13 +859,13 @@ static void got_ip_event2(char * ip_address)
     udp_logging_init(host, port, udp_logging_vprintf);
     CFG_set_server_ip(ip_address);
 
-    
-    rfid_init(CFG_get_rfid_timeout(),
-                CFG_get_rfid_retries(),
-                CFG_get_rfid_nfc(),
-                CFG_get_rfid_panic_timeout(),
-                CFG_get_rfid_format(),
-                rfid_event, NULL);
+    // rfid_init(CFG_get_rfid_timeout(),
+    //             CFG_get_rfid_retries(),
+    //             CFG_get_rfid_nfc(),
+    //             CFG_get_rfid_panic_timeout(),
+    //             CFG_get_rfid_format(),
+    //             rfid_event, NULL);
+
 }
 static void ctl_event(int event, int status);
 void ulip_core_capture_finger(bool status, int index)
@@ -4191,13 +4191,14 @@ void set_time_names() {
     monthday[9] = "Oct";
     monthday[10] = "Nov";
     monthday[11] = "Dec";
+
 }
 void app_main(void)
 {
     set_time_names();
     
     CFG_Load();
-    // CFG_Default();
+    CFG_Default();
     CFG_set_control_mode(0);
     CFG_set_control_timeout(2);
     CFG_set_ip_address("10.0.0.140");
