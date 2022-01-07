@@ -1,6 +1,6 @@
 #pragma once
 #include <esp_http_server.h>
-
+#include "esp_timer.h"
 #define AUTH_MAX_USER_LEN   64
 #define AUTH_MAX_PASS_LEN   64
 //Max length of request head. This is statically allocated for each connection.
@@ -12,13 +12,19 @@
 //If some data can't be sent because the underlaying socket doesn't accept the data (like the nonos
 //layer is prone to do), we put it in a backlog that is dynamically malloc'ed. This defines the max
 //size of the backlog.
-
+#define HTTPD_CGI_MORE 1
+#define HTTPD_CGI_DONE 2
+#define HTTPD_CGI_NOTFOUND 3
+#define HTTPD_CGI_AUTHENTICATED 4
 typedef struct
 {
     void *cgiData;
     char *username;
     char *password;
+    int timeout;
+    esp_timer_handle_t timer;
 } httpdConnData;
+
 #define HTTPD_MAX_BACKLOG_SIZE	(4*1024)
 void start_httpd(esp_err_t (* httpd_get_cb_set)(httpd_req_t *req));
 int authBasicGetUsername(httpd_req_t *req, char *username, int len);

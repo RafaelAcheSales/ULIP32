@@ -1447,7 +1447,7 @@ int account_db_string(int index, char *str, int len)
     str[size++] = '\r';
     str[size++] = '\n';
     str[size] = '\0';
-
+    ESP_LOGI(TAG, "account_db_string: %s", str);
     free(acc);
 
     return size;

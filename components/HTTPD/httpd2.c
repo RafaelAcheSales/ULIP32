@@ -24,6 +24,7 @@
 #include <esp_http_server.h>
 #define CONFIG_EXAMPLE_BASIC_AUTH_USERNAME "user"
 #define CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD "password"
+#define HTTPD_MAX_CONNECTIONS  2
 // #define GET_REQ_TEST 0
 /* A simple example that demonstrates how to create GET and POST
  * handlers for the web server.
@@ -31,6 +32,7 @@
 
 static const char *TAG = "example";
 static esp_err_t (* httpd_get_cb)(httpd_req_t *req) = NULL;
+static httpdConnData *connData[HTTPD_MAX_CONNECTIONS];
 #if 1
 
 
@@ -208,11 +210,32 @@ int authBasicGetPassword(httpd_req_t *req,
 }
 #endif
 
+void httpdContinue(httpd_req_t *req) {
+    ESP_LOGI(TAG, "httpdContinue");
+}
+
 /* An HTTP GET handler */
 static esp_err_t hello_get_handler(httpd_req_t *req)
 {
+    int rc;
+    httpdConnData *conn = (httpdConnData *)req->user_ctx;
     if (httpd_get_cb != NULL) {
-        (*(httpd_get_cb))(req);
+        rc = (*(httpd_get_cb))(req);
+        if (rc == ESP_OK) {
+            return ESP_OK;
+        } else  if (rc == HTTPD_CGI_MORE) {
+            conn->timeout = 10;
+            if (conn->timeout) {
+                esp_timer_create_args_t timer_args = {
+                    .callback = &httpdContinue,
+                    .arg = req,
+                    .name = "httpd_timeout_cb"
+                };
+                esp_timer_create(&timer_args, &conn->timer);
+                esp_timer_start_once(conn->timer, conn->timeout * 1000);
+                return ESP_OK;
+            }
+        }
     } else {
         ESP_LOGE(TAG, "user_hw_timer_cb is NULL");
     }
