@@ -88,7 +88,8 @@ void ulip_core_restore_config(bool restart)
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
     fpm_delete_all();
 #endif
-    wifi_reset();
+    if (!CFG_get_wifi_disable())
+        wifi_reset();
 
     /* Restart system */
     if (restart)
@@ -935,15 +936,18 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 50; i++) {
         char user[32];
         sprintf(user, "user%d", i);
         account_t *account = account_new();
+        account_set_name(account, user);
+        account_set_card(account,user);
+        account_set_code(account, user);
         account_set_user(account, user);
         account_set_key(account, "password");
         account_db_insert(account);
-        ESP_LOGI("main", "account added %s", account_get_user(account));
     }
+    ESP_LOGI("main", "accounts added");
     vTaskDelete(NULL);
 }
 void update_ip_info()
@@ -2512,123 +2516,69 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
             }
             else if (!strcmp(request, "users"))
             {
+                if (!account_db_get_size()) {
+                    httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No users found");
+                    free(buf);
+                    return ESP_OK;
+                }
                 httpd_query_key_value(buf, "file", file, sizeof(file));
-                // httpdFindArg(connData->getArgs, "file", file, sizeof(file));
-                ESP_LOGE("main", "cgidata %u", (int)connData->cgiData);
-                if (!connData->cgiData)
-                {
-                        
-                    // httpdStartResponse(connData, 200);
-                    if (*file != '\0')
-                    {
-                        /* CSV */
-                        httpd_resp_set_type(req, "text/csv");
-                        httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=accounts.csv");
-                        ESP_LOGI("main", "setting headers csv");
-                        // httpdHeader(connData, "Content-type", "text/csv");
-                        // httpdHeader(connData, "Content-Disposition", "attachment; filename=accounts.csv");
-                    }
-                    else
-                    {
-                        /* JSON */
-                        // httpd_resp_set_type(req, "application/json; charset=iso-8859-1");
-                        httpd_resp_set_type(req, "application/json");
-                        ESP_LOGI("main", "setting headers json");
-                        // httpdHeader(connData, "Content-type", "application/json; charset=iso-8859-1");
-                        // httpd_resp_set_hdr(req, "Content-type", "application/json; charset=iso-8859-1");
-                    }
-                    // httpdEndHeaders(connData);
-                    /* Empty database */
-                    if (!account_db_get_size()) {
-                        free(buf);
-                        return ESP_OK;
-                    }
-                    if (*file == '\0')
-                    {
-                        // httpdSendData(connData, "[", 1);
-                        httpd_resp_sendstr_chunk(req, "[");
-                    }
-
-                    /* Get first user */
-                    index = account_db_get_first();
-                    ESP_LOGI("main", "index first %d", index);
-                }
-                else
-                {
-                    /* Get next user */
-                    index = (int)connData->cgiData & ~(1 << 31);
-                    index = account_db_get_next(index);
-                    ESP_LOGI("main", "index %d", index);
-                }
                 body = (char *)malloc(2048);
+                index = 0;
                 if (!body) {
                     free(buf);
                     return ESP_OK;
                 }
-                if (*file != '\0') {
-                    len = account_db_string(index, body, 2048);
-                    ESP_LOGI("main", "body %s", body);
-                }
-                else {
-
-                    len = account_db_json(index, body, 2048);
-                }
-                
-                httpd_resp_send_chunk(req, body, len);
-                // httpdSendData(connData, body, len);
-                connData->cgiData = (void *)(index | (1 << 31));
-                ESP_LOGI("main", "cgidata %u", (int)connData->cgiData);
-                free(body);
-                if (index == account_db_get_last())
+                if (*file != '\0')
                 {
-                    if (*file == '\0')
-                    {
-                        // httpdSendData(connData, "]", 1);
-                        httpd_resp_sendstr_chunk(req, "]");
+                    /* CSV */
+                    httpd_resp_set_type(req, "text/csv");
+                    httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=accounts.csv");
+                    ESP_LOGI("main", "setting headers csv");
+                    for (int i = 0; i < account_db_get_size(); i++) {
+                        len = account_db_string(i, body, 2048);
+                        ESP_LOGI("main", "%d", i);
+                        httpd_resp_send_chunk(req, body, len);
                     }
-                    free(buf);
-                    return ESP_OK;
+                
+
                 }
                 else
                 {
-                    if (*file == '\0') {
-                        // httpdSendData(connData, ",", 1);
-                        httpd_resp_sendstr_chunk(req, ",");
+                    /* JSON */
+                    // httpd_resp_set_type(req, "application/json; charset=iso-8859-1");
+                    httpd_resp_set_type(req, "application/json");
+                    ESP_LOGI("main", "setting headers json");
+                    httpd_resp_sendstr_chunk(req, "[");
+                    for (int i = 0; i < account_db_get_size(); i++) {
+                        len = account_db_json(i, body, 2048);
+                        ESP_LOGI("main", "%d", i);
+                        httpd_resp_send_chunk(req, body, len);
+                        if (i < account_db_get_size() - 1) {
+                            httpd_resp_sendstr_chunk(req, ",");
+                        }
                     }
+                    httpd_resp_sendstr_chunk(req, "]");
                 }
+                httpd_resp_send_chunk(req, body, 0);
+                free(body);                
                 free(buf);
-                return HTTPD_CGI_MORE;
+                return ESP_OK;
             }
-        }
-    }
-    free(buf);
-    return ESP_OK;
-#if 0
             else if (!strcmp(request, "usersummary"))
             {
                 body = (char *)malloc(512);
                 if (!body)
                 {
-                    httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-                    httpdStartResponse(connData, 500);
-                    httpdHeader(connData, "Content-Length", "0");
-                    httpdEndHeaders(connData);
-                    return HTTPD_CGI_DONE;
+                    httpd_resp_send_500(req);
+                    free(buf);
+                    return ESP_FAIL;
                 }
                 len = account_db_json_summary(body, 512);
-                httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
-                httpdStartResponse(connData, 200);
-                httpdHeader(connData, "Content-Type", "application/json");
-                sprintf(slen, "%d", len);
-                httpdHeader(connData, "Content-Length", slen);
-                httpdEndHeaders(connData);
-                httpdSendData(connData, body, len);
+                httpd_resp_set_type(req, "application/json");
+                httpd_resp_send(req, body, len);
                 free(body);
-                return HTTPD_CGI_DONE;
-    #if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-        !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-        !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-        !defined(__MLI_1WLC_TYPE__)
+                free(buf);
+                return ESP_OK;
             }
             else if (!strcmp(request, "accesslog"))
             {
@@ -2747,6 +2697,11 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                     return HTTPD_CGI_DONE;
                 }
             }
+        }
+    }
+    free(buf);
+    return ESP_OK;
+#if 0
             else if (!strcmp(request, "delaccesslog"))
             {
                 ulip_core_log_remove();
@@ -2755,7 +2710,7 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                 httpdHeader(connData, "Content-Length", "0");
                 httpdEndHeaders(connData);
                 return HTTPD_CGI_DONE;
-    #endif
+    // #endif
             }
             else if (!strcmp(request, "adduser"))
             {

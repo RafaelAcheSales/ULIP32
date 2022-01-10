@@ -7,34 +7,33 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 
-#include <stdio.h>
 #include "httpd2.h"
-#include <esp_wifi.h>
-#include <esp_event.h>
-#include <esp_log.h>
-#include <esp_system.h>
-#include <nvs_flash.h>
-#include <sys/param.h>
-#include "nvs_flash.h"
-#include "esp_netif.h"
 #include "esp_eth.h"
-#include "protocol_examples_common.h"
+#include "esp_netif.h"
 #include "esp_tls_crypto.h"
 #include "mbedtls/base64.h"
+#include "nvs_flash.h"
+#include "protocol_examples_common.h"
+#include <esp_event.h>
 #include <esp_http_server.h>
+#include <esp_log.h>
+#include <esp_system.h>
+#include <esp_wifi.h>
+#include <nvs_flash.h>
+#include <stdio.h>
+#include <sys/param.h>
 #define CONFIG_EXAMPLE_BASIC_AUTH_USERNAME "user"
 #define CONFIG_EXAMPLE_BASIC_AUTH_PASSWORD "password"
-#define HTTPD_MAX_CONNECTIONS  2
+#define HTTPD_MAX_CONNECTIONS 2
 // #define GET_REQ_TEST 0
 /* A simple example that demonstrates how to create GET and POST
  * handlers for the web server.
  */
 
 static const char *TAG = "example";
-static esp_err_t (* httpd_get_cb)(httpd_req_t *req) = NULL;
+static esp_err_t (*httpd_get_cb)(httpd_req_t *req) = NULL;
 static httpdConnData *connData[HTTPD_MAX_CONNECTIONS];
 #if 1
-
 
 #define HTTPD_401 "401 UNAUTHORIZED" /*!< HTTP Response 401 */
 
@@ -55,7 +54,7 @@ static char *http_auth_basic(const char *username, const char *password)
     /* 6: The length of the "Basic " string
      * n: Number of bytes for a base64 encode format
      * 1: Number of bytes for a reserved which be used to fill zero
-    */
+     */
     digest = calloc(1, 6 + n + 1);
     if (digest)
     {
@@ -65,7 +64,6 @@ static char *http_auth_basic(const char *username, const char *password)
     free(user_info);
     return digest;
 }
-
 
 /* An HTTP GET handler */
 esp_err_t basic_auth_get_handler(httpd_req_t *req)
@@ -157,7 +155,7 @@ static void httpd_register_basic_auth(httpd_handle_t server, httpd_uri_t *uri_ha
 }
 
 int authBasicGetUsername(httpd_req_t *req,
-                                           char *username, int len)
+                         char *username, int len)
 {
     char auth[AUTH_MAX_USER_LEN + AUTH_MAX_PASS_LEN + 2];
     char *user = NULL;
@@ -165,13 +163,16 @@ int authBasicGetUsername(httpd_req_t *req,
     char hdr[512];
     long r;
 
-    if (!req || !username) return -1;
-    r = httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr)-1);
+    if (!req || !username)
+        return -1;
+    r = httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr) - 1);
     // r = httpdGetHeader(connData, "Authorization", hdr, sizeof(hdr) - 1);
-    if (r == ESP_OK && strncmp(hdr, "Basic", 5) == 0) {
-        mbedtls_base64_decode((unsigned char *) auth, sizeof(auth), &r, (const unsigned char *)hdr + 6, strlen(hdr) - 6);
+    if (r == ESP_OK && strncmp(hdr, "Basic", 5) == 0)
+    {
+        mbedtls_base64_decode((unsigned char *)auth, sizeof(auth), &r, (const unsigned char *)hdr + 6, strlen(hdr) - 6);
         ESP_LOGI("httpd", "auth %s", auth);
-        if (r < 0) r = 0;
+        if (r < 0)
+            r = 0;
         auth[r] = 0;
         user = strtok_r(auth, ":", &pass);
         strncpy(username, user, len - 1);
@@ -183,7 +184,7 @@ int authBasicGetUsername(httpd_req_t *req,
 }
 
 int authBasicGetPassword(httpd_req_t *req,
-                                           char *password, int len)
+                         char *password, int len)
 {
     char auth[AUTH_MAX_USER_LEN + AUTH_MAX_PASS_LEN + 2];
     char *user = NULL;
@@ -191,14 +192,17 @@ int authBasicGetPassword(httpd_req_t *req,
     char hdr[512];
     long r;
 
-    if (!req || !password) return -1;
-    r = httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr)-1);
+    if (!req || !password)
+        return -1;
+    r = httpd_req_get_hdr_value_str(req, "Authorization", hdr, sizeof(hdr) - 1);
     // r = httpdGetHeader(connData, "Authorization", hdr, sizeof(hdr) - 1);
-    if (r && strncmp(hdr, "Basic", 5) == 0) {
+    if (r && strncmp(hdr, "Basic", 5) == 0)
+    {
         // r = base64Decode(strlen(hdr) - 6, hdr + 6, sizeof(auth),
-                        //  (unsigned char *)auth);
-        mbedtls_base64_decode( (unsigned char *)auth, sizeof(auth), &r, (const unsigned char *) hdr + 6, strlen(hdr) - 6);
-        if (r < 0) r = 0;
+        //  (unsigned char *)auth);
+        mbedtls_base64_decode((unsigned char *)auth, sizeof(auth), &r, (const unsigned char *)hdr + 6, strlen(hdr) - 6);
+        if (r < 0)
+            r = 0;
         auth[r] = 0;
         user = strtok_r(auth, ":", &pass);
         strncpy(password, pass, len - 1);
@@ -210,8 +214,99 @@ int authBasicGetPassword(httpd_req_t *req,
 }
 #endif
 
-void httpdContinue(httpd_req_t *req) {
+void  httpdCgiIsDone(httpd_req_t *req)
+{
+    httpdConnData *conn = (httpdConnData *)req->user_ctx;
+	// conn->cgi=NULL; //no need to call this anymore
+	// httpdFlushSendBuffer(conn);
+	//Note: Do not clean up sendBacklog, it may still contain data at this point.
+	// conn->priv->headPos=0;
+	// conn->post->len=-1;
+	// conn->priv->flags=0;
+	// if (conn->post->buff) {
+	// 	free(conn->post->buff);
+	// 	conn->post->buff=NULL;
+	// }
+	// conn->post->buffLen=0;
+	// conn->post->received=0;
+	// conn->hostName=NULL;
+	// //Cannot re-use this connection. Mark to get it killed after all data is sent.
+	// conn->priv->flags|=HFL_DISCONAFTERSENT;
+}
+
+// Can be called after a CGI function has returned HTTPD_CGI_MORE to
+// resume handling an open connection asynchronously
+void httpdContinue(httpd_req_t *req)
+{
     ESP_LOGI(TAG, "httpdContinue");
+    int r;
+    httpdConnData *conn = (httpdConnData *)req->user_ctx;
+    if (req == NULL)
+    {
+        ESP_LOGD("HTTPD", "Connection is null!");
+        return;
+    }
+
+    // if (conn->priv->sendBacklog != NULL) {
+    // 	//We have some backlog to send first.
+    // 	HttpSendBacklogItem *next = conn->priv->sendBacklog->next;
+    // 	httpdPlatSendData(conn->conn, conn->priv->sendBacklog->data, conn->priv->sendBacklog->len);
+    // 	conn->priv->sendBacklogSize -= conn->priv->sendBacklog->len;
+    // 	free(conn->priv->sendBacklog);
+    // 	conn->priv->sendBacklog = next;
+    // 	httpdPlatUnlock();
+    // 	return;
+    // }
+
+    // if (conn->priv->flags & HFL_DISCONAFTERSENT) { //Marked for destruction?
+    // 	os_debug("HTTPD", "Connection slot %d is done", conn->slot);
+    // 	httpdPlatDisconnect(conn->conn);
+    // 	httpdPlatUnlock();
+    // 	return; //No need to call httpdFlushSendBuffer.
+    // }
+
+    // //If we don't have a CGI function, there's nothing to do but wait for something from the client.
+    // if (conn->cgi == NULL) {
+    // 	httpdPlatUnlock();
+    // 	return;
+    // }
+
+    // if (!conn->priv->sendBuff) {
+    //     conn->priv->sendBuff = malloc(HTTPD_MAX_SENDBUFF_LEN);
+    //     if (conn->priv->sendBuff == NULL) {
+    //         os_warning("HTTPD", "Buffer allocation failed!");
+    //         httpdPlatDisconnect(conn->conn);
+    //         httpdPlatUnlock();
+    //         return;
+    //     }
+    //     conn->priv->sendBuffLen = 0;
+    // }
+
+    // r = conn->cgi(conn); // Execute cgi fn.
+    r = (*(httpd_get_cb))(req);
+    if (r == HTTPD_CGI_DONE)
+    {
+        httpdCgiIsDone(conn);
+    }
+    else if (r == HTTPD_CGI_MORE)
+    {
+        /* Wait to complete request */
+        if (conn->timeout)
+        {
+            esp_timer_create_args_t timer_args = {
+                .callback = &httpdContinue,
+                .arg = req,
+                .name = "httpd_timeout_cb"};
+            esp_timer_create(&timer_args, &conn->timer);
+            esp_timer_start_once(conn->timer, conn->timeout * 1000);
+            return;
+        }
+    }
+    if (r == HTTPD_CGI_NOTFOUND || r == HTTPD_CGI_AUTHENTICATED)
+    {
+        printf("ERROR! CGI fn returns code %d after sending data! Bad CGI!\n", r);
+        httpdCgiIsDone(conn);
+    }
 }
 
 /* An HTTP GET handler */
@@ -219,24 +314,30 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
 {
     int rc;
     httpdConnData *conn = (httpdConnData *)req->user_ctx;
-    if (httpd_get_cb != NULL) {
+    if (httpd_get_cb != NULL)
+    {
         rc = (*(httpd_get_cb))(req);
-        if (rc == ESP_OK) {
+        if (rc == ESP_OK)
+        {
             return ESP_OK;
-        } else  if (rc == HTTPD_CGI_MORE) {
+        }
+        else if (rc == HTTPD_CGI_MORE)
+        {
             conn->timeout = 10;
-            if (conn->timeout) {
+            if (conn->timeout)
+            {
                 esp_timer_create_args_t timer_args = {
                     .callback = &httpdContinue,
                     .arg = req,
-                    .name = "httpd_timeout_cb"
-                };
+                    .name = "httpd_timeout_cb"};
                 esp_timer_create(&timer_args, &conn->timer);
-                esp_timer_start_once(conn->timer, conn->timeout * 1000);
+                // esp_timer_start_once(conn->timer, conn->timeout * 1000);
                 return ESP_OK;
             }
         }
-    } else {
+    }
+    else
+    {
         ESP_LOGE(TAG, "user_hw_timer_cb is NULL");
     }
 #ifdef GET_REQ_TEST
@@ -246,7 +347,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
         return rc;
     char *buf;
     size_t buf_len;
-    
+
     /* Get header value string length and allocate memory for length + 1,
      * extra byte for null termination */
     buf_len = httpd_req_get_hdr_value_len(req, "Host") + 1;
@@ -282,7 +383,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
         }
         free(buf);
     }
-    
+
     /* Read URL query string length and allocate memory for length + 1,
      * extra byte for null termination */
     buf_len = httpd_req_get_url_query_len(req) + 1;
@@ -316,7 +417,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
 
     /* Send response with custom headers and body set as the
      * string passed in user context*/
-    const char *resp_str = "maicon boiola\n";//(const char *)req->user_ctx;
+    const char *resp_str = "maicon boiola\n"; //(const char *)req->user_ctx;
     httpd_resp_send(req, INDEXREDE, HTTPD_RESP_USE_STRLEN);
 
     /* After sending the HTTP response the old HTTP request
@@ -327,7 +428,6 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
     }
 #endif
     return ESP_OK;
-    
 }
 
 static httpd_uri_t hello = {
@@ -455,7 +555,7 @@ static httpd_handle_t start_webserver(void)
 {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.stack_size = 4096*4;
+    config.stack_size = 4096 * 4;
     config.uri_match_fn = httpd_uri_match_wildcard;
     config.lru_purge_enable = true;
 
@@ -508,7 +608,7 @@ static void connect_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
-void start_httpd(esp_err_t (* httpd_get_cb_set)(httpd_req_t *req))
+void start_httpd(esp_err_t (*httpd_get_cb_set)(httpd_req_t *req))
 {
     httpd_get_cb = httpd_get_cb_set;
     static httpd_handle_t server = NULL;

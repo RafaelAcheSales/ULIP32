@@ -19,4 +19,5 @@
         "random": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
+    "idf.adapterTargetName": "esp32",
 }

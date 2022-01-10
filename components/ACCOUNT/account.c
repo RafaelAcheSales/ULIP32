@@ -1284,7 +1284,7 @@ account_t *account_db_get_index(int index)
     // ets_intr_unlock(); 
     if (acc->a.flag != DB_NODE_FLAG) {
         free(acc);
-        ESP_LOGI(TAG, "flag != 0x55");
+        // ESP_LOGI(TAG, "flag != 0x55");
         return NULL;
     }
 
@@ -1447,7 +1447,7 @@ int account_db_string(int index, char *str, int len)
     str[size++] = '\r';
     str[size++] = '\n';
     str[size] = '\0';
-    ESP_LOGI(TAG, "account_db_string: %s", str);
+    // ESP_LOGI(TAG, "account_db_string: %s", str);
     free(acc);
 
     return size;
