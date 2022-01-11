@@ -1613,6 +1613,9 @@ int account_db_log_insert(account_log_t *log)
     memcpy(data + off, &d, sizeof(account_log_data_t));
     ESP_ERROR_CHECK(esp_partition_erase_range(partition, addr, DB_SECTOR_SIZE));
     ESP_ERROR_CHECK(esp_partition_write(partition, addr, (void *) data, DB_SECTOR_SIZE));
+    ESP_LOGI(TAG, "account_db_log_insert: %s %s %u %d %d",
+             d.a.name, d.a.data, d.a.timestamp, d.a.type, d.a.granted);
+    ESP_LOGE(TAG, "write addr: %x", addr);
     // ets_intr_lock();
     // spi_flash_erase_sector(sector);
     // spi_flash_write(addr, (uint32 *)data, DB_SECTOR_SIZE);
@@ -1686,11 +1689,13 @@ account_log_t *account_db_log_get_index(uint16_t index)
 
     /* Read log node */
     addr = DB_LOG_NODE_ADDR(index);
-    ESP_LOGI(TAG, "before reading log addr: %x", addr);
+    // ESP_LOGI(TAG, "before reading log addr: %x", addr);
     // dataptr = (account_log_data_t *)calloc(1, sizeof(account_log_data_t));
     // if (!dataptr) return NULL;
     ESP_ERROR_CHECK(esp_partition_read(partition, addr, (void *)&data, DB_LOG_NODE_SIZE));
-    ESP_LOGI(TAG, "after reading log");
+    ESP_LOGI(TAG, "data read: %s %s %d %d %d", data.a.name, data.a.data, data.a.timestamp, data.a.type, data.a.granted);
+    ESP_LOGE(TAG, "read addr: %x", addr);
+    // ESP_LOGI(TAG, "after reading log");
     // data = *dataptr;
     // ets_intr_lock();
     // spi_flash_read(addr, (uint32 *)&data, DB_LOG_NODE_SIZE);

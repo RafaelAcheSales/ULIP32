@@ -189,4 +189,10 @@ int account_db_log_get_previous(uint16_t index);
 
 account_log_t *account_db_log_get_index(uint16_t index);
 
+int account_db_log_string(int index, char *str, int len);
+
+int account_db_log_json(int index, char *json, int len);
+
+
+
 #endif  /* __ACCOUNT_H__ */

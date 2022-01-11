@@ -39,6 +39,7 @@
 
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define GPIO_INPUT 16
 #define GPIO_INPUT_PIN_SEL (1ULL << GPIO_INPUT)
 #define GPIO_OUTPUT 4
@@ -857,7 +858,7 @@ static void got_ip_event2(char * ip_address)
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    udp_logging_init(host, port, udp_logging_vprintf);
+    // udp_logging_init(host, port, udp_logging_vprintf);
     CFG_set_server_ip(ip_address);
 
     // rfid_init(CFG_get_rfid_timeout(),
@@ -936,18 +937,33 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
+    // for (int i = 0; i < 50; i++) {
+    //     char user[32];
+    //     sprintf(user, "user%d", i);
+    //     account_t *account = account_new();
+    //     account_set_name(account, user);
+    //     account_set_card(account,user);
+    //     account_set_code(account, user);
+    //     account_set_user(account, user);
+    //     account_set_key(account, "password");
+    //     account_db_insert(account);
+    // }
+    ESP_LOGI("main", "accounts added");
     for (int i = 0; i < 50; i++) {
         char user[32];
+        char date[32];
         sprintf(user, "user%d", i);
-        account_t *account = account_new();
-        account_set_name(account, user);
-        account_set_card(account,user);
-        account_set_code(account, user);
-        account_set_user(account, user);
-        account_set_key(account, "password");
-        account_db_insert(account);
+        sprintf(date, "2022-0%d-10 15:46:57", i%10);
+        account_log_t *log = account_log_new();
+        account_log_set_date(log, date);
+        account_log_set_name(log, user);
+        account_log_set_code(log, user);
+        account_log_set_granted(log, i%2);
+        account_log_set_type(log, i%3);
+        account_db_log_insert(log);
+        account_log_t *log2 = account_db_log_get_index(i);
+        ESP_LOGI("main", "date added %s", account_log_get_date(log2));
     }
-    ESP_LOGI("main", "accounts added");
     vTaskDelete(NULL);
 }
 void update_ip_info()
@@ -2582,11 +2598,18 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
             }
             else if (!strcmp(request, "accesslog"))
             {
-                httpdFindArg(connData->getArgs, "file", file, sizeof(file));
+                httpd_query_key_value(buf, "file", file, sizeof(file));
+
+                size_t recv_size = MIN(req->content_len, sizeof(filter));
+
+                int ret = httpd_req_recv(req, filter, recv_size);
+                filter[recv_size] = '\0';
+                // httpdFindArg(connData->getArgs, "file", file, sizeof(file));
                 /* Check filter */
-                if (connData->post && connData->post->buff)
+                ESP_LOGI("main", "filter: %s", filter);
+                if (ret > 0)
                 {
-                    os_strcpy(filter, connData->post->buff);
+                    // strcpy(filter, connData->post->buff);
                     config = filter;
                     while ((p = strtok(config, ",")))
                     {
@@ -2608,21 +2631,59 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                             end = p;
                         }
                     }
+                } else {
+                    httpd_resp_send_408(req);
+                    free(buf);
+                    return ESP_FAIL;
                 }
+                if (*file != '\0')
+                {
+                    // /* CSV */
+                    // httpdHeader(connData, "Content-type", "text/csv");
+                    // httpdHeader(connData, "Content-Disposition", "attachment; filename=accesses.csv");
+                    httpd_resp_set_type(req, "text/csv");
+                    // httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=accesses.csv");
+                    body = (char *)malloc(1024);
+                    if (!body)
+                    {
+                        httpd_resp_send_500(req);
+                        free(buf);
+                        return ESP_FAIL;
+                    }
+                    if (account_db_log_get_first() == 0) {
+                        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "No accesses found");
+                        free(buf);
+                        free(body);
+                        return ESP_OK;
+                    }
+                    for (int i = account_db_log_get_first(); i >= 0; i--)
+                    {
+                        ESP_LOGI("main", "i: %d", i);
+                        account_log_t *log = account_db_log_get_index(i);
+                        if (account_log_get_date(log) < start || account_log_get_date(log) > end)
+                        {
+                            ESP_LOGI("main", "%s", account_log_get_date(log));
+                            ESP_LOGI("main", "skip %d", account_log_get_date(log) < start);
+                            continue;
+                        }
+                        len = account_db_log_string(i, body, 512);
+                        ESP_LOGI("main", "log %s", body);
+                        httpd_resp_send_chunk(req, body, len);
+                    }
+                    free(body);
+                    // ESP_LOGI("main", "first: %d", i);
+                }
+                else
+                {
+                    /* JSON */
+                    // httpdHeader(connData, "Content-type", "application/json; charset=iso-8859-1");
+                    httpd_resp_set_type(req, "application/json");
+                }
+                httpd_resp_send_chunk(req, " ", 0);
+                #if 0
                 if (!connData->cgiData)
                 {
                     httpdStartResponse(connData, 200);
-                    if (*file != '\0')
-                    {
-                        /* CSV */
-                        httpdHeader(connData, "Content-type", "text/csv");
-                        httpdHeader(connData, "Content-Disposition", "attachment; filename=accesses.csv");
-                    }
-                    else
-                    {
-                        /* JSON */
-                        httpdHeader(connData, "Content-type", "application/json; charset=iso-8859-1");
-                    }
                     httpdEndHeaders(connData);
                     if (*file == '\0')
                         httpdSendData(connData, "[", 1);
@@ -2696,6 +2757,7 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
                     free(body);
                     return HTTPD_CGI_DONE;
                 }
+                #endif
             }
         }
     }
