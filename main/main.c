@@ -36,7 +36,7 @@
 #include "udp_logging.h"
 #include <stdio.h>
 #include <sys/time.h>
-
+#include "sntp2.h"
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -851,8 +851,12 @@ static void ulip_core_http_callback(char *uri, char *response_body, int http_sta
     ESP_LOGI("ULIP", "HTTP response [%s] status [%d]",
             uri, http_status);
 }
+
 static void got_ip_event2(char * ip_address)
 {
+    start_sntp();
+
+    ESP_LOGI("main", "sntp_init");
     uint8_t mode;
     uint8_t level;
     char *host;
@@ -949,20 +953,32 @@ void release_task()
     //     account_db_insert(account);
     // }
     ESP_LOGI("main", "accounts added");
-    for (int i = 0; i < 50; i++) {
+    // account_db_log_remove_all();
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    ESP_LOGI("main", "gettime %ld", tv.tv_sec);
+
+    struct timeval tv2;
+    // sntp_sync_time(&tv2);
+    // ESP_LOGI("main", "ntptime %ld", tv2.tv_sec);
+    
+    ESP_LOGI("main", "timestamp %ld", time(NULL));
+    for (int i = 0; i < 1; i++) {
         char user[32];
         char date[32];
         sprintf(user, "user%d", i);
         sprintf(date, "2022-0%d-10 15:46:57", i%10);
         account_log_t *log = account_log_new();
-        account_log_set_date(log, date);
+        // account_log_set_date(log, date);
         account_log_set_name(log, user);
         account_log_set_code(log, user);
         account_log_set_granted(log, i%2);
         account_log_set_type(log, i%3);
         account_db_log_insert(log);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
         account_log_t *log2 = account_db_log_get_index(i);
         ESP_LOGI("main", "date added %s", account_log_get_date(log2));
+        // ESP_LOGI("main", "name added %s", account_log_get_name(log2));
     }
     vTaskDelete(NULL);
 }
@@ -2528,6 +2544,7 @@ static esp_err_t ulip_core_httpd_request(httpd_req_t *req)
             #endif
             else if (!strcmp(request, "restoreconfig"))
             {
+                httpd_resp_send(req, "Restored to factory defaults", -1);
                 ulip_core_restore_config(true);
             }
             else if (!strcmp(request, "users"))
@@ -4219,9 +4236,12 @@ void set_time_names() {
 void app_main(void)
 {
     set_time_names();
-    
+    // sntp_set_time_sync_notification_cb(got_time_sync_notification_cb);
+    // sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    // sntp_setservername(0, "pool.ntp.org");
+    // sntp_init();
     CFG_Load();
-    CFG_Default();
+    // CFG_Default();
     CFG_set_control_mode(0);
     CFG_set_control_timeout(2);
     CFG_set_ip_address("10.0.0.140");
@@ -4231,19 +4251,21 @@ void app_main(void)
     CFG_set_dhcp(true);
     CFG_set_wifi_ssid("uTech-Wifi");
     CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(true);
-    CFG_set_eth_dhcp(false);
+    CFG_set_wifi_disable(false);
+    CFG_set_eth_dhcp(true);
     CFG_set_eth_enable(true);
     CFG_set_eth_ip_address("10.0.0.243");
     CFG_set_eth_netmask("255.255.255.0");
     CFG_set_eth_gateway("10.0.0.1");
-    // CFG_Save();
-    CFG_set_fingerprint_timeout(100000);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
-    ESP_LOGI("main", "set config");
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
              CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
+    
+    // CFG_Save();
+    /*
+    CFG_set_fingerprint_timeout(100000);
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
+    ESP_LOGI("main", "set config");
     ESP_LOGI("main", "ctl init");
     tty_init();
     // printf("%d", ++cnt);
@@ -4276,9 +4298,7 @@ void app_main(void)
     //                rs485_event, NULL);
     printf("Hello world!\n");
     ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
-    // sntp_setoperatingmode(SNTP_OPMODE_POLL);
-    // sntp_setservername(0, "pool.ntp.org");
-    // sntp_init();
+
     // vTaskList(tasks_info);
     // ESP_LOGI("main", "\n%s", tasks_info);
     // if (!initialized) {
@@ -4302,9 +4322,11 @@ void app_main(void)
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     // printf(cur_task);
-    if (CFG_get_eth_enable())
-        start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
     ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
              CFG_get_eth_enable(), CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask());
+    */
     start_httpd(&ulip_core_httpd_request);
+    if (CFG_get_eth_enable())
+        start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
+    
 }

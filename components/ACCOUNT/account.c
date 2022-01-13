@@ -1605,6 +1605,9 @@ int account_db_log_insert(account_log_t *log)
     /* Update log database node */
     memset(&d, 0, sizeof(account_log_data_t));
     time(&rawtime);
+    struct tm *tm = localtime(&rawtime);
+    printf("%s %d %d %d %d %d %d\n", asctime(tm), tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+    ESP_LOGI(TAG, "timestamp insert: %ld", rawtime);
     d.a.timestamp = rawtime;
     strncpy(d.a.name, log->name, sizeof(d.a.name) - 1);
     strncpy(d.a.data, log->code, sizeof(d.a.data) - 1);
@@ -1705,6 +1708,7 @@ account_log_t *account_db_log_get_index(uint16_t index)
 
     log = (account_log_t *)calloc(1, sizeof(account_log_t));
     if (!log) return NULL;
+    ESP_LOGI(TAG, "timestamp: %d", data.a.timestamp);
     tm = localtime((time_t *)&data.a.timestamp);
     sprintf(log->date, "%04d-%02d-%02d %02d:%02d:%02d",
                tm->tm_year, tm->tm_mon + 1, tm->tm_mday,
