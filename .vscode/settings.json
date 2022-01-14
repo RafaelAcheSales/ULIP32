@@ -17,7 +17,8 @@
         "account.h": "c",
         "http.h": "c",
         "random": "c",
-        "sntp.h": "c"
+        "sntp.h": "c",
+        "esp_tls.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",
