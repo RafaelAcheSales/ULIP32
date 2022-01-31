@@ -191,3 +191,30 @@ Adicionado a opção de baud rate. Durante inicialização ou timeout do comando
 Na inicialização é necessário chamar gpio_config() e gpio_install_isr_service()
 
 Biblioteca para GPIO [[https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/gpio.html|aqui]]
+
+gpio_drv_release() deve ainda ser implementado, testado e decidido se deve chamar gpio_uninstall_isr_service() ou apenas desabilitar as interrupções
+
+== HTTP: == 
+
+==== Includes adicionados: ====
+
+ * http.h
+ * esp_http_client.h
+ * esp_log.h
+ * string.h
+
+==== Mudanças ====
+
+Toda estrutura está diferente do ULIP. Foi utilizado o exemplo da espressif como base para os requests http, apenas mantendo a convenção de chamada http_raw_request() para evitar mudança em como este módulo é utilizado na aplicação.
+
+Eventos http são recebidos na função _http_event_handle()
+
+esp_http_client_init() recebe como parâmetro um struct com as informações necessárias para inicializar uma conexão.
+
+esp_http_client_set_* é a função que vai settar as informações do request como por exemplo tipo de método (POST, GET, etc...) e Headers
+
+esp_http_client_perform() realiza de fato o request e bloqueia a task atual.
+
+esp_http_client_get_* retorna as informações da resposta do request tal como método e headers
+
+
