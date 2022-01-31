@@ -211,10 +211,29 @@ Eventos http são recebidos na função _http_event_handle()
 
 esp_http_client_init() recebe como parâmetro um struct com as informações necessárias para inicializar uma conexão.
 
-esp_http_client_set_* é a função que vai settar as informações do request como por exemplo tipo de método (POST, GET, etc...) e Headers
+esp_http_client_set_* é a função que vai settar as informações do request como por exemplo tipo de método (POST, GET, etc...) e headers,
 
 esp_http_client_perform() realiza de fato o request e bloqueia a task atual.
 
-esp_http_client_get_* retorna as informações da resposta do request tal como método e headers
+esp_http_client_get_* retorna as informações da resposta do request tal como método e headers.
+
+[[https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/protocols/esp_http_client.html|leia]]
+
+== HTTPD: ==
+
+A ser desenvolvido... Opções são: utilizar o código ULIP e mudar apenas chamadas de baixo nível (espconn e lwip) ou alterar usando o exemplo de servidor http da espressif para esp32 e recriar as funções de callback utilizando os comandos da espressif.
+
+== QRCODE: ==
+
+==== Includes adicionados: ====
+
+ * esp_log.h
+ * esp_system.h
+ * esp_timer.h
+
+==== Mudanças ====
+
+Praticamente nenhuma mudança a não ser as Mundanças globais como esp_timer e esp_log
+
 
 
