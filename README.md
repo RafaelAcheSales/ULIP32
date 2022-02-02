@@ -235,5 +235,28 @@ A ser desenvolvido... Opções são: utilizar o código ULIP e mudar apenas cham
 
 Praticamente nenhuma mudança a não ser as Mundanças globais como esp_timer e esp_log
 
+== RF433: ==
+
+==== Includes adicionados: ====
+
+ * esp_log.h
+ * time.h
+ * esp_timer.h
+
+==== Mudanças ====
+
+Praticamente nenhuma mudança em relação ao ULIP a não ser gpio_config() e esp_timer
+
+== TTY: ==
+
+==== Includes adicionados: ====
+
+ * esp_log.h
+ * time.h
+ * esp_timer.h
+
+==== Mudanças ====
+
+
 
 
