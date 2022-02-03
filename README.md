@@ -257,6 +257,32 @@ Praticamente nenhuma mudança em relação ao ULIP a não ser gpio_config() e es
 
 ==== Mudanças ====
 
+==== HW_TIMER ====
+
+Para o timer de hardware foi utilizado o exemplo da espressif para timer_groups. O clock APB de 80MHz foi dividido por 2 e colocado em TIME_SCALE. O valor do timer para gerar interrupção é calculado por: timer_interval_usec * TIMER_SCALE/1000000
+
+Na inicialização do Timer é utilizado timer_init(), timer_set_alarm_value(0), timer_enable_intr() e timer_isr_callback_add().
+
+timer_group_isr_callback() é a rotina chamada pela interrupção que apenas chama o callback escolhido por hw_timer_set_func()
+
+Foi removido o xQueue para lidar com os eventos em tempo de interrupção.
+
+===== tty =====
+
+UART0, UART1, UART2 são por hardware
+
+UART3 por bitbanging
+
+A UART3 recebe e transmite utilizando a fifo via callback do timer de hardware.
 
 
+A base do código permanece igual, porém tiveram mudanças na inicialização e para utilzar as UART físicas foi implementado as funções da biblioteca da espressif [[https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/uart.html|aqui]]
+
+Para enviar data via UART é chamado uart_write_bytes() e para checar se há informações a serem lidas é utilizada a função uart_get_buffered_data_len() e uart_read_bytes() para a leitura de fato.
+
+==== uart_drv ====
+
+Utiliza as funções da espressif para inicializar os parâmetros e as UART físicas: uart_param_config(), uart_set_pin(), uart_driver_install()
+
+Para abrir e fechar UART's, apenas é chamado uart_enable/disable_rx_intr
 
