@@ -247,6 +247,17 @@ Praticamente nenhuma mudança a não ser as Mundanças globais como esp_timer e 
 
 Praticamente nenhuma mudança em relação ao ULIP a não ser gpio_config() e esp_timer
 
+== SNTP: ==
+
+Módulo criado para manter o horario atualizado via servidor NTP.
+
+Na inicialização é chamado
+
+ * sntp_setoperatingmode(SNTP_OPMODE_POLL)
+ * sntp_setservername(0, "pool.ntp.org");
+ * sntp_set_time_sync_notification_cb()
+ * sntp_init()
+
 == TTY: ==
 
 ==== Includes adicionados: ====
@@ -286,3 +297,26 @@ Utiliza as funções da espressif para inicializar os parâmetros e as UART fís
 
 Para abrir e fechar UART's, apenas é chamado uart_enable/disable_rx_intr
 
+
+== Partições da flash: ==
+
+# Name,   Type, SubType, Offset,  Size, Flags
+nvs,      data, nvs,     0x9000,  0x6000,
+phy_init, data, phy,     0xf000,  0x1000,
+factory,  app,  factory, 0x10000, 2M,
+storage,  data, nvs,            , 0x10000,
+accounts, data, nvs,            , 4M
+
+== sdkconfig == 
+
+Este é um arquivo na pasta base do projeto e possui as configurações tanto dos módulos criados como para as bibliotecas a serem compiladas. Sua alteração é feita por idf.py menuconfig ou make menuconfig.
+
+Os módulos podem conter um arquivo Kconfig.projbuild que são incluidos no sdkconfig.
+
+Durante o build é gerado o arquivo sdkconfig.h que serve de header para vários modulos utilizarem as constantes de configuração com sintaxe CONFIG_* (este sistema pode ser usado para diferenciar as versões ULET para compilar apenas o código necessario para cada modelo).
+
+Este arquivo lida com as configurações dos módulos freeRtos, LWIP, Bluetooth, ETH, Wifi, entre outros.
+
+== esp32-perfmon-master: ==
+
+É um módulo adicionado apenas para medir desempenho e uso dos cores durante os testes.
