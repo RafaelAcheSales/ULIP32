@@ -12,10 +12,10 @@
 //If some data can't be sent because the underlaying socket doesn't accept the data (like the nonos
 //layer is prone to do), we put it in a backlog that is dynamically malloc'ed. This defines the max
 //size of the backlog.
-#define HTTPD_CGI_MORE 1
-#define HTTPD_CGI_DONE 2
-#define HTTPD_CGI_NOTFOUND 3
-#define HTTPD_CGI_AUTHENTICATED 4
+#define HTTPD_CGI_DONEE 2
+#define HTTPD_CGI_MOREE 1
+#define HTTPD_CGI_NOTFOUNDE 3
+#define HTTPD_CGI_AUTHENTICATEDE 4
 typedef struct
 {
     void *cgiData;

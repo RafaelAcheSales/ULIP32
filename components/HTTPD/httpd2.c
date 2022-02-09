@@ -284,11 +284,11 @@ void httpdContinue(httpd_req_t *req)
 
     // r = conn->cgi(conn); // Execute cgi fn.
     r = (*(httpd_get_cb))(req);
-    if (r == HTTPD_CGI_DONE)
+    if (r == HTTPD_CGI_DONEE)
     {
         httpdCgiIsDone(conn);
     }
-    else if (r == HTTPD_CGI_MORE)
+    else if (r == HTTPD_CGI_MOREE)
     {
         /* Wait to complete request */
         if (conn->timeout)
@@ -302,7 +302,7 @@ void httpdContinue(httpd_req_t *req)
             return;
         }
     }
-    if (r == HTTPD_CGI_NOTFOUND || r == HTTPD_CGI_AUTHENTICATED)
+    if (r == HTTPD_CGI_NOTFOUNDE || r == HTTPD_CGI_AUTHENTICATEDE)
     {
         printf("ERROR! CGI fn returns code %d after sending data! Bad CGI!\n", r);
         httpdCgiIsDone(conn);
@@ -321,7 +321,7 @@ static esp_err_t hello_get_handler(httpd_req_t *req)
         {
             return ESP_OK;
         }
-        else if (rc == HTTPD_CGI_MORE)
+        else if (rc == HTTPD_CGI_MOREE)
         {
             conn->timeout = 10;
             if (conn->timeout)
