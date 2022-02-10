@@ -17,6 +17,7 @@
 #include "esp_timer.h"
 #include "esp_netif.h"
 #include "esp_sntp.h"
+#include "mbedtls/base64.h"
 #include "utils.h"
 #include "eth.h"
 #include "fpm.h"
@@ -25,6 +26,7 @@
 #include "gpio_drv.h"
 #include "http.h"
 #include "httpd2.h"
+#include "ulip_cgi.h"
 #include "qrcode2.h"
 #include "rf433.h"
 #include "rfid.h"
@@ -38,8 +40,13 @@
 #include <sys/time.h>
 #include "sntp2.h"
 #include <libesphttpd/esp.h>
-#include "libesphttpd/httpd.h"
+// #include "libesphttpd/httpd.h"
 #include "libesphttpd/httpd-freertos.h"
+#include "auth.h"
+#include "main.h"
+// #include "libesphttpd/auth.h"
+// #include "esp_netif_ip_addr.h"
+
 
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
@@ -69,10 +76,28 @@ static account_log_t *acc_log[MAX_ACC_LOG] = {
     NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL
 };
+// struct ip_addr {
+//     uint32 addr;
+// };
+
+// typedef struct ip_addr ip_addr_t;
+
+struct ip_info {
+    struct ip_addr ip;
+    struct ip_addr netmask;
+    struct ip_addr gw;
+};
 static int acc_log_count = 0;
+
+static bool probe_user = false;
+static int probe_index = -1;
+static bool erase_user = false;
+static bool capture_finger = false;
+static bool wifi_ap_mode = false;
+static uint32_t sensor_cycles = 0;
+static bool sensor_alarm = false;
 esp_netif_ip_info_t eth_ip_info;
-const char *weekday[7];
-const char *monthday[12];
+
 
 void app_main(void);
 typedef union
@@ -112,6 +137,9 @@ void ulip_core_restore_config(bool restart)
 void ulip_core_system_reboot() {
     ESP_LOGI("main", "Rebooting...");
     esp_restart();
+}
+void ulip_core_log_remove() {
+    account_db_log_remove_all();
 }
 
 static void rs485_event(unsigned char from_addr,
@@ -1113,7 +1141,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     char *start = NULL;
     char *end = NULL;
     char filter[128];
-    struct ip_info ipInfo;
+    esp_netif_ip_info_t ipInfo = { 0 };
     char ip_address[16] = "";
     char netmask[16] = "";
     char gateway[16] = "";
@@ -1154,7 +1182,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     }
 
     /* Authenticate */
-    // rc = authBasic(connData);
+    rc = authBasic(connData);
+    
     if (rc != HTTPD_CGI_AUTHENTICATED)
         return rc;
 
@@ -1343,7 +1372,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
 
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "setconfig")) {
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -1351,7 +1380,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
@@ -2000,9 +2029,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             } else {
                 // wifi_get_ip_info(STATION_IF, &ipInfo);
             }
-            sprintf(ip_address, IPSTR, IP2STR(&ipInfo.ip.addr));
-            sprintf(netmask, IPSTR, IP2STR(&ipInfo.netmask.addr));
-            sprintf(gateway, IPSTR, IP2STR(&ipInfo.gw.addr));
+            sprintf(ip_address, IPSTR, IP2STR(&ipInfo.ip));
+            sprintf(netmask, IPSTR, IP2STR(&ipInfo.netmask));
+            sprintf(gateway, IPSTR, IP2STR(&ipInfo.gw));
             CFG_get_debug(&mode, &level, &server, &port);
             len = sprintf(body, "{\"model\":\"%s\",\"serial\":\"%s\",\"mac\":\"%s\",\"release\":\"%s\",\"hotspot\":\"%s\",\"ap_mode\":\"%s\"," \
                              "\"standalone\":\"%s\",\"ssid\":\"%s\",\"password\":\"%s\",\"channel\":\"%d\",\"beacon_interval\":\"%d\"," \
@@ -2301,8 +2330,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
         } else if (!strcmp(request, "accesslog")) {
             httpdFindArg(connData->getArgs, "file", file, sizeof(file));
             /* Check filter */
-            if (connData->post && connData->post->buff) {
-                strcpy(filter, connData->post->buff);
+            if (&(connData->post) && connData->post.buff) {
+                strcpy(filter, connData->post.buff);
                 config = filter;
                 while ((p = strtok(config, ","))) {
                     config = NULL; 
@@ -2434,7 +2463,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
 #endif
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -2442,7 +2471,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
@@ -2475,8 +2504,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    base64Decode(strlen(p), p, sizeof(template),
-                                 template);
+                    mbedtls_base64_decode(template, sizeof(template), NULL,
+                                          (unsigned char *)p, strlen(p));
                     fingerprint = template;
                 } else if (!strncmp("\"lifecount\":", p, 12)) {
                     p += 12;
@@ -2713,7 +2742,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             return HTTPD_CGI_DONE;
 #endif
         } else if (!strcmp(request, "getuser")) {
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -2721,7 +2750,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
@@ -2750,8 +2779,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    base64Decode(strlen(p), p, sizeof(template),
-                                 template);
+                    mbedtls_base64_decode(template, sizeof(template),
+                                          NULL, (unsigned char *)p,
+                                          strlen(p));
                     fingerprint = template;
                 }
             }
@@ -2761,7 +2791,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             else
                 index = strtol(uid, NULL, 10);
             if (index == -1) {
-                info("ULIP", "User not found");
+                ESP_LOGI("ULIP", "User not found");
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 404);
                 httpdHeader(connData, "Content-Length", "0");
@@ -2788,7 +2818,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             free(body);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "deluser")) {
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -2796,7 +2826,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL;
                 strdelimit(p, "{}\r\n", ' ');
@@ -2831,8 +2861,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    base64Decode(strlen(p), p, sizeof(template),
-                                 template);
+                    mbedtls_base64_decode(template, sizeof(template),
+                                          NULL, (unsigned char *)p,
+                                          strlen(p));
                     fingerprint = template;
                 }
             }
@@ -2843,7 +2874,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 else
                     index = strtol(uid, NULL, 10);
                 if (index == -1) {
-                    info("ULIP", "User not found");
+                    ESP_LOGI("ULIP", "User not found");
                     httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                     httpdStartResponse(connData, 400);
                     httpdHeader(connData, "Content-Length", "0");
@@ -2880,8 +2911,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                          state, sizeof(state));
             /* JSON */
             index = -1;
-            if (connData->post && connData->post->buff) {
-                config = connData->post->buff;
+            if (&(connData->post) && connData->post.buff) {
+                config = connData->post.buff;
                 while ((p = strtok(config, ","))) {
                     config = NULL;
                     strdelimit(p, "{}\r\n", ' ');
@@ -2909,7 +2940,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                         strdelimit((char *)rfcode, "\"", ' ');
                         strstrip((char *)rfcode);
                     } else if (!strncmp("\"fingerprint\":", p, 14)) {
-                        fingerprint = p + 14;
+                        fingerprint = (unsigned char *)(p + 14);
                         strdelimit((char *)fingerprint, "\"", ' ');
                         strstrip((char *)fingerprint);
                     }
@@ -2945,7 +2976,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "checkuser")) {
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -2953,7 +2984,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
@@ -2982,8 +3013,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    base64Decode(strlen(p), p, sizeof(template),
-                                 template);
+                    mbedtls_base64_decode(fingerprint, sizeof(fingerprint),
+                                          NULL, (unsigned char *)p, strlen(p));
                     fingerprint = template;
                 }
             }
@@ -2993,7 +3024,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             else
                 index = strtol(uid, NULL, 10);
             if (index == -1) {
-                info("ULIP", "User not found");
+                ESP_LOGI("ULIP", "User not found");
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 404);
                 httpdHeader(connData, "Content-Length", "0");
@@ -3005,7 +3036,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             account_destroy(acc);
             httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
             if (!rc) {
-                info("ULIP", "User blocked");
+                ESP_LOGI("ULIP", "User blocked");
                 httpdStartResponse(connData, 403);
             } else {
                 httpdStartResponse(connData, 200);
@@ -3025,7 +3056,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             return HTTPD_CGI_DONE;
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
         } else if (!strcmp(request, "finger")) {
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -3033,7 +3064,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
@@ -3076,7 +3107,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             else
                 index = strtol(uid, NULL, 10);
             if (index == -1) {
-                info("ULIP", "User not found");
+                ESP_LOGI("ULIP", "User not found");
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -3159,13 +3190,14 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 httpdEndHeaders(connData);
                 return HTTPD_CGI_DONE;
             }
-            tm = rtc_localtime();
+            time_t t = time(NULL);
+            tm = localtime(&t);
             sprintf(date, "%04d-%02d-%02d %02d:%02d:%02d",
                        tm->tm_year, tm->tm_mon + 1,
                        tm->tm_mday, tm->tm_hour,
                        tm->tm_min, tm->tm_sec);
             len = sprintf(body, "{\"datetime\":\"%s\",\"timestamp\":\"%lu\"}",
-                             date, rtc_time());
+                             date, time(NULL));
             httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
             httpdStartResponse(connData, 200);
             httpdHeader(connData, "Content-Type", "application/json");
@@ -3176,7 +3208,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             free(body);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "setdatetime")) {
-            if (!connData->post || !connData->post->buff) {
+            if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 400);
                 httpdHeader(connData, "Content-Length", "0");
@@ -3184,7 +3216,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             /* JSON */
-            config = connData->post->buff;
+            config = connData->post.buff;
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
@@ -3216,20 +3248,28 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     l = strtok(NULL, ":");
                     if (!l) continue;
                     t.tm_sec = strtol(l, NULL, 10);
-                    rtc_set_time(rtc_mktime(&t));
+                    mktime(&t);
+                    settimeofday(&t, NULL);
+                    // rtc_set_time(rtc_mktime(&t));
                     /* Save date and time in flash */
-                    if (abs(rtc_time() - CFG_get_rtc_time()) > 60) {
-                        CFG_set_rtc_time(rtc_time());
+                    if (abs(time(NULL) - CFG_get_rtc_time()) > 60) {
+                        CFG_set_rtc_time(time(NULL));
                         CFG_Save();
                     }
                 } else if (!strncmp("\"timestamp\":", p, 12)) {
                     p += 12;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    rtc_set_time(strtol(p, NULL, 10));
+                    struct timeval tv = {
+                        .tv_sec = strtol(p, NULL, 10),
+                        .tv_usec = 0,
+                    };
+    
+                    
+                    settimeofday(&tv, NULL);
                     /* Save date and time in flash */
-                    if (abs(rtc_time() - CFG_get_rtc_time()) > 60) {
-                        CFG_set_rtc_time(rtc_time());
+                    if (abs(time(NULL) - CFG_get_rtc_time()) > 60) {
+                        CFG_set_rtc_time(time(NULL));
                         CFG_Save();
                     }
                 }
@@ -3254,7 +3294,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             index = account_db_find(NULL, username, NULL, NULL, NULL,
                                     NULL, NULL);
             if (index == -1) {
-                info("ULIP", "User not found");
+                ESP_LOGI("ULIP", "User not found");
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
                 httpdStartResponse(connData, 404);
                 httpdHeader(connData, "Content-Length", "0");
@@ -3440,8 +3480,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
         } else if (!strcmp(request, "telemetrylog")) {
             httpdFindArg(connData->getArgs, "file", file, sizeof(file));
             /* Check filter */
-            if (connData->post && connData->post->buff) {
-                strcpy(filter, connData->post->buff);
+            if (connData->post && connData->post.buff) {
+                strcpy(filter, connData->post.buff);
                 config = filter;
                 while ((p = strtok(config, ","))) {
                     config = NULL; 
@@ -3572,75 +3612,18 @@ HttpdBuiltInUrl builtInUrls[] = {
     {"/index.html", ulip_core_httpd_request, "index.html", NULL}
 };
 static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
-void update_ip_info()
-{
-    get_wifi_ip(CFG_get_ap_mode(), &wifi_ip_info);
-    // ESP_LOGI("main", "wifiIP:" IPSTR, IP2STR(&wifi_ip_info.ip));
-    // ESP_LOGI("main" , "wifinet:" IPSTR, IP2STR(&wifi_ip_info.netmask));
-    // ESP_LOGI("main", "wifigw:" IPSTR, IP2STR(&wifi_ip_info.gw));
-    get_eth_ip(&eth_ip_info);
-    ESP_LOGI("main", "ponter %p", &eth_ip_info);
-    ESP_LOGI("main", "ethIP:" IPSTR, IP2STR(&eth_ip_info.ip));
-    ESP_LOGI("main" , "ETHMASK:" IPSTR, IP2STR(&eth_ip_info.netmask));
-    ESP_LOGI("main", "ETHGW:" IPSTR, IP2STR(&eth_ip_info.gw));
-    // vTaskDelete(NULL);
-}
-static void ctl_event(int event, int status)
-{
-    // printf("event rolou ctl: %d status %d\n", event, status);
-    switch (event)
-    {
-    case CTL_EVT_RELAY:
 
-        break;
-    case CTL_EVT_BUZZER:
 
-        break;
-    case CTL_EVT_SENSOR:
-        xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
-        break;
-    default:
-        printf("ctl event not supoorted\n");
-        break;
-    }
-}
 
-unsigned char *data = (unsigned char *)"\x88";
 
-static void rs485_rx_data(int tty, const char *data,
-                          int len, void *user_data)
 
-{
-    printf("data %s", data);
-}
 
 
 static void timer_callback()
 {
     xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
 }
-void set_time_names() {
-    weekday[0] = "Sun";
-    weekday[1] = "Mon";
-    weekday[2] = "Tue";
-    weekday[3] = "Wed";
-    weekday[4] = "Thu";
-    weekday[5] = "Fri";
-    weekday[6] = "Sat";
-    monthday[0] = "Jan";
-    monthday[1] = "Feb";
-    monthday[2] = "Mar";
-    monthday[3] = "Apr";
-    monthday[4] = "May";
-    monthday[5] = "Jun";
-    monthday[6] = "Jul";
-    monthday[7] = "Aug";
-    monthday[8] = "Sep";
-    monthday[9] = "Oct";
-    monthday[10] = "Nov";
-    monthday[11] = "Dec";
 
-}
 void app_main(void)
 {
     set_time_names();

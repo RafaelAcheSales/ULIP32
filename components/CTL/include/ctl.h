@@ -1,5 +1,6 @@
 #pragma once
 #include "stdbool.h"
+#include "stdint.h"
 
 #define CTL_MODE_NORMAL     0
 #define CTL_MODE_ALT        1
@@ -47,9 +48,9 @@ void ctl_panic_on(void);
 void ctl_panic_off(void);
 uint8_t ctl_relay_status(void);
 uint8_t ctl_sensor_status(void);
-// uint8_t clt_alarm_status(void);
-// uint8_t ctl_panic_status(void);
-// uint8_t ctl_breakin_status(void);
+uint8_t ctl_alarm_status(void);
+uint8_t ctl_panic_status(void);
+uint8_t ctl_breakin_status(void);
 
 void ctl_set_sensor_mode(uint8_t mode);
 

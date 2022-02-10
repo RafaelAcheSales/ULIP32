@@ -1,6 +1,7 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 #include "stdbool.h"
+#include "stdint.h"
 #define SYSENV_KEY              "sysenv"
 #define SYSCFG_KEY              "syscfg"
 #define SAVEFLAG_KEY            "saveflag"

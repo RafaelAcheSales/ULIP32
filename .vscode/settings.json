@@ -22,7 +22,13 @@
         "nvs_flash.h": "c",
         "esp_system.h": "c",
         "esp.h": "c",
-        "httpd-platform.h": "c"
+        "httpd-platform.h": "c",
+        "esp_sntp.h": "c",
+        "ip_addr.h": "c",
+        "config.h": "c",
+        "auth.h": "c",
+        "esp_netif_ip_addr.h": "c",
+        "ranges": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",
