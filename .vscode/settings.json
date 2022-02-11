@@ -28,7 +28,9 @@
         "config.h": "c",
         "auth.h": "c",
         "esp_netif_ip_addr.h": "c",
-        "ranges": "c"
+        "ranges": "c",
+        "*.tcc": "c",
+        "exception": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",

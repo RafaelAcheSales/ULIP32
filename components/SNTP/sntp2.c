@@ -154,3 +154,4 @@ static void initialize_sntp(void)
 #endif
     sntp_init();
 }
+

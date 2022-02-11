@@ -24,6 +24,6 @@
 #define MENU_ADMIN_TAB_WATCHDOG 10
 
 ICACHE_FLASH_ATTR
-int ulip_cgi_process(HttpdConnData *connData);
+int ulip_cgi_process(HttpdInstance *pInstance, HttpdConnData *connData);
 
 #endif  /* __ULIP_CGI_H__ */

@@ -76,11 +76,13 @@ static account_log_t *acc_log[MAX_ACC_LOG] = {
     NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL
 };
-// struct ip_addr {
-//     uint32 addr;
-// };
-
-// typedef struct ip_addr ip_addr_t;
+static int ulip_core_httpd_request(HttpdConnData *connData);
+static HttpdFreertosInstance httpdInstance;
+HttpdBuiltInUrl builtInUrls[] = {
+    {"*", ulip_core_httpd_request, "index.html", NULL},
+    {"/index.html", ulip_core_httpd_request, "index.html", NULL}
+};
+static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
 
 struct ip_info {
     struct ip_addr ip;
@@ -133,14 +135,26 @@ void ulip_core_restore_config(bool restart)
 
     system_restored = true;
 }
+void ulip_core_log_remove(void)
+{
+    account_log_t *log;
+    int i;
 
+    for (i = 0; i < MAX_ACC_LOG; i++) {
+        log = acc_log[i];
+        if (log) {
+            account_log_destroy(log);
+            acc_log[i] = NULL;
+        }
+    }
+    acc_log_count = 0;
+    account_db_log_remove_all();
+}
 void ulip_core_system_reboot() {
     ESP_LOGI("main", "Rebooting...");
     esp_restart();
 }
-void ulip_core_log_remove() {
-    account_db_log_remove_all();
-}
+
 
 static void rs485_event(unsigned char from_addr,
                         unsigned char ok,
@@ -3604,20 +3618,72 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
         return HTTPD_CGI_DONE;
     }
 
-    return ulip_cgi_process(connData);
+    return ulip_cgi_process(&httpdInstance, connData);
 }
-static HttpdFreertosInstance httpdInstance;
-HttpdBuiltInUrl builtInUrls[] = {
-    {"*", ulip_core_httpd_request, "index.html", NULL},
-    {"/index.html", ulip_core_httpd_request, "index.html", NULL}
-};
-static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
 
 
 
+void ulip_core_system_update(const char *ota_url)
+{
+    //TODO: implement
+}
+int ulip_core_log2html(char *html, int len)
+{
+    account_log_t *log;
+    int size = 0;
+    int i;
+    int k;
+    
+    k = (acc_log_count + MAX_ACC_LOG - 1) % MAX_ACC_LOG;
+    for (i = 0; i < MAX_ACC_LOG; i++) {
+        log = acc_log[k];
+        if (!log) break;
+        size += snprintf(html + size, len - size, "<tr align=\"center\"><td>%s</td>",
+                            account_log_get_date(log));
+        size += snprintf(html + size, len - size, "<td>%s</td>",
+                            account_log_get_name(log) ?
+                            account_log_get_name(log) : "-");
+        size += snprintf(html + size, len - size, "<td>%s</td>",
+                            account_log_get_code(log));
+        size += snprintf(html + size, len - size, "<td>%s</td></tr>",
+                            account_log_get_granted(log) ?
+                            "Liberado" : "Bloqueado");
+        k = (k + MAX_ACC_LOG - 1) % MAX_ACC_LOG;
+    }
+    size += snprintf(html + size, len - size, "%s",
+                        "<tr><td colspan=\"4\" align=\"center\" valign=\"middle\"><BR>");
+    size += snprintf(html + size, len - size, "%s",
+                        "<INPUT type=\"submit\" name=\"update\" class=\"btn btn-primary\" value=\"Atualizar\">");
+    size += snprintf(html + size, len - size, "%s",
+                        "<INPUT type=\"hidden\" name=\"menuopt\" value=\"5\">");
+    size += snprintf(html + size, len - size, "%s",
+                        "</td></tr></table></FORM></div></div></td></tr></table>");
 
+    return size;
+}
+bool ulip_core_erase_status(void)
+{
+    return erase_user;
+}
+void ulip_core_probe_user(bool status)
+{
+    probe_user = status;
+    erase_user = false;
+}
 
+ 
+bool ulip_core_probe_status(void)
+{
+    return probe_user;
+}
 
+ 
+void ulip_core_erase_user(bool status)
+{
+    erase_user = status;
+    probe_user = false;
+    probe_index = -1;
+}
 
 static void timer_callback()
 {

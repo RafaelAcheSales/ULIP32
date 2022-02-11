@@ -1,5 +1,6 @@
 /* vim: set ts=4 et sta noai cin: */
 
+#include <time.h>   
 #include "http.h"
 #include "config2.h"
 #include "ctl.h"
@@ -8,7 +9,10 @@
 #include "esp_wifi.h"
 #include "esp_log.h"
 #include "ap.h"
-// #include "debug.h"
+#include "main.h"
+#include "esp_sntp.h"
+#include "mbedtls/base64.h"
+#include "udp_logging.h"    
 
 // #include "ulip_model.h"
 // #include "ulip_core.h"
@@ -3283,7 +3287,7 @@ static const uint8_t LOGO[] = {
 };
 #endif
 
-ICACHE_FLASH_ATTR
+
 static void ulip_cgi_scan_cleanup(void *arg)
 {
     ESP_LOGD("CGI", "Scan cleanup");
@@ -3294,7 +3298,7 @@ static void ulip_cgi_scan_cleanup(void *arg)
     }
 }
 
-ICACHE_FLASH_ATTR 
+ 
 static void ulip_cgi_scan_callback(void *arg, STATUS status)
 {
     wifi_ap_record_t *bss = arg;
@@ -3356,7 +3360,7 @@ static void ulip_cgi_scan_callback(void *arg, STATUS status)
     esp_timer_start_once(scan_timer, 30000*1000);
 }
 
-ICACHE_FLASH_ATTR 
+ 
 static bool ulip_cgi_cache_lookup(const char *url, uint32_t ip,
                                   uint32_t *etag)
 {
@@ -3389,7 +3393,7 @@ static bool ulip_cgi_cache_lookup(const char *url, uint32_t ip,
     return rc;
 }
 
-ICACHE_FLASH_ATTR 
+ 
 static int ulip_cgi_cache_insert(const char *url, uint32_t ip, uint32_t *etag)
 {
     cgi_cache_t *c;
@@ -3413,8 +3417,8 @@ static int ulip_cgi_cache_insert(const char *url, uint32_t ip, uint32_t *etag)
     return -1;
 }
 
-ICACHE_FLASH_ATTR 
-static int ulip_cgi_send_data(HttpdInstance PInstance, HttpdConnData *connData,
+ 
+static int ulip_cgi_send_data(HttpdInstance *pInstance, HttpdConnData *connData,
                               const uint8_t *data, int size)
 {
     int len;
@@ -3424,7 +3428,7 @@ static int ulip_cgi_send_data(HttpdInstance PInstance, HttpdConnData *connData,
         if (len > (HTTPD_MAX_SENDBUFF_LEN >> 1))
             len = HTTPD_MAX_SENDBUFF_LEN >> 1;
         if (!httpdSend(connData, (const char *)data, len)) {
-            httpdFlushSendBuffer(PIntand connData);
+            httpdFlushSendBuffer(pInstance, connData);
             continue;
         }
         size -= len;
@@ -3434,8 +3438,8 @@ static int ulip_cgi_send_data(HttpdInstance PInstance, HttpdConnData *connData,
     return HTTPD_CGI_DONE;
 }
 
-ICACHE_FLASH_ATTR 
-static int ulip_cgi_send_data_from_flash(HttpdConnData *connData,
+ 
+static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData *connData,
                                          const uint8_t *data, int size)
 {
     uint32_t limit = 0;
@@ -3463,7 +3467,7 @@ static int ulip_cgi_send_data_from_flash(HttpdConnData *connData,
         spi_flash_read(addr, (uint32 *)buf, len);
         ets_intr_unlock();
         if (!httpdSend(connData, buf, len)) {
-            httpdFlushSendBuffer(connData);
+            httpdFlushSendBuffer(pInstance, connData);
             continue;
         }
         limit += len;
@@ -3480,19 +3484,19 @@ static int ulip_cgi_send_data_from_flash(HttpdConnData *connData,
     return HTTPD_CGI_DONE;
 }
 
-ICACHE_FLASH_ATTR
+
 static void ulip_cgi_response(HttpdConnData *connData, int status,
                               uint32_t etag, const char *content_type,
                               int content_length)
 {
-    uint32_t now = rtc_time();
+    uint32_t now = time(NULL);
     struct tm *tm;
     char header[128];
     char date[64];
     char slen[32];
 
     if (content_length != -1)
-        httdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
+        httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
     httpdStartResponse(connData, status);
     /* CORS */
     if (httpdGetHeader(connData, "Origin", header, sizeof(header))) {
@@ -3507,18 +3511,18 @@ static void ulip_cgi_response(HttpdConnData *connData, int status,
         httpdHeader(connData, "Content-Type", "text/html");
     } else {
         /* Cache control */
-        tm = rtc_gmtime(now);
+        tm = localtime(&now);
         sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
-                   rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
+                   weekday[tm->tm_wday], tm->tm_mday, monthday[tm->tm_mon],
                    tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
         httpdHeader(connData, "Date", date);
-        tm = rtc_gmtime(now + 31536000);
+        tm = localtime(now + 31536000);
         sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
-                   rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
+                   weekday[tm->tm_wday], tm->tm_mday, monthday[tm->tm_mon],
                    tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
         httpdHeader(connData, "Expires", date);
         if (etag) {
-            sprintf(header, "\"%lu\"", etag);
+            sprintf(header, "\"%u\"", etag);
             httpdHeader(connData, "ETag", header);
         }
         /* Content type */
@@ -3531,8 +3535,8 @@ static void ulip_cgi_response(HttpdConnData *connData, int status,
     httpdEndHeaders(connData);
 }
 
-ICACHE_FLASH_ATTR
-static void ulip_cgi_include_script(HttpdConnData *connData,
+
+static void ulip_cgi_include_script(HttpdInstance *pInstance,  HttpdConnData *connData,
                                     int menuopt, int subopt)
 {
     char buf[512];
@@ -3546,11 +3550,11 @@ static void ulip_cgi_include_script(HttpdConnData *connData,
                    "src=\"/js/init.js?menuopt=%d&loadtok=%lu\"></script>",
                    menuopt, random());
     }
-    ulip_cgi_send_data(connData, buf, strlen(buf));
+    ulip_cgi_send_data(pInstance,connData, (uint8_t *) buf, strlen(buf));
 }
 
-ICACHE_FLASH_ATTR
-static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
+
+static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, int menuopt, int subopt)
 {
     wifi_scan_config_t scanConf; 
     account_t *acc;
@@ -3558,7 +3562,7 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
     char *js;
     int size;
     struct tm *tm;
-    uint32_t time;
+    uint32_t time_value;
     uint8_t mode;
     uint8_t level;
     const char *host;
@@ -4291,13 +4295,13 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
                 while (p != NULL)
                 {
                     if (i == 0)
-                        size += sprintf(js + size, "document.getElementById('startMonth').selectedIndex=\"%d\";\n",
+                        size += sprintf(js + size, "document.getElementById('startMonth').selectedIndex=\"%ld\";\n",
                                            strtol(p, NULL, 10) - 1); 
                     else if (i == 1)
-                        size += sprintf(js + size, "document.getElementById('startWeek').selectedIndex=\"%d\";\n",
+                        size += sprintf(js + size, "document.getElementById('startWeek').selectedIndex=\"%ld\";\n",
                                            strtol(p, NULL, 10) - 1);
                     else if (i == 2)
-                        size += sprintf(js + size, "document.getElementById('startDay').selectedIndex=\"%d\";\n",
+                        size += sprintf(js + size, "document.getElementById('startDay').selectedIndex=\"%ld\";\n",
                                            strtol(p, NULL, 10));
                     p = strtok(NULL, "/");
                     i++;
@@ -4308,13 +4312,13 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
                 while (p != NULL)
                 {
                     if (i == 0)
-                        size += sprintf(js + size, "document.getElementById('endMonth').selectedIndex=\"%d\";\n",
+                        size += sprintf(js + size, "document.getElementById('endMonth').selectedIndex=\"%ld\";\n",
                                            strtol(p, NULL, 10) - 1); 
                     else if (i == 1)
-                        size += sprintf(js + size, "document.getElementById('endWeek').selectedIndex=\"%d\";\n",
+                        size += sprintf(js + size, "document.getElementById('endWeek').selectedIndex=\"%ld\";\n",
                                            strtol(p, NULL, 10) - 1);
                     else if (i == 2)
-                        size += sprintf(js + size, "document.getElementById('endDay').selectedIndex=\"%d\";\n",
+                        size += sprintf(js + size, "document.getElementById('endDay').selectedIndex=\"%ld\";\n",
                                            strtol(p, NULL, 10));
                     p = strtok(NULL, "/");
                     i++;
@@ -4333,7 +4337,8 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
                                    CFG_get_serialnum());
                 size += sprintf(js + size, "document.INDEXADMIN.mac.value='%s';\n",
                                    CFG_get_ethaddr());
-                tm = rtc_localtime();
+                time_t t = time(NULL);
+                tm = localtime(&t);
                 sprintf(date, "%02d/%02d/%04d %02d:%02d:%02d",
                            tm->tm_mday, tm->tm_mon + 1, tm->tm_year,
                            tm->tm_hour, tm->tm_min, tm->tm_sec);
@@ -4341,13 +4346,13 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
                                    date);
                 size += sprintf(js + size, "document.INDEXADMIN.release.value='%s';\n",
                                    CFG_get_release());
-                time = rtc_uptime();
-                day = time / 86400;
-                time -= day * 86400;
-                hour = time / 3600;
-                time -= hour * 3600;
-                min = time / 60;
-                sec = time - min * 60;
+                time_value = esp_timer_get_time()/1000; 
+                day = time_value / 86400;
+                time_value -= day * 86400;
+                hour = time_value / 3600;
+                time_value -= hour * 3600;
+                min = time_value / 60;
+                sec = time_value - min * 60;
                 if (day) {
                     sprintf(date, "%d dias, %d horas, %d minutos, %d segundos",
                                day, hour, min, sec);
@@ -4367,7 +4372,7 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
             case MENU_ADMIN_TAB_DEBUG:
                 CFG_get_debug(&mode, &level, &host, &port);
                 size += sprintf(js + size, "document.INDEXADMIN.debug_enable.checked=%s;\n",
-                                   mode != DEBUG_MODE_NONE ? "true" : "false");
+                                   mode != ESP_LOG_NONE ? "true" : "false");
                 size += sprintf(js + size, "document.INDEXADMIN.ip.value=\"%s\";\n",
                                    host ? host : "");
                 size += sprintf(js + size, "document.INDEXADMIN.port.value=\"%d\";\n",
@@ -4382,7 +4387,6 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
             case MENU_ADMIN_TAB_WIFI:
                 memset(&scanConf, 0, sizeof(scanConf));
                 scanConf.show_hidden = 1;
-                esp_wifi_scan_start(&scanConf, true);
                 wifi_station_scan(&scanConf, ulip_cgi_scan_callback);
                 if (scan_html)
                     size += sprintf(js + size, "document.getElementById('wifi').innerHTML=\"%s\";\n",
@@ -4396,13 +4400,13 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
                 size += sprintf(js + size, "document.INDEXADMIN.shutdown.value=\"%d\";\n",
                                    CFG_get_rtc_shutdown() != -1 ? CFG_get_rtc_shutdown() : 0);
                 if (CFG_get_rtc_shutdown() && CFG_get_rtc_shutdown() != -1) {
-                    time = rtc_get_shutdown();
-                    day = time / 86400;
-                    time -= day * 86400;
-                    hour = time / 3600;
-                    time -= hour * 3600;
-                    min = time / 60;
-                    sec = time - min * 60;
+                    time_value = rtc_get_shutdown();
+                    day = time_value / 86400;
+                    time_value -= day * 86400;
+                    hour = time_value / 3600;
+                    time_value -= hour * 3600;
+                    min = time_value / 60;
+                    sec = time_value - min * 60;
                     if (day) {
                         sprintf(date, "%d dia(s), %d hora(s), %d minuto(s), %d segundo(s)",
                                    day, hour, min, sec);
@@ -4530,13 +4534,13 @@ static void ulip_cgi_init_js(HttpdConnData *connData, int menuopt, int subopt)
         size += sprintf(js + size, "%s", "document.getElementById('prog').style.backgroundColor='#0075be';\n");
     }
     size += sprintf(js + size, "%s", "}\n");
-    ulip_cgi_send_data(connData, (uint8_t *)js, size);
+    ulip_cgi_send_data(pInstance, connData, (uint8_t *)js, size);
 
     free(js);
 }
 
-ICACHE_FLASH_ATTR
-static int ulip_cgi_get_handler(HttpdConnData *connData)
+
+static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connData)
 {
     int menuopt = 1;
     int subopt = -1;
@@ -4544,7 +4548,7 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
     char buf[512];
     char *html;
     int len;
-    int rc;
+    int rc = HTTPD_CGI_DONE;
 
     /* Get menu and sub menu */
     if (connData->getArgs) {
@@ -4557,7 +4561,7 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
         /* Javascript */
         if (strcmp(connData->url, "/js/init.js") == 0) {
             ulip_cgi_response(connData, 200, 0, "application/javascript", -1);
-            ulip_cgi_init_js(connData, menuopt, subopt);
+            ulip_cgi_init_js(pInstance, connData, menuopt, subopt);
             return HTTPD_CGI_DONE;
         }
         /* CSS */
@@ -4575,7 +4579,7 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
                 }
                 ulip_cgi_response(connData, 200, etag, "text/css", sizeof(STYLE) - 1);
             }
-            return ulip_cgi_send_data_from_flash(connData, STYLE, sizeof(STYLE) - 1);
+            return ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)STYLE, sizeof(STYLE) - 1);
         }
         /* Images */
 #if 0
@@ -4593,7 +4597,7 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
                 }
                 ulip_cgi_response(connData, 200, etag, "image/png", sizeof(LOGO));
             }
-            return ulip_cgi_send_data_from_flash(connData, LOGO, sizeof(LOGO));
+            return ulip_cgi_send_data_from_flash(pInstance, connData, LOGO, sizeof(LOGO));
         }
 #endif
         ulip_cgi_response(connData, 404, 0, NULL, 0);
@@ -4605,7 +4609,7 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
         connData->cgiData = (void *)CGI_PAGE_TOP;
     }
     if ((uint32_t)connData->cgiData & CGI_PAGE_TOP) {
-        rc = ulip_cgi_send_data_from_flash(connData, PAGE_TOP, sizeof(PAGE_TOP) - 1);
+        rc = ulip_cgi_send_data_from_flash(pInstance,connData, (uint8_t *)PAGE_TOP, sizeof(PAGE_TOP) - 1);
         if (rc == HTTPD_CGI_DONE)
             connData->cgiData = (void *)CGI_PAGE_BODY;
         return HTTPD_CGI_MORE;
@@ -4614,47 +4618,47 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
     switch (menuopt) {
         case MENU_NETWORK:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXREDE,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXREDE,
                                                    sizeof(INDEXREDE) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_CONTROL: 
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXACIONAMENTO,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXACIONAMENTO,
                                                    sizeof(INDEXACIONAMENTO) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_HTTP:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXHTTP,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXHTTP,
                                                    sizeof(INDEXHTTP) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_USER:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXUSER,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData,(uint8_t *) INDEXUSER,
                                                    sizeof(INDEXUSER) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_LOG:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXLOG,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXLOG,
                                                    sizeof(INDEXLOG) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
@@ -4670,74 +4674,74 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
 #else
                 len = ulip_core_telemetry2html(html, 2048);
 #endif
-                ulip_cgi_send_data(connData, html, len);
+                ulip_cgi_send_data(pInstance, connData, (uint8_t *)html, len);
                 free(html);
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_STATUS:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXSTATUS,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXSTATUS,
                                                    sizeof(INDEXSTATUS) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_ADMIN:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
                 switch (subopt) {
                     case MENU_ADMIN_TAB_UPDATE:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_UPDATE, sizeof(INDEXADMIN_UPDATE) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_UPDATE, sizeof(INDEXADMIN_UPDATE) - 1);
                         break;
                     case MENU_ADMIN_TAB_RESET:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_RESET, sizeof(INDEXADMIN_RESET) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_RESET, sizeof(INDEXADMIN_RESET) - 1);
                         break;
                     case MENU_ADMIN_TAB_SENHA:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_SENHA, sizeof(INDEXADMIN_SENHA) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_SENHA, sizeof(INDEXADMIN_SENHA) - 1);
                         break;
                     case MENU_ADMIN_TAB_TIMEZONE:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_TIMEZONE, sizeof(INDEXADMIN_TIMEZONE) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_TIMEZONE, sizeof(INDEXADMIN_TIMEZONE) - 1);
                         break;
                     case MENU_ADMIN_TAB_LOCATION:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_LOCATION, sizeof(INDEXADMIN_LOCATION) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_LOCATION, sizeof(INDEXADMIN_LOCATION) - 1);
                         break;
                     case MENU_ADMIN_TAB_SYSTEM:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_SYSTEM, sizeof(INDEXADMIN_SYSTEM) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_SYSTEM, sizeof(INDEXADMIN_SYSTEM) - 1);
                         break;
                     case MENU_ADMIN_TAB_DEBUG:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_DEBUG, sizeof(INDEXADMIN_DEBUG) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_DEBUG, sizeof(INDEXADMIN_DEBUG) - 1);
                         break;
                     case MENU_ADMIN_TAB_BACKUP:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_BACKUP, sizeof(INDEXADMIN_BACKUP) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_BACKUP, sizeof(INDEXADMIN_BACKUP) - 1);
                         break;
                     case MENU_ADMIN_TAB_WIFI:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_WIFI, sizeof(INDEXADMIN_WIFI) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_WIFI, sizeof(INDEXADMIN_WIFI) - 1);
                         break;
                     case MENU_ADMIN_TAB_WATCHDOG:
-                        rc = ulip_cgi_send_data_from_flash(connData, INDEXADMIN_WATCHDOG, sizeof(INDEXADMIN_WATCHDOG) - 1);
+                        rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXADMIN_WATCHDOG, sizeof(INDEXADMIN_WATCHDOG) - 1);
                         break;
                 }
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
         case MENU_PROG:
             if ((uint32_t)connData->cgiData & CGI_PAGE_BODY) {
-                rc = ulip_cgi_send_data_from_flash(connData, INDEXPROG,
+                rc = ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)INDEXPROG,
                                                    sizeof(INDEXPROG) - 1);
                 if (rc == HTTPD_CGI_DONE)
                     connData->cgiData = (void *)CGI_PAGE_BOTTOM;
                 return HTTPD_CGI_MORE;
             }
-            ulip_cgi_include_script(connData, menuopt, subopt);
+            ulip_cgi_include_script(pInstance, connData, menuopt, subopt);
             break;
     }
 
-    ulip_cgi_send_data(connData, PAGE_BOTTOM, sizeof(PAGE_BOTTOM) - 1);
+    ulip_cgi_send_data(pInstance, connData, PAGE_BOTTOM, sizeof(PAGE_BOTTOM) - 1);
 
     connData->cgiData = NULL;
 
@@ -4745,7 +4749,7 @@ static int ulip_cgi_get_handler(HttpdConnData *connData)
     return HTTPD_CGI_DONE;
 }
 
-ICACHE_FLASH_ATTR
+
 static int ulip_cgi_post_handler(HttpdConnData *connData)
 {
     int menuopt = 1;
@@ -4775,7 +4779,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
     int mode;
     int level = 0;
     char host[16];
-    int port;
+    int port = 80;
     int w1;
     int w2;
     int h1;
@@ -4791,297 +4795,297 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
     int i;
     
     /* Get menu and sub menu */
-    if (httpdFindArg(connData->post->buff, "menuopt", buf, sizeof(buf)) != -1)
+    if (httpdFindArg(connData->post.buff, "menuopt", buf, sizeof(buf)) != -1)
         menuopt = strtol(buf, NULL, 10);
-    if (httpdFindArg(connData->post->buff, "subopt", buf, sizeof(buf)) != -1)
+    if (httpdFindArg(connData->post.buff, "subopt", buf, sizeof(buf)) != -1)
         subopt = strtol(buf, NULL, 10);
 
-    if (httpdFindArg(connData->post->buff, "save", buf, sizeof(buf)) != -1) {
+    if (httpdFindArg(connData->post.buff, "save", buf, sizeof(buf)) != -1) {
         switch (menuopt) {
             case MENU_NETWORK:
-                if (httpdFindArg(connData->post->buff, "hotspot", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "hotspot", buf, sizeof(buf)) != -1)
                     CFG_set_hotspot(true);
                 else
                     CFG_set_hotspot(false);
-                if (httpdFindArg(connData->post->buff, "apmode", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "apmode", buf, sizeof(buf)) != -1)
                     CFG_set_ap_mode(true);
                 else
                     CFG_set_ap_mode(false);
-                if (httpdFindArg(connData->post->buff, "ssid", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ssid", buf, sizeof(buf)) != -1)
                     CFG_set_wifi_ssid(buf);
-                if (httpdFindArg(connData->post->buff, "passwd", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "passwd", buf, sizeof(buf)) != -1)
                     CFG_set_wifi_passwd(buf);
-                if (httpdFindArg(connData->post->buff, "channel", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "channel", buf, sizeof(buf)) != -1)
                     CFG_set_wifi_channel(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "beacon", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "beacon", buf, sizeof(buf)) != -1)
                     CFG_set_wifi_beacon_interval(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "hidessid", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "hidessid", buf, sizeof(buf)) != -1)
                     CFG_set_ssid_hidden(true);
                 else
                     CFG_set_ssid_hidden(false);
-                if (httpdFindArg(connData->post->buff, "dhcp", buf, sizeof(buf)) != -1) {
+                if (httpdFindArg(connData->post.buff, "dhcp", buf, sizeof(buf)) != -1) {
                     CFG_set_dhcp(true);
                 } else{
                     CFG_set_dhcp(false);
                 }
-                if (httpdFindArg(connData->post->buff, "ip", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ip", buf, sizeof(buf)) != -1)
                     CFG_set_ip_address(buf);
-                if (httpdFindArg(connData->post->buff, "netmask", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "netmask", buf, sizeof(buf)) != -1)
                     CFG_set_netmask(buf);
-                if (httpdFindArg(connData->post->buff, "gateway", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "gateway", buf, sizeof(buf)) != -1)
                     CFG_set_gateway(buf);
-                if (httpdFindArg(connData->post->buff, "dns", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dns", buf, sizeof(buf)) != -1)
                     CFG_set_dns(buf);
-                if (httpdFindArg(connData->post->buff, "ntp", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ntp", buf, sizeof(buf)) != -1)
                     CFG_set_ntp(buf);
-                if (httpdFindArg(connData->post->buff, "hostname", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "hostname", buf, sizeof(buf)) != -1)
                     CFG_set_hostname(buf);
-                if (httpdFindArg(connData->post->buff, "ddns", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ddns", buf, sizeof(buf)) != -1)
                     CFG_set_ddns(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "ddns_domain", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ddns_domain", buf, sizeof(buf)) != -1)
                     CFG_set_ddns_domain(buf);
-                if (httpdFindArg(connData->post->buff, "ddns_user", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ddns_user", buf, sizeof(buf)) != -1)
                     CFG_set_ddns_user(buf);
-                if (httpdFindArg(connData->post->buff, "ddns_passwd", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "ddns_passwd", buf, sizeof(buf)) != -1)
                     CFG_set_ddns_passwd(buf);
                 /* Save configuration */
                 CFG_Save();
                 break;
             case MENU_CONTROL:
-                if (httpdFindArg(connData->post->buff, "desc", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "desc", buf, sizeof(buf)) != -1)
                     CFG_set_control_description(buf);
 #if !defined(__MLI_1WRP_TYPE__)
-                if (httpdFindArg(connData->post->buff, "standalone", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "standalone", buf, sizeof(buf)) != -1)
                     CFG_set_standalone(true);
                 else
                     CFG_set_standalone(false);
-                if (httpdFindArg(connData->post->buff, "external", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "external", buf, sizeof(buf)) != -1)
                     CFG_set_control_external(true);
                 else
                     CFG_set_control_external(false);
-                if (httpdFindArg(connData->post->buff, "external_url", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "external_url", buf, sizeof(buf)) != -1)
                     CFG_set_control_url(buf);
-                if (httpdFindArg(connData->post->buff, "mode", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "mode", buf, sizeof(buf)) != -1)
                     CFG_set_control_mode(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "timeout", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_timeout(strtol(buf, NULL, 10));
 #if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
     !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
     !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
-                if (httpdFindArg(connData->post->buff, "acc_timeout", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "acc_timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_acc_timeout(strtol(buf, NULL, 10));
 #endif
-                if (httpdFindArg(connData->post->buff, "breakin", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "breakin", buf, sizeof(buf)) != -1)
                     CFG_set_breakin_alarm(true);
                 else
                     CFG_set_breakin_alarm(false);
-                if (httpdFindArg(connData->post->buff, "button_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "button_enable", buf, sizeof(buf)) != -1)
                     CFG_set_button_enable(true);
                 else
                     CFG_set_button_enable(false);
 #if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
     !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
     !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
-                if (httpdFindArg(connData->post->buff, "doublepass_timeout", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "doublepass_timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_doublepass_timeout(strtol(buf, NULL, 10));
 #endif
 #endif
 #if defined(__MLI_1WRP_TYPE__)
-                if (httpdFindArg(connData->post->buff, "relay_status", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "relay_status", buf, sizeof(buf)) != -1)
                     CFG_set_relay_status(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "button_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "button_enable", buf, sizeof(buf)) != -1)
                     CFG_set_button_enable(true);
                 else
                     CFG_set_button_enable(false);
-                if (httpdFindArg(connData->post->buff, "timeout", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_timeout(strtol(buf, NULL, 10));
 #endif
 #if !defined(__MLI_1WF_TYPE__) && !defined(__MLI_1WQF_TYPE__) && !defined(__MLI_1WRF_TYPE__)
-                if (httpdFindArg(connData->post->buff, "rfid", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rfid", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_enable(true);
                 else
                     CFG_set_rfid_enable(false);
-                if (httpdFindArg(connData->post->buff, "rfid_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rfid_timo", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rfid_retries", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rfid_retries", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_retries(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rfid_nfc", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rfid_nfc", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_nfc(true);
                 else
                     CFG_set_rfid_nfc(false);
-                if (httpdFindArg(connData->post->buff, "rfid_panic_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rfid_panic_timo", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_panic_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rfid_format", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rfid_format", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_format(strtol(buf, NULL, 10));
 #endif
 #if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
-                if (httpdFindArg(connData->post->buff, "qrcode", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_enable(true);
                 else
                     CFG_set_qrcode_enable(false);
-                if (httpdFindArg(connData->post->buff, "qrcode_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode_timo", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "qrcode_panic_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode_panic_timo", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_panic_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "qrcode_config", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode_config", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_config(true);
                 else
                     CFG_set_qrcode_config(false);
-                if (httpdFindArg(connData->post->buff, "qrcode_led", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode_led", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_led(true);
                 else
                     CFG_set_qrcode_led(false);
-                if (httpdFindArg(connData->post->buff, "qrcode_dynamic", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode_dynamic", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_dynamic(true);
                 else
                     CFG_set_qrcode_dynamic(false);
-                if (httpdFindArg(connData->post->buff, "qrcode_validity", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "qrcode_validity", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_validity(strtol(buf, NULL, 10));
 #endif
 #if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRF_TYPE__)
-                if (httpdFindArg(connData->post->buff, "rf433", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_enable(true);
                 else
                     CFG_set_rf433_enable(false);
-                if (httpdFindArg(connData->post->buff, "rf433_rc", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_rc", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_rc(true);
                 else
                     CFG_set_rf433_rc(false);
-                if (httpdFindArg(connData->post->buff, "rf433_hc", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_hc", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_hc(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rf433_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_alarm(true);
                 else
                     CFG_set_rf433_alarm(false);
-                if (httpdFindArg(connData->post->buff, "rf433_bc", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_bc", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_bc(true);
                 else
                     CFG_set_rf433_bc(false);
-                if (httpdFindArg(connData->post->buff, "rf433_bp", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_bp", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_bp(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rf433_panic_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_panic_timo", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_panic_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rf433_ba", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rf433_ba", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_ba(strtol(buf, NULL, 10));
 #endif
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
-                if (httpdFindArg(connData->post->buff, "fpm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "fpm", buf, sizeof(buf)) != -1)
                     CFG_set_fingerprint_enable(true);
                 else
                     CFG_set_fingerprint_enable(false);
-                if (httpdFindArg(connData->post->buff, "fpm_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "fpm_timo", buf, sizeof(buf)) != -1)
                     CFG_set_fingerprint_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "fpm_sec", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "fpm_sec", buf, sizeof(buf)) != -1)
                     CFG_set_fingerprint_security(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "fpm_id", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "fpm_id", buf, sizeof(buf)) != -1)
                     CFG_set_fingerprint_identify_retries(strtol(buf, NULL, 10));
 #endif
 #if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || defined(__MLI_1WRF_TYPE__) || \
     defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__)
-                if (httpdFindArg(connData->post->buff, "rs485", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rs485", buf, sizeof(buf)) != -1)
                     CFG_set_rs485_enable(true);
                 else
                     CFG_set_rs485_enable(false);
-                if (httpdFindArg(connData->post->buff, "rs485_addr", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rs485_addr", buf, sizeof(buf)) != -1)
                     CFG_set_rs485_hwaddr(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "rs485_server_addr", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "rs485_server_addr", buf, sizeof(buf)) != -1)
                     CFG_set_rs485_server_hwaddr(strtol(buf, NULL, 10));
 #endif
 #if defined(__MLI_1WLS_TYPE__)
-                if (httpdFindArg(connData->post->buff, "lora", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "lora", buf, sizeof(buf)) != -1)
                     CFG_set_lora_enable(true);
                 else
                     CFG_set_lora_enable(false);
-                if (httpdFindArg(connData->post->buff, "lora_channel", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "lora_channel", buf, sizeof(buf)) != -1)
                     CFG_set_lora_channel(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "lora_baudrate", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "lora_baudrate", buf, sizeof(buf)) != -1)
                     CFG_set_lora_baudrate(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "lora_addr", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "lora_addr", buf, sizeof(buf)) != -1)
                     CFG_set_lora_address(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "lora_server_addr", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "lora_server_addr", buf, sizeof(buf)) != -1)
                     CFG_set_lora_server_address(strtol(buf, NULL, 10));
 #endif
 #if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
     defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
-                if (httpdFindArg(connData->post->buff, "dht_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_enable", buf, sizeof(buf)) != -1)
                     CFG_set_dht_enable(true);
                 else
                     CFG_set_dht_enable(false);
-                if (httpdFindArg(connData->post->buff, "dht_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_timo", buf, sizeof(buf)) != -1)
                     CFG_set_dht_timeout(strtol(buf, NULL, 10) * 1000);
-                if (httpdFindArg(connData->post->buff, "dht_temp_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_temp_upper", buf, sizeof(buf)) != -1)
                     CFG_set_dht_temp_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "dht_temp_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_temp_lower", buf, sizeof(buf)) != -1)
                     CFG_set_dht_temp_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "dht_rh_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_rh_upper", buf, sizeof(buf)) != -1)
                     CFG_set_dht_rh_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "dht_rh_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_rh_lower", buf, sizeof(buf)) != -1)
                     CFG_set_dht_rh_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "dht_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_relay", buf, sizeof(buf)) != -1)
                     CFG_set_dht_relay(true);
                 else
                     CFG_set_dht_relay(false);
-                if (httpdFindArg(connData->post->buff, "dht_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "dht_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_dht_alarm(true);
                 else
                     CFG_set_dht_alarm(false);
 #endif
 #if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
-                if (httpdFindArg(connData->post->buff, "temt_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "temt_enable", buf, sizeof(buf)) != -1)
                     CFG_set_temt_enable(true);
                 else
                     CFG_set_temt_enable(false);
-                if (httpdFindArg(connData->post->buff, "temt_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "temt_timo", buf, sizeof(buf)) != -1)
                     CFG_set_temt_timeout(strtol(buf, NULL, 10) * 1000);
-                if (httpdFindArg(connData->post->buff, "temt_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "temt_upper", buf, sizeof(buf)) != -1)
                     CFG_set_temt_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "temt_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "temt_lower", buf, sizeof(buf)) != -1)
                     CFG_set_temt_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "temt_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "temt_relay", buf, sizeof(buf)) != -1)
                     CFG_set_temt_relay(true);
                 else
                     CFG_set_temt_relay(false);
-                if (httpdFindArg(connData->post->buff, "temt_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "temt_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_temt_alarm(true);
                 else
                     CFG_set_temt_alarm(false);
 #endif
 #if defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
-                if (httpdFindArg(connData->post->buff, "mq2_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "mq2_enable", buf, sizeof(buf)) != -1)
                     CFG_set_mq2_enable(true);
                 else
                     CFG_set_mq2_enable(false);
-                if (httpdFindArg(connData->post->buff, "mq2_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "mq2_timo", buf, sizeof(buf)) != -1)
                     CFG_set_mq2_timeout(strtol(buf, NULL, 10) * 1000);
-                if (httpdFindArg(connData->post->buff, "mq2_limit", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "mq2_limit", buf, sizeof(buf)) != -1)
                     CFG_set_mq2_limit(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "mq2_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "mq2_relay", buf, sizeof(buf)) != -1)
                     CFG_set_mq2_relay(true);
                 else
                     CFG_set_mq2_relay(false);
-                if (httpdFindArg(connData->post->buff, "mq2_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "mq2_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_mq2_alarm(true);
                 else
                     CFG_set_mq2_alarm(false);
 #endif
 #if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
-                if (httpdFindArg(connData->post->buff, "cli_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_enable", buf, sizeof(buf)) != -1)
                     CFG_set_cli_enable(true);
                 else
                     CFG_set_cli_enable(false);
-                if (httpdFindArg(connData->post->buff, "cli_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_timo", buf, sizeof(buf)) != -1)
                     CFG_set_cli_timeout(strtol(buf, NULL, 10) * 1000);
-                if (httpdFindArg(connData->post->buff, "cli_range", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_range", buf, sizeof(buf)) != -1)
                     CFG_set_cli_range(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "cli_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_upper", buf, sizeof(buf)) != -1)
                     CFG_set_cli_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "cli_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_lower", buf, sizeof(buf)) != -1)
                     CFG_set_cli_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "cli_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_relay", buf, sizeof(buf)) != -1)
                     CFG_set_cli_relay(true);
                 else
                     CFG_set_cli_relay(false);
-                if (httpdFindArg(connData->post->buff, "cli_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "cli_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_cli_alarm(true);
                 else
                     CFG_set_cli_alarm(false);
@@ -5089,98 +5093,98 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
 #if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
     defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
     defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
-                if (httpdFindArg(connData->post->buff, "pir_enable", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pir_enable", buf, sizeof(buf)) != -1)
                     CFG_set_pir_enable(true);
                 else
                     CFG_set_pir_enable(false);
-                if (httpdFindArg(connData->post->buff, "pir_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pir_timo", buf, sizeof(buf)) != -1)
                     CFG_set_pir_timeout(strtol(buf, NULL, 10) * 1000);
-                if (httpdFindArg(connData->post->buff, "pir_chime", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pir_chime", buf, sizeof(buf)) != -1)
                     CFG_set_pir_chime(true);
                 else
                     CFG_set_pir_chime(false);
-                if (httpdFindArg(connData->post->buff, "pir_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pir_relay", buf, sizeof(buf)) != -1)
                     CFG_set_pir_relay(true);
                 else
                     CFG_set_pir_relay(false);
-                if (httpdFindArg(connData->post->buff, "pir_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pir_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_pir_alarm(true);
                 else
                     CFG_set_pir_alarm(false);
-                if (httpdFindArg(connData->post->buff, "sensor_type", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "sensor_type", buf, sizeof(buf)) != -1)
                     CFG_set_sensor_type(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "sensor_flow", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "sensor_flow", buf, sizeof(buf)) != -1)
                     CFG_set_sensor_flow(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "sensor_limit", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "sensor_limit", buf, sizeof(buf)) != -1)
                     CFG_set_sensor_limit(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "sensor_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "sensor_relay", buf, sizeof(buf)) != -1)
                     CFG_set_sensor_relay(true);
                 else
                     CFG_set_sensor_relay(false);
-                if (httpdFindArg(connData->post->buff, "sensor_alarm", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "sensor_alarm", buf, sizeof(buf)) != -1)
                     CFG_set_sensor_alarm(true);
                 else
                     CFG_set_sensor_alarm(false);
 #endif
 #if defined(__MLI_1WRP_TYPE__)
-                if (httpdFindArg(connData->post->buff, "pow_vol_cal", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_vol_cal", buf, sizeof(buf)) != -1)
                     CFG_set_pow_voltage_cal(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_vol_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_vol_upper", buf, sizeof(buf)) != -1)
                     CFG_set_pow_voltage_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_vol_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_vol_lower", buf, sizeof(buf)) != -1)
                     CFG_set_pow_voltage_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_cur_cal", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_cur_cal", buf, sizeof(buf)) != -1)
                     CFG_set_pow_current_cal(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_cur_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_cur_upper", buf, sizeof(buf)) != -1)
                     CFG_set_pow_current_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_cur_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_cur_lower", buf, sizeof(buf)) != -1)
                     CFG_set_pow_current_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_pwr_upper", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_pwr_upper", buf, sizeof(buf)) != -1)
                     CFG_set_pow_power_upper(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_pwr_lower", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_pwr_lower", buf, sizeof(buf)) != -1)
                     CFG_set_pow_power_lower(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_relay", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_relay", buf, sizeof(buf)) != -1)
                     CFG_set_pow_relay(true);
                 else
                     CFG_set_pow_relay(false);
-                if (httpdFindArg(connData->post->buff, "pow_alarm_time", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_alarm_time", buf, sizeof(buf)) != -1)
                     CFG_set_pow_alarm_time(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_relay_timo", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_relay_timo", buf, sizeof(buf)) != -1)
                     CFG_set_pow_relay_timeout(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_relay_ext", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_relay_ext", buf, sizeof(buf)) != -1)
                     CFG_set_pow_relay_ext(true);
                 else
                     CFG_set_pow_relay_ext(false);
-                if (httpdFindArg(connData->post->buff, "pow_interval", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_interval", buf, sizeof(buf)) != -1)
                     CFG_set_pow_interval(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_day", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_day", buf, sizeof(buf)) != -1)
                     CFG_set_pow_day(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "daily_limit", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "daily_limit", buf, sizeof(buf)) != -1)
                     CFG_set_energy_daily_limit(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "monthly_limit", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "monthly_limit", buf, sizeof(buf)) != -1)
                     CFG_set_energy_monthly_limit(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "total_limit", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "total_limit", buf, sizeof(buf)) != -1)
                     CFG_set_energy_total_limit(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "pow_nrg_cal", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pow_nrg_cal", buf, sizeof(buf)) != -1)
                     CFG_set_pow_energy_cal(strtol(buf, NULL, 10));
 #endif
                 /* Save configuration */
                 CFG_Save();
                 break;
             case MENU_HTTP:
-                if (httpdFindArg(connData->post->buff, "server", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "server", buf, sizeof(buf)) != -1)
                     CFG_set_server_ip(buf);
-                if (httpdFindArg(connData->post->buff, "port", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "port", buf, sizeof(buf)) != -1)
                     CFG_set_server_port(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "user", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "user", buf, sizeof(buf)) != -1)
                     CFG_set_server_user(buf);
-                if (httpdFindArg(connData->post->buff, "pass", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "pass", buf, sizeof(buf)) != -1)
                     CFG_set_server_passwd(buf);
-                if (httpdFindArg(connData->post->buff, "url", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "url", buf, sizeof(buf)) != -1)
                     CFG_set_server_url(buf);
-                if (httpdFindArg(connData->post->buff, "retries", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "retries", buf, sizeof(buf)) != -1)
                     CFG_set_server_retries(strtol(buf, NULL, 10));
-                if (httpdFindArg(connData->post->buff, "auth", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "auth", buf, sizeof(buf)) != -1)
                     CFG_set_user_auth(true);
                 else
                     CFG_set_user_auth(false);
@@ -5188,26 +5192,26 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 CFG_Save();
                 break;
             case MENU_USER:
-                if (httpdFindArg(connData->post->buff, "level", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "level", buf, sizeof(buf)) != -1)
                     level = strtol(buf, NULL, 10);
-                httpdFindArg(connData->post->buff, "name", name, sizeof(name));
-                httpdFindArg(connData->post->buff, "user", user, sizeof(user));
-                httpdFindArg(connData->post->buff, "pass", pass, sizeof(pass));
-                httpdFindArg(connData->post->buff, "card", card, sizeof(card));
-                httpdFindArg(connData->post->buff, "code", code, sizeof(code));
-                httpdFindArg(connData->post->buff, "rfcode", rfcode, sizeof(rfcode));
-                httpdFindArg(connData->post->buff, "fingerprint", fingerprint,
+                httpdFindArg(connData->post.buff, "name", name, sizeof(name));
+                httpdFindArg(connData->post.buff, "user", user, sizeof(user));
+                httpdFindArg(connData->post.buff, "pass", pass, sizeof(pass));
+                httpdFindArg(connData->post.buff, "card", card, sizeof(card));
+                httpdFindArg(connData->post.buff, "code", code, sizeof(code));
+                httpdFindArg(connData->post.buff, "rfcode", rfcode, sizeof(rfcode));
+                httpdFindArg(connData->post.buff, "fingerprint", fingerprint,
                              sizeof(fingerprint));
-                httpdFindArg(connData->post->buff, "finger", finger, sizeof(finger));
-                if (httpdFindArg(connData->post->buff, "lifecount", buf, sizeof(buf)) != -1)
+                httpdFindArg(connData->post.buff, "finger", finger, sizeof(finger));
+                if (httpdFindArg(connData->post.buff, "lifecount", buf, sizeof(buf)) != -1)
                     lifecount = strtol(buf, NULL, 10);
-                if (httpdFindArg(connData->post->buff, "accessibility", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "accessibility", buf, sizeof(buf)) != -1)
                     accessibility = true;
-                if (httpdFindArg(connData->post->buff, "panic", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "panic", buf, sizeof(buf)) != -1)
                     panic = true;
-                if (httpdFindArg(connData->post->buff, "visitor", buf, sizeof(buf)) != -1)
+                if (httpdFindArg(connData->post.buff, "visitor", buf, sizeof(buf)) != -1)
                     visitor = true;
-                httpdFindArg(connData->post->buff, "key", pkey, sizeof(pkey));
+                httpdFindArg(connData->post.buff, "key", pkey, sizeof(pkey));
                 for (i = 0; i < 2; i++) {
                     w1 = -1;
                     w2 = -1;
@@ -5222,62 +5226,62 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     t2 = -1;
                     d2 = -1;
                     sprintf(key, "w%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             w1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "w%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             w2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "d%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             d1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "t%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             t1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "y%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             y1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "d%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             d2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "t%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             t2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "y%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             y2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "h%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             h1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "m%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             m1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "h%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             h2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "m%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             m2 = strtol(buf, NULL, 10);
                     }
@@ -5294,16 +5298,18 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 }
                 if (*user == '\0' && *card == '\0' && *code == '\0' &&
                     *rfcode == '\0' && *fingerprint == '\0') {
-                    info("CGI", "Invalid account parameters");
+                    ESP_LOGI("CGI", "Invalid account parameters");
                     sprintf(buf, "/?menuopt=%d", menuopt);
                     httpdRedirect(connData, buf);
                     return HTTPD_CGI_DONE;
                 }
                 if (*fingerprint != '\0')
-                    base64Decode(strlen(fingerprint), fingerprint,
-                                 sizeof(fingerprint), fingerprint);
+                    mbedtls_base64_decode((uint8_t *)fingerprint, strlen(fingerprint),
+                                          NULL, (uint8_t *)fingerprint, strlen(fingerprint));
+                    // base64Decode(strlen(fingerprint), fingerprint,
+                    //              sizeof(fingerprint), fingerprint);
                 index = account_db_find(NULL, user, card, code, rfcode,
-                                        fingerprint, NULL);
+                                        (uint8_t *)fingerprint, NULL);
                 if (index == -1)
                     acc = account_new();
                 else
@@ -5333,7 +5339,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     account_set_rfcode(acc, rfcode);
                     if (*fingerprint == 0)
                         memset(fingerprint, 0, sizeof(fingerprint));
-                    account_set_fingerprint(acc, fingerprint);
+                    account_set_fingerprint(acc, (uint8_t *)fingerprint);
                     account_set_finger(acc, finger);
                     account_set_lifecount(acc, lifecount);
                     account_set_accessibility(acc, accessibility);
@@ -5350,7 +5356,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                         fpm_set_template(index, fingerprint);
 #endif
                     account_destroy(acc);
-                    info("CGI", "Save account [%d]", index);
+                    ESP_LOGI("CGI", "Save account [%d]", index);
                     sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, index);
                     httpdRedirect(connData, buf);
                     return HTTPD_CGI_DONE;
@@ -5359,81 +5365,88 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
             case MENU_ADMIN:
                 switch(subopt) {
                     case MENU_ADMIN_TAB_UPDATE:
-                        if (httpdFindArg(connData->post->buff, "proto", buf, sizeof(buf)) != -1) {
+                        if (httpdFindArg(connData->post.buff, "proto", buf, sizeof(buf)) != -1) {
                             if (!strcmp(buf, "HTTP")) {
-                                if (httpdFindArg(connData->post->buff, "uri", buf, sizeof(buf)) != -1) {
+                                if (httpdFindArg(connData->post.buff, "uri", buf, sizeof(buf)) != -1) {
                                     CFG_set_ota_url(buf);
                                     CFG_Save();
                                     ulip_cgi_response(connData, 200, 0, NULL, 0);
                                     /* Schedule system update */
-                                    timer_setfn(&update_timer,
-                                                   (timer_func_t *)ulip_core_system_update,
-                                                   (void *)CFG_get_ota_url());
-                                    timer_arm(&update_timer, 1000, false);
+                                    // timer_setfn(&update_timer,
+                                    //                (timer_func_t *)ulip_core_system_update,
+                                    //                (void *)CFG_get_ota_url());
+                                    // timer_arm(&update_timer, 1000, false);
+                                    esp_timer_create_args_t update_timer_args = {
+                                        .callback = (esp_timer_cb_t)ulip_core_system_update,
+                                        .arg = (void *)CFG_get_ota_url(),
+                                    };
+                                    esp_timer_create(&update_timer_args, &update_timer);
+                                    esp_timer_start_once(update_timer, 1000);
+
                                     return HTTPD_CGI_DONE;
                                 }
                             } else if (!strcmp(buf, "TFTP")) {
-                                if (httpdFindArg(connData->post->buff, "uri", buf, sizeof(buf)) != -1) {
+                                if (httpdFindArg(connData->post.buff, "uri", buf, sizeof(buf)) != -1) {
                                 }
                             }
                         }
                         break;
                     case MENU_ADMIN_TAB_RESET:
-                        if (httpdFindArg(connData->post->buff, "reboot_mode", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "reboot_mode", buf, sizeof(buf)) != -1){
                             if (strcmp(buf, "0") == 0) {
-                               ulip_core_reboot();
+                               esp_restart();
                             } else if (strcmp(buf, "1") == 0) {
                                 ulip_core_restore_config(true);
                             }
                         }
                         break;
                     case MENU_ADMIN_TAB_SENHA:
-                        if (httpdFindArg(connData->post->buff, "user", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "user", buf, sizeof(buf)) != -1){
                             CFG_set_web_user(buf);
                         } 
-                        if (httpdFindArg(connData->post->buff, "npasswd", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "npasswd", buf, sizeof(buf)) != -1){
                             CFG_set_web_passwd(buf);         
                         }
                         break;
                     case MENU_ADMIN_TAB_TIMEZONE:
-                        if (httpdFindArg(connData->post->buff, "settimezone", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "settimezone", buf, sizeof(buf)) != -1){
                                CFG_set_timezone(strtol(buf, NULL, 10)-12); 
                         }
-                        if (httpdFindArg(connData->post->buff, "dst_enable", buf, sizeof(buf)) != -1)
+                        if (httpdFindArg(connData->post.buff, "dst_enable", buf, sizeof(buf)) != -1)
                             CFG_set_dst(true);
                         else
                             CFG_set_dst(false);   
-                        if (httpdFindArg(connData->post->buff, "start_mon", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "start_mon", buf, sizeof(buf)) != -1){
                             sprintf(date, buf);
                             strcat(date, "/"); 
                         } else{
                             break;
                         }
-                        if (httpdFindArg(connData->post->buff, "start_week", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "start_week", buf, sizeof(buf)) != -1){
                             strcat(date, buf);
                             strcat(date, "/"); 
                         } else{
                             break;
                         }
-                        if (httpdFindArg(connData->post->buff, "start_day", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "start_day", buf, sizeof(buf)) != -1){
                             strcat(date, buf);
                             strcat(date, " "); 
                         } else{
                             break;
                         }
-                        if (httpdFindArg(connData->post->buff, "end_mon", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "end_mon", buf, sizeof(buf)) != -1){
                             strcat(date, buf);
                             strcat(date, "/"); 
                         } else{
                             break;
                         }
-                        if (httpdFindArg(connData->post->buff, "end_week", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "end_week", buf, sizeof(buf)) != -1){
                             strcat(date, buf);
                             strcat(date, "/"); 
                         } else{
                             break;
                         }
-                        if (httpdFindArg(connData->post->buff, "end_day", buf, sizeof(buf)) != -1){
+                        if (httpdFindArg(connData->post.buff, "end_day", buf, sizeof(buf)) != -1){
                             strcat(date, buf); 
                         } else{
                             break;
@@ -5441,43 +5454,44 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                         CFG_set_dst_date(date);
                         break;
                     case MENU_ADMIN_TAB_LOCATION:
-                        if (httpdFindArg(connData->post->buff, "latitude", buf, sizeof(buf)) != -1)
+                        if (httpdFindArg(connData->post.buff, "latitude", buf, sizeof(buf)) != -1)
                             CFG_set_latitude(buf);
-                        if (httpdFindArg(connData->post->buff, "longitude", buf, sizeof(buf)) != -1)
+                        if (httpdFindArg(connData->post.buff, "longitude", buf, sizeof(buf)) != -1)
                             CFG_set_longitude(buf);
                         break;
                     case MENU_ADMIN_TAB_SYSTEM:
                         break;
                     case MENU_ADMIN_TAB_DEBUG:
-                        if (httpdFindArg(connData->post->buff, "debug_enable", buf, sizeof(buf)) != -1)
-                            mode = DEBUG_MODE_NETWORK;
+                        if (httpdFindArg(connData->post.buff, "debug_enable", buf, sizeof(buf)) != -1)
+                            mode = ESP_LOG_INFO;
                         else
-                            mode = DEBUG_MODE_NONE;
-                        if (httpdFindArg(connData->post->buff, "ip", buf, sizeof(buf)) != -1)
+                            mode = ESP_LOG_NONE;
+                        if (httpdFindArg(connData->post.buff, "ip", buf, sizeof(buf)) != -1)
                             strncpy(host, buf, sizeof(host) - 1);
-                        if (httpdFindArg(connData->post->buff, "port", buf, sizeof(buf)) != -1)
+                        if (httpdFindArg(connData->post.buff, "port", buf, sizeof(buf)) != -1)
                             port = strtol(buf, NULL, 10);
-                        if (httpdFindArg(connData->post->buff, "debug_level", buf, sizeof(buf)) != -1)
+                        if (httpdFindArg(connData->post.buff, "debug_level", buf, sizeof(buf)) != -1)
                             level = strtol(buf, NULL, 10);
                         CFG_set_debug(mode, level, host, port);
                         if (mode) {
-                            ESP_LOGD_enable();
-                            ESP_LOGD_set_level(level);
-                            ESP_LOGD_set_dump_network(host, port);
+                            esp_log_level_set("*", level);
+                            udp_logging_init(host, port, udp_logging_vprintf);
+                            
                         } else {
-                            ESP_LOGD_disable();
+                            esp_log_level_set("*", ESP_LOG_NONE);
                         }
                         break;
                     case MENU_ADMIN_TAB_BACKUP:
-                        if (httpdFindArg(connData->post->buff, "backup", buf, sizeof(buf)) != -1) {
+                        if (httpdFindArg(connData->post.buff, "backup", buf, sizeof(buf)) != -1) {
                         }
-                        if (httpdFindArg(connData->post->buff, "restore", buf, sizeof(buf)) != -1) {
+                        if (httpdFindArg(connData->post.buff, "restore", buf, sizeof(buf)) != -1) {
                         }
                         break;
                     case MENU_ADMIN_TAB_WATCHDOG:
-                        if (httpdFindArg(connData->post->buff, "shutdown", buf, sizeof(buf)) != -1) {
-                            CFG_set_rtc_shutdown(strtol(buf, NULL, 10));
-                            rtc_set_shutdown(CFG_get_rtc_shutdown() * 3600);
+                        if (httpdFindArg(connData->post.buff, "shutdown", buf, sizeof(buf)) != -1) {
+                            //TODO: #3 shutdown
+                            // CFG_set_rtc_shutdown(strtol(buf, NULL, 10));
+                            // rtc_set_shutdown(CFG_get_rtc_shutdown() * 3600);
                         }
                         break;
                 }
@@ -5498,62 +5512,62 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     t2 = -1;
                     d2 = -1;
                     sprintf(key, "w%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             w1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "w%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             w2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "d%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             d1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "t%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             t1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "y%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             y1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "d%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             d2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "t%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             t2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "y%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             y2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "h%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             h1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "m%di", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             m1 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "h%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             h2 = strtol(buf, NULL, 10);
                     }
                     sprintf(key, "m%de", i + 1);
-                    if (httpdFindArg(connData->post->buff, key, buf, sizeof(buf)) != -1) {
+                    if (httpdFindArg(connData->post.buff, key, buf, sizeof(buf)) != -1) {
                         if (*buf != '\0')
                             m2 = strtol(buf, NULL, 10);
                     }
@@ -5580,31 +5594,31 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
     switch (menuopt) {
         case MENU_STATUS:
 #if !defined(__MLI_1WRP_TYPE__)
-            if (httpdFindArg(connData->post->buff, "stat_Alarm", buf, sizeof(buf)) != -1) {
+            if (httpdFindArg(connData->post.buff, "stat_Alarm", buf, sizeof(buf)) != -1) {
                 if (ctl_alarm_status() == CTL_ALARM_ON)
                     ctl_alarm_off();
                 else
                     ctl_alarm_on();
-            } else if (httpdFindArg(connData->post->buff, "stat_Panic", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_Panic", buf, sizeof(buf)) != -1) {
                 if (ctl_panic_status() == CTL_PANIC_ON)
                     ctl_panic_off();
                 else
                     ctl_panic_on();
-            } else if (httpdFindArg(connData->post->buff, "stat_Open", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_Open", buf, sizeof(buf)) != -1) {
                 ctl_relay_on(CFG_get_control_timeout());
-            } else if (httpdFindArg(connData->post->buff, "stat_Close", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_Close", buf, sizeof(buf)) != -1) {
                 ctl_relay_off();
             }
 #else
-            if (httpdFindArg(connData->post->buff, "stat_Open", buf, sizeof(buf)) != -1) {
+            if (httpdFindArg(connData->post.buff, "stat_Open", buf, sizeof(buf)) != -1) {
                 ctl_relay_on(0);
-            } else if (httpdFindArg(connData->post->buff, "stat_Close", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_Close", buf, sizeof(buf)) != -1) {
                 ctl_relay_off();
-            } else if (httpdFindArg(connData->post->buff, "stat_AuxOpen", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_AuxOpen", buf, sizeof(buf)) != -1) {
                 ctl_relay_ext_on(CFG_get_control_timeout());
-            } else if (httpdFindArg(connData->post->buff, "stat_AuxClose", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_AuxClose", buf, sizeof(buf)) != -1) {
                 ctl_relay_ext_off();
-            } else if (httpdFindArg(connData->post->buff, "stat_Reset", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "stat_Reset", buf, sizeof(buf)) != -1) {
                 CFG_set_energy_daily(0);
                 CFG_set_energy_daily_last(0);
                 CFG_set_energy_monthly(0);
@@ -5617,56 +5631,56 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
 #endif
             break;
         case MENU_USER:
-            if (httpdFindArg(connData->post->buff, "user_Add", buf, sizeof(buf)) != -1) {
+            if (httpdFindArg(connData->post.buff, "user_Add", buf, sizeof(buf)) != -1) {
                 subopt = account_db_get_empty();
                 sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, subopt);
                 httpdRedirect(connData, buf);
-            } else if (httpdFindArg(connData->post->buff, "user_Det", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Det", buf, sizeof(buf)) != -1) {
                 ulip_core_probe_user(!ulip_core_probe_status());
-            } else if (httpdFindArg(connData->post->buff, "user_Erase", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Erase", buf, sizeof(buf)) != -1) {
                 ulip_core_erase_user(!ulip_core_erase_status());
-            } else if (httpdFindArg(connData->post->buff, "user_Clean", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Clean", buf, sizeof(buf)) != -1) {
                 account_db_remove_all();
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
                 fpm_delete_all();
 #endif
-            } else if (httpdFindArg(connData->post->buff, "user_Search", buf, sizeof(buf)) != -1) {
-                httpdFindArg(connData->post->buff, "filter", buf, sizeof(buf));
+            } else if (httpdFindArg(connData->post.buff, "user_Search", buf, sizeof(buf)) != -1) {
+                httpdFindArg(connData->post.buff, "filter", buf, sizeof(buf));
                 index = account_db_find(buf, buf, buf, buf, buf, NULL, NULL);
                 if (index != -1) {
-                    info("CGI", "Found account [%d]", index);
+                    ESP_LOGI("CGI", "Found account [%d]", index);
                     sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, index);
                     httpdRedirect(connData, buf);
                     return HTTPD_CGI_DONE;
                 }
-            } else if (httpdFindArg(connData->post->buff, "user_First", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_First", buf, sizeof(buf)) != -1) {
                 /* Previous */
                 subopt = account_db_get_first();
                 ESP_LOGD("CGI", "First account [%d]", subopt);
                 sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, subopt);
                 httpdRedirect(connData, buf);
-            } else if (httpdFindArg(connData->post->buff, "user_Prev", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Prev", buf, sizeof(buf)) != -1) {
                 /* First */
                 subopt = account_db_get_previous(subopt);
                 ESP_LOGD("CGI", "Previous account [%d]", subopt);
                 sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, subopt);
                 httpdRedirect(connData, buf);
-            } else if (httpdFindArg(connData->post->buff, "user_Next", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Next", buf, sizeof(buf)) != -1) {
                 /* Next */
                 subopt = account_db_get_next(subopt);
                 ESP_LOGD("CGI", "Next account [%d]", subopt);
                 sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, subopt);
                 httpdRedirect(connData, buf);
                 return HTTPD_CGI_DONE;
-            } else if (httpdFindArg(connData->post->buff, "user_Last", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Last", buf, sizeof(buf)) != -1) {
                 /* Last */
                 subopt = account_db_get_last();
                 ESP_LOGD("CGI", "Last account [%d]", subopt);
                 sprintf(buf, "/?menuopt=%d&subopt=%d", menuopt, subopt);
                 httpdRedirect(connData, buf);
-            } else if (httpdFindArg(connData->post->buff, "user_Del", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Del", buf, sizeof(buf)) != -1) {
                 if (subopt != -1) {
-                    info("CGI", "Delete account [%d]", subopt);
+                    ESP_LOGI("CGI", "Delete account [%d]", subopt);
                     account_db_delete(subopt);
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
                     fpm_delete_template(subopt);
@@ -5674,18 +5688,18 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     /* First */
                     subopt = account_db_get_first(); 
                 }
-            } else if (httpdFindArg(connData->post->buff, "user_Finger", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "user_Finger", buf, sizeof(buf)) != -1) {
 #if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
                 if (subopt != -1) {
-                    info("CGI", "Account [%d] capture finger", subopt);
+                    ESP_LOGI("CGI", "Account [%d] capture finger", subopt);
                     ulip_core_capture_finger(!ulip_core_capture_finger_status(), subopt);
                 }
 #endif
             }
             break;
         case MENU_LOG:
-            if (httpdFindArg(connData->post->buff, "log_Remove", buf, sizeof(buf)) != -1) {
-                info("CGI", "Remove access log");
+            if (httpdFindArg(connData->post.buff, "log_Remove", buf, sizeof(buf)) != -1) {
+                ESP_LOGI("CGI", "Remove access log");
 #if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
     !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
     !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
@@ -5698,13 +5712,13 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
             break;
         case MENU_CONTROL:
 #if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
-            if (httpdFindArg(connData->post->buff, "cli_cal", buf, sizeof(buf)) != -1) {
+            if (httpdFindArg(connData->post.buff, "cli_cal", buf, sizeof(buf)) != -1) {
                 uint16_t value = cli_set_calibration();
                 if (value && value != CFG_get_cli_cal()) {
                     CFG_set_cli_cal(value);
                     CFG_Save();
                 }
-            } else if (httpdFindArg(connData->post->buff, "cli_reset", buf, sizeof(buf)) != -1) {
+            } else if (httpdFindArg(connData->post.buff, "cli_reset", buf, sizeof(buf)) != -1) {
                 if (CFG_get_cli_cal()) {
                     cli_reset_calibration();
                     CFG_set_cli_cal(0);
@@ -5726,14 +5740,14 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
     return HTTPD_CGI_DONE;
 }
 
-ICACHE_FLASH_ATTR
-int ulip_cgi_process(HttpdConnData *connData)
+
+int ulip_cgi_process(HttpdInstance *pInstance, HttpdConnData *connData)
 {
     int rc = HTTPD_CGI_DONE;
 
     if (connData->requestType == HTTPD_METHOD_GET) {
         ESP_LOGD("CGI", "GET handler");
-        rc = ulip_cgi_get_handler(connData);
+        rc = ulip_cgi_get_handler(pInstance, connData);
     } else if (connData->requestType == HTTPD_METHOD_POST) {
         ESP_LOGD("CGI", "POST handler");
         rc = ulip_cgi_post_handler(connData);

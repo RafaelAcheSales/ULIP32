@@ -36,7 +36,7 @@ static esp_netif_t *sta_netif;
 static int s_retry_num = 0;
 static bool initialized = false;
 static void (* got_ip_callback)(void) = NULL;
-static void (* wifi_scan_callback)(void) = NULL;
+static void (* wifi_scan_callback)(wifi_ap_record_t *) = NULL;
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                     int32_t event_id, void* event_data)
 {
@@ -69,13 +69,15 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_SCAN_DONE) {
         if (wifi_scan_callback != NULL) {
-            (*(wifi_scan_callback))();
+            wifi_ap_record_t *ap_list;
+            esp_wifi_scan_get_ap_records(30, &ap_list);
+            (*(wifi_scan_callback))(&ap_list);
         }
     }
 }
-void wifi_station_scan(wifi_scan_config_t scanConf, void (* wifi_scan_callback_set(void))) {
+void wifi_station_scan(wifi_scan_config_t *scanConf, void (* wifi_scan_callback_set(wifi_ap_record_t *))) {
     wifi_scan_callback = wifi_scan_callback_set;
-    ESP_ERROR_CHECK(esp_wifi_scan_start(&scanConf, false));
+    ESP_ERROR_CHECK(esp_wifi_scan_start(scanConf, false));
 }
 void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, bool dhcp, char * ssid, char * password, uint8_t channel, bool disable, void (* got_ip_callback_set)(void))
 {
