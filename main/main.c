@@ -77,7 +77,7 @@ static account_log_t *acc_log[MAX_ACC_LOG] = {
     NULL, NULL, NULL, NULL
 };
 static int ulip_core_httpd_request(HttpdConnData *connData);
-static HttpdFreertosInstance httpdInstance;
+static HttpdInstance httpdInstance;
 HttpdBuiltInUrl builtInUrls[] = {
     {"*", ulip_core_httpd_request, "index.html", NULL},
     {"/index.html", ulip_core_httpd_request, "index.html", NULL}
@@ -108,6 +108,7 @@ typedef union
     unsigned short *w;
     unsigned long *dw;
 } pgen_t;
+
 
 void ulip_core_restore_config(bool restart)
 {
@@ -1187,24 +1188,27 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     int rc;
     int i;
 
-    ESP_LOGD("ULIP", "HTTPD url [%s] args [%s] memory [%u]",
-             connData->url, connData->getArgs,
-             esp_get_free_heap_size());
-
+    // ESP_LOGD("ULIP", "HTTPD url [%s] args [%s] memory [%u]",
+    //          connData->url, connData->getArgs,
+    //          esp_get_free_heap_size());
+    ESP_LOGD("ULIP", "HTTPD url [%s]" , connData->url);
+    ESP_LOGD("ULIP", "HTTPD args [%s]" , connData->getArgs);
+    ESP_LOGD("ULIP", "HTTPD memory [%u]" , esp_get_free_heap_size());
     if (connData->isConnectionClosed) {
         return HTTPD_CGI_DONE;
     }
-
+    ESP_LOGD("main", "before auth");
     /* Authenticate */
     rc = authBasic(connData);
     
     if (rc != HTTPD_CGI_AUTHENTICATED)
         return rc;
-
+    ESP_LOGD("main", "after auth");
     if (connData->getArgs &&
         httpdFindArg(connData->getArgs, "request",
                      request, sizeof(request)) != -1) {
         if (!strcmp(request, "version")) {
+            ESP_LOGD("ULIP", "version");
             /* JSON */
             body = (char *)malloc(128);
             if (!body) {
@@ -1223,6 +1227,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             httpdHeader(connData, "Content-Length", slen);
             httpdEndHeaders(connData);
             httpdSend(connData, body, len);
+            ESP_LOGD("ULIP", "version [%s]", body);
             free(body);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "status")) {
@@ -1245,7 +1250,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             tm = localtime(&now);
             // tm = rtc_gmtime(rtc_time());
             sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
-                       weekday[tm->tm_wday], tm->tm_mday, monthday[tm->tm_mday],
+                       rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
                        tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
             httpdHeader(connData, "Date", date);
             httpdHeader(connData, "Content-Type", "application/json");
@@ -2518,7 +2523,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    mbedtls_base64_decode(template, sizeof(template), NULL,
+                    unsigned int olen;
+                    mbedtls_base64_decode(template, sizeof(template), &olen,
                                           (unsigned char *)p, strlen(p));
                     fingerprint = template;
                 } else if (!strncmp("\"lifecount\":", p, 12)) {
@@ -2793,8 +2799,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
+                    unsigned int olen;
                     mbedtls_base64_decode(template, sizeof(template),
-                                          NULL, (unsigned char *)p,
+                                          &olen, (unsigned char *)p,
                                           strlen(p));
                     fingerprint = template;
                 }
@@ -2875,8 +2882,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
+                    unsigned int olen;
                     mbedtls_base64_decode(template, sizeof(template),
-                                          NULL, (unsigned char *)p,
+                                          &olen, (unsigned char *)p,
                                           strlen(p));
                     fingerprint = template;
                 }
@@ -3027,8 +3035,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 14;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
+                    unsigned int olen;
                     mbedtls_base64_decode(fingerprint, sizeof(fingerprint),
-                                          NULL, (unsigned char *)p, strlen(p));
+                                          &olen, (unsigned char *)p, strlen(p));
                     fingerprint = template;
                 }
             }
@@ -3661,6 +3670,54 @@ int ulip_core_log2html(char *html, int len)
 
     return size;
 }
+static int ulip_core_httpd_auth(HttpdConnData *connData,
+                                char *user, char *pass)
+{
+    return HTTPD_CGI_AUTHENTICATED;
+    int rc = false;
+    account_t *acc;
+    char buf[128];
+    int index;
+
+    if (!user || !pass) return false;
+
+    if (!strcmp(user, CFG_get_web_user())) {
+        /* Admin */
+        rc = !strcmp(pass, CFG_get_web_passwd());
+    } else if (CFG_get_user_auth()) {
+        /* User */
+        if (httpdFindArg(connData->getArgs, "request",
+                         buf, sizeof(buf)) == -1)
+            return false;
+        /* Find account */
+        index = account_db_find(NULL, user, NULL, NULL,
+                                NULL, NULL, NULL);
+        if (index != -1) {
+            acc = account_db_get_index(index);
+            if (acc) {
+                /* API Level */
+                if (account_get_level(acc) == ACCOUNT_LEVEL_USER) {
+                    if (strcmp(buf, "version") &&
+                        strcmp(buf, "status") &&
+                        strcmp(buf, "relay") &&
+                        strcmp(buf, "alarm") &&
+                        strcmp(buf, "panic") &&
+                        strcmp(buf, "location") &&
+                        strcmp(buf, "alarms") &&
+                        strcmp(buf, "telemetry") &&
+                        strcmp(buf, "getdatetime") &&
+                        strcmp(buf, "getqrcode"))
+                        return false;
+                }
+                if (account_get_password(acc))
+                    rc = !strcmp(pass, account_get_password(acc));
+                account_destroy(acc);
+            }
+        }
+    }
+
+    return rc;
+}
 bool ulip_core_erase_status(void)
 {
     return erase_user;
@@ -3689,10 +3746,29 @@ static void timer_callback()
 {
     xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
 }
+const char *rtc_month(struct tm *tm)
+{
+    static char *month[] = { "Jan", "Feb", "Mar", "Apr",
+                             "May", "Jun", "Jul", "Ago",
+                             "Sep", "Oct", "Nov", "Dec" };
 
+    if (!tm) return NULL;
+
+    return month[tm->tm_mon];
+}
+
+
+const char *rtc_weekday(struct tm *tm)
+{
+    static char *day[] = { "Sun", "Mon", "Tue", "Wed",
+                           "Thu", "Fri", "Sat" };
+
+    if (!tm) return NULL;
+
+    return day[tm->tm_wday];
+}
 void app_main(void)
 {
-    set_time_names();
     // sntp_set_time_sync_notification_cb(got_time_sync_notification_cb);
     // sntp_setoperatingmode(SNTP_OPMODE_POLL);
     // sntp_setservername(0, "pool.ntp.org");
@@ -3784,6 +3860,7 @@ void app_main(void)
     /*
     */
     // start_httpd(&ulip_core_httpd_request);
+    authSetCallback(ulip_core_httpd_auth);
     if (CFG_get_eth_enable())
         start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
     tcpip_adapter_init();

@@ -15,11 +15,11 @@
 typedef int (*AuthGetUserPw)(HttpdConnData *connData,
                              char *user, char *pass);
 
-ICACHE_FLASH_ATTR void authSetCallback(AuthGetUserPw authCallback);
-ICACHE_FLASH_ATTR int authBasic(HttpdConnData *connData);
-ICACHE_FLASH_ATTR int authBasicGetUsername(HttpdConnData *connData,
+void authSetCallback(AuthGetUserPw authCallback);
+int authBasic(HttpdConnData *connData);
+int authBasicGetUsername(HttpdConnData *connData,
                                            char *user, int len);
-ICACHE_FLASH_ATTR int authBasicGetPassword(HttpdConnData *connData,
+int authBasicGetPassword(HttpdConnData *connData,
                                            char *password, int len);
 
 #endif

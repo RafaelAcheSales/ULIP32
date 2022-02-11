@@ -18,9 +18,6 @@
 // #include "ulip_core.h"
 #include "ulip_cgi.h"
 
-#define DCACHE_FLASH_ATTR \
-__attribute__ ((section (".irom.text"))) \
-__attribute__ ((aligned (4)))
 
 #define CGI_PAGE_TOP        (1 << 28)
 #define CGI_PAGE_BODY       (2 << 28)
@@ -40,7 +37,7 @@ static esp_timer_handle_t update_timer;
 static esp_timer_handle_t scan_timer;
 static char *scan_html = NULL;
 
-DCACHE_FLASH_ATTR
+
 static const char STYLE[] = {
 "body{\
 margin:0;\
@@ -224,7 +221,7 @@ box-sizing: border-box;\
 }"
 };
 
-DCACHE_FLASH_ATTR
+
 static const char PAGE_TOP[] = {
 "<!DOCTYPE html>\
 <html>\
@@ -334,7 +331,7 @@ static const char PAGE_TOP[] = {
 #define PAGE_BOTTOM \
 "</body></html>"
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXREDE[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -463,7 +460,7 @@ static const char INDEXREDE[] = {
 </table>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXACIONAMENTO[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -1063,7 +1060,7 @@ select_day(document.CONTROL.pow_day);\
 </table>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXHTTP[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -1117,7 +1114,7 @@ static const char INDEXHTTP[] = {
 </table>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXUSER[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -1539,7 +1536,7 @@ reader.readAsText(file);\
     !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
     !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
     !defined(__MLI_1WLC_TYPE__)
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXLOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -1563,7 +1560,7 @@ static const char INDEXLOG[] = {
 </tr>"
 };
 #else
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXLOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -1615,7 +1612,7 @@ static const char INDEXLOG[] = {
 };
 #endif
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXSTATUS[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -1878,7 +1875,7 @@ static const char INDEXSTATUS[] = {
 </tr>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_UPDATE[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -1964,7 +1961,7 @@ xhr.send(param);\
 </script>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_RESET[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2040,7 +2037,7 @@ window.location.replace(\"/\");\
 </script>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_SENHA[] = {
 "<!-Admin--> \
 <tr valign=\"top\" height=\"100%\"> \
@@ -2124,7 +2121,7 @@ else\
 </script>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_TIMEZONE[] = {
 "<!-Admin--> \
 <tr valign=\"top\" height=\"100%\"> \
@@ -2255,7 +2252,7 @@ document.getElementById(\"endDay\").options.add(d);\
 </script>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_LOCATION[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2302,7 +2299,7 @@ static const char INDEXADMIN_LOCATION[] = {
 </tr>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_SYSTEM[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2352,7 +2349,7 @@ static const char INDEXADMIN_SYSTEM[] = {
 </tr>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_DEBUG[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2415,7 +2412,7 @@ static const char INDEXADMIN_DEBUG[] = {
 </tr>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_BACKUP[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2510,7 +2507,7 @@ reader.readAsText(file);\
 </tr>"
 };
 
-DCACHE_FLASH_ATTR 
+ 
 static const char INDEXADMIN_WIFI[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2571,7 +2568,7 @@ setInterval(function () { location.reload(); }, 10000);\
 </script>"
 };
 
-DCACHE_FLASH_ATTR
+
 static const char INDEXADMIN_WATCHDOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -2618,7 +2615,7 @@ static const char INDEXADMIN_WATCHDOG[] = {
 </tr>"
 };
 
-DCACHE_FLASH_ATTR
+
 static const char INDEXPROG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
@@ -3048,7 +3045,7 @@ select_minute(document.PROG.m5e);\
 };
 
 #if 0
-DCACHE_FLASH_ATTR
+
 static const uint8_t LOGO[] = {
     0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 
     0x00, 0x00, 0x00, 0x5A, 0x00, 0x00, 0x00, 0x21, 0x08, 0x06, 0x00, 0x00, 0x00, 0x59, 0x4D, 0xBC, 
@@ -3513,12 +3510,12 @@ static void ulip_cgi_response(HttpdConnData *connData, int status,
         /* Cache control */
         tm = localtime(&now);
         sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
-                   weekday[tm->tm_wday], tm->tm_mday, monthday[tm->tm_mon],
+                   rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
                    tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
         httpdHeader(connData, "Date", date);
         tm = localtime(now + 31536000);
         sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
-                   weekday[tm->tm_wday], tm->tm_mday, monthday[tm->tm_mon],
+                   rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
                    tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
         httpdHeader(connData, "Expires", date);
         if (etag) {
@@ -4400,7 +4397,8 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                 size += sprintf(js + size, "document.INDEXADMIN.shutdown.value=\"%d\";\n",
                                    CFG_get_rtc_shutdown() != -1 ? CFG_get_rtc_shutdown() : 0);
                 if (CFG_get_rtc_shutdown() && CFG_get_rtc_shutdown() != -1) {
-                    time_value = rtc_get_shutdown();
+                    // time_value = rtc_get_shutdown();
+                    time_value = esp_timer_get_time()/1000;
                     day = time_value / 86400;
                     time_value -= day * 86400;
                     hour = time_value / 3600;
@@ -4741,7 +4739,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
             break;
     }
 
-    ulip_cgi_send_data(pInstance, connData, PAGE_BOTTOM, sizeof(PAGE_BOTTOM) - 1);
+    ulip_cgi_send_data(pInstance, connData, (uint8_t *)PAGE_BOTTOM, sizeof(PAGE_BOTTOM) - 1);
 
     connData->cgiData = NULL;
 
@@ -5303,11 +5301,13 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     httpdRedirect(connData, buf);
                     return HTTPD_CGI_DONE;
                 }
-                if (*fingerprint != '\0')
+                if (*fingerprint != '\0'){
+                    unsigned int olen;
                     mbedtls_base64_decode((uint8_t *)fingerprint, strlen(fingerprint),
-                                          NULL, (uint8_t *)fingerprint, strlen(fingerprint));
+                                          &olen, (uint8_t *)fingerprint, strlen(fingerprint));
                     // base64Decode(strlen(fingerprint), fingerprint,
                     //              sizeof(fingerprint), fingerprint);
+                }
                 index = account_db_find(NULL, user, card, code, rfcode,
                                         (uint8_t *)fingerprint, NULL);
                 if (index == -1)

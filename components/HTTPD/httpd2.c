@@ -1,4 +1,4 @@
-#include "http2.h"
+#include "httpd2.h"
 void httpdSuspend(HttpdConnData *connData, int timeout)
 {
 	if (!connData) return;
