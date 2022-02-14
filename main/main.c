@@ -82,7 +82,8 @@ HttpdBuiltInUrl builtInUrls[] = {
     {"*", ulip_core_httpd_request, "index.html", NULL},
     {"/index.html", ulip_core_httpd_request, "index.html", NULL}
 };
-static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
+
+
 
 struct ip_info {
     struct ip_addr ip;
@@ -98,6 +99,7 @@ static bool capture_finger = false;
 static bool wifi_ap_mode = false;
 static uint32_t sensor_cycles = 0;
 static bool sensor_alarm = false;
+static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
 esp_netif_ip_info_t eth_ip_info;
 
 
@@ -995,45 +997,30 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
-    // for (int i = 0; i < 50; i++) {
-    //     char user[32];
-    //     sprintf(user, "user%d", i);
-    //     account_t *account = account_new();
-    //     account_set_name(account, user);
-    //     account_set_card(account,user);
-    //     account_set_code(account, user);
-    //     account_set_user(account, user);
-    //     account_set_key(account, "password");
-    //     account_db_insert(account);
-    // }
-    ESP_LOGI("main", "accounts added");
-    // account_db_log_remove_all();
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    ESP_LOGI("main", "gettime %ld", tv.tv_sec);
 
-    struct timeval tv2;
-    // sntp_sync_time(&tv2);
-    // ESP_LOGI("main", "ntptime %ld", tv2.tv_sec);
+    printf("wifi ssid %s password %s\n", CFG_get_wifi_ssid(), CFG_get_wifi_passwd());
+    printf("eth ip %s\n", CFG_get_eth_ip_address());
+    CFG_Load();
+
     
-    ESP_LOGI("main", "timestamp %ld", time(NULL));
-    for (int i = 0; i < 1; i++) {
-        char user[32];
-        char date[32];
-        sprintf(user, "user%d", i);
-        sprintf(date, "2022-0%d-10 15:46:57", i%10);
-        account_log_t *log = account_log_new();
-        // account_log_set_date(log, date);
-        account_log_set_name(log, user);
-        account_log_set_code(log, user);
-        account_log_set_granted(log, i%2);
-        account_log_set_type(log, i%3);
-        account_db_log_insert(log);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        account_log_t *log2 = account_db_log_get_index(i);
-        ESP_LOGI("main", "date added %s", account_log_get_date(log2));
-        // ESP_LOGI("main", "name added %s", account_log_get_name(log2));
-    }
+    // ESP_LOGI("main", "timestamp %ld", time(NULL));
+    // for (int i = 0; i < 1; i++) {
+    //     char user[32];
+    //     char date[32];
+    //     sprintf(user, "user%d", i);
+    //     sprintf(date, "2022-0%d-10 15:46:57", i%10);
+    //     account_log_t *log = account_log_new();
+    //     // account_log_set_date(log, date);
+    //     account_log_set_name(log, user);
+    //     account_log_set_code(log, user);
+    //     account_log_set_granted(log, i%2);
+    //     account_log_set_type(log, i%3);
+    //     account_db_log_insert(log);
+    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //     account_log_t *log2 = account_db_log_get_index(i);
+    //     ESP_LOGI("main", "date added %s", account_log_get_date(log2));
+    //     // ESP_LOGI("main", "name added %s", account_log_get_name(log2));
+    // }
     vTaskDelete(NULL);
 }
 void update_ip_info()
@@ -1192,11 +1179,13 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     //          connData->url, connData->getArgs,
     //          esp_get_free_heap_size());
     ESP_LOGD("ULIP", "HTTPD url [%s]" , connData->url);
-    ESP_LOGD("ULIP", "HTTPD args [%s]" , connData->getArgs);
+    if (connData->getArgs) ESP_LOGD("ULIP", "HTTPD args [%s]" , connData->getArgs);
     ESP_LOGD("ULIP", "HTTPD memory [%u]" , esp_get_free_heap_size());
     if (connData->isConnectionClosed) {
         return HTTPD_CGI_DONE;
     }
+    printf("conn and config pointer %p %p\n", &(connData->priv.head) , CFG_get_configPointer());
+    // ESP_LOG_BUFFER_CHAR("ULIP", connData->priv.head, HTTPD_MAX_HEAD_LEN);
     ESP_LOGD("main", "before auth");
     /* Authenticate */
     rc = authBasic(connData);
@@ -1423,7 +1412,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
-                    CFG_set_wifi_ssid(p);
+                    // CFG_set_wifi_ssid(p);
                 } else if (!strncmp("\"password\":", p, 11)) {
                     p += 11;
                     strdelimit(p, "\"", ' ');

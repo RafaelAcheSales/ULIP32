@@ -420,6 +420,9 @@ CFG_Load(void)
     if (sysCfg.cfg_holder != CFG_HOLDER)
         CFG_Default();
 }
+void * CFG_get_configPointer(void) {
+    return &sysCfg.wifi_ssid;
+}
 
 const char *CFG_get_ethaddr(void)
 {

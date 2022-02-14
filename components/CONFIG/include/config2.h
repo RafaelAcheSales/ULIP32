@@ -77,7 +77,7 @@ void  CFG_ENV_Default(void);
 void  CFG_Save();
 void  CFG_Load();
 void  CFG_Default();
-
+void * CFG_get_configPointer(void);
 uint32_t CFG_get_control_doublepass_timeout(void);
 
 uint32_t CFG_get_control_acc_timeout(void);

@@ -4810,7 +4810,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_ap_mode(false);
                 if (httpdFindArg(connData->post.buff, "ssid", buf, sizeof(buf)) != -1)
-                    CFG_set_wifi_ssid(buf);
+                    // CFG_set_wifi_ssid(buf);
                 if (httpdFindArg(connData->post.buff, "passwd", buf, sizeof(buf)) != -1)
                     CFG_set_wifi_passwd(buf);
                 if (httpdFindArg(connData->post.buff, "channel", buf, sizeof(buf)) != -1)
