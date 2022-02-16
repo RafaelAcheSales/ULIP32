@@ -77,11 +77,12 @@ static account_log_t *acc_log[MAX_ACC_LOG] = {
     NULL, NULL, NULL, NULL
 };
 static int ulip_core_httpd_request(HttpdConnData *connData);
-static HttpdInstance httpdInstance;
+static HttpdFreertosInstance httpdInstance;
 HttpdBuiltInUrl builtInUrls[] = {
     {"*", ulip_core_httpd_request, "index.html", NULL},
     {"/index.html", ulip_core_httpd_request, "index.html", NULL}
 };
+
 
 
 
@@ -99,7 +100,6 @@ static bool capture_finger = false;
 static bool wifi_ap_mode = false;
 static uint32_t sensor_cycles = 0;
 static bool sensor_alarm = false;
-static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
 esp_netif_ip_info_t eth_ip_info;
 
 
@@ -997,12 +997,17 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
-
-    printf("wifi ssid %s password %s\n", CFG_get_wifi_ssid(), CFG_get_wifi_passwd());
-    printf("eth ip %s\n", CFG_get_eth_ip_address());
-    CFG_Load();
-
-    
+    for (int i = 0; i < 50; i++) {
+        char user[32];
+        sprintf(user, "user%d", i);
+        account_t *account = account_new();
+        account_set_name(account, user);
+        account_set_card(account,user);
+        account_set_code(account, user);
+        account_set_user(account, user);
+        account_set_key(account, "password");
+        account_db_insert(account);
+    }
     // ESP_LOGI("main", "timestamp %ld", time(NULL));
     // for (int i = 0; i < 1; i++) {
     //     char user[32];
@@ -3619,7 +3624,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     return ulip_cgi_process(&httpdInstance, connData);
 }
 
-
+static char connectionMemory[sizeof(RtosConnType) * MAX_CONNECTIONS];
 
 void ulip_core_system_update(const char *ota_url)
 {
