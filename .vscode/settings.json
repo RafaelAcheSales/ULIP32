@@ -33,7 +33,8 @@
         "exception": "c",
         "httpd-freertos.h": "c",
         "main.h": "c",
-        "lan8720.h": "c"
+        "lan8720.h": "c",
+        "*.inc": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",

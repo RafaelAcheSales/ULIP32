@@ -1189,7 +1189,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     if (connData->isConnectionClosed) {
         return HTTPD_CGI_DONE;
     }
-    printf("conn and config pointer %p %p\n", &(connData->priv.head) , CFG_get_configPointer());
+    ESP_LOGD("main","conn and config pointer %p %p\n", &(connData->priv.head) , CFG_get_configPointer());
     // ESP_LOG_BUFFER_CHAR("ULIP", connData->priv.head, HTTPD_MAX_HEAD_LEN);
     ESP_LOGD("main", "before auth");
     /* Authenticate */

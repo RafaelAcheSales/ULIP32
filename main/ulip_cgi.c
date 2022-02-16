@@ -24,7 +24,9 @@
 #define CGI_PAGE_BOTTOM     (4 << 28)
 
 #define CGI_CACHE_SIZE      8
-
+#define DCACHE_FLASH_ATTR \
+__attribute__ ((section (".flash.text"))) \
+__attribute__ ((aligned (4)))
 typedef struct cgi_cache {
     uint32_t ip;
     char url[32];
@@ -37,7 +39,7 @@ static esp_timer_handle_t update_timer;
 static esp_timer_handle_t scan_timer;
 static char *scan_html = NULL;
 
-
+DCACHE_FLASH_ATTR
 static const char STYLE[] = {
 "body{\
 margin:0;\
@@ -221,7 +223,7 @@ box-sizing: border-box;\
 }"
 };
 
-
+DCACHE_FLASH_ATTR
 static const char PAGE_TOP[] = {
 "<!DOCTYPE html>\
 <html>\
@@ -332,7 +334,7 @@ static const char PAGE_TOP[] = {
 "</body></html>"
 
  
-static const char INDEXREDE[] = {
+DCACHE_FLASH_ATTR static const char INDEXREDE[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\"> \
@@ -461,7 +463,7 @@ static const char INDEXREDE[] = {
 };
 
  
-static const char INDEXACIONAMENTO[] = {
+DCACHE_FLASH_ATTR static const char INDEXACIONAMENTO[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\">\
@@ -1061,7 +1063,7 @@ select_day(document.CONTROL.pow_day);\
 };
 
  
-static const char INDEXHTTP[] = {
+DCACHE_FLASH_ATTR static const char INDEXHTTP[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\"> \
@@ -1115,7 +1117,7 @@ static const char INDEXHTTP[] = {
 };
 
  
-static const char INDEXUSER[] = {
+DCACHE_FLASH_ATTR static const char INDEXUSER[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div id=\"load\" class=\"panel panel-primary\" style=\"display:none;\">\
@@ -1537,7 +1539,7 @@ reader.readAsText(file);\
     !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
     !defined(__MLI_1WLC_TYPE__)
  
-static const char INDEXLOG[] = {
+DCACHE_FLASH_ATTR static const char INDEXLOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"marign: 0 auto;\">\
@@ -1561,7 +1563,7 @@ static const char INDEXLOG[] = {
 };
 #else
  
-static const char INDEXLOG[] = {
+DCACHE_FLASH_ATTR static const char INDEXLOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"marign: 0 auto;\">\
@@ -1613,7 +1615,7 @@ static const char INDEXLOG[] = {
 #endif
 
  
-static const char INDEXSTATUS[] = {
+DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"marign: 0 auto;\">\
@@ -1876,7 +1878,7 @@ static const char INDEXSTATUS[] = {
 };
 
  
-static const char INDEXADMIN_UPDATE[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_UPDATE[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" >\
@@ -1962,7 +1964,7 @@ xhr.send(param);\
 };
 
  
-static const char INDEXADMIN_RESET[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_RESET[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" > \
@@ -2038,7 +2040,7 @@ window.location.replace(\"/\");\
 };
 
  
-static const char INDEXADMIN_SENHA[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_SENHA[] = {
 "<!-Admin--> \
 <tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2122,7 +2124,7 @@ else\
 };
 
  
-static const char INDEXADMIN_TIMEZONE[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_TIMEZONE[] = {
 "<!-Admin--> \
 <tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
@@ -2253,7 +2255,7 @@ document.getElementById(\"endDay\").options.add(d);\
 };
 
  
-static const char INDEXADMIN_LOCATION[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_LOCATION[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" > \
@@ -2300,7 +2302,7 @@ static const char INDEXADMIN_LOCATION[] = {
 };
 
  
-static const char INDEXADMIN_SYSTEM[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_SYSTEM[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" > \
@@ -2350,7 +2352,7 @@ static const char INDEXADMIN_SYSTEM[] = {
 };
 
  
-static const char INDEXADMIN_DEBUG[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_DEBUG[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" > \
@@ -2413,7 +2415,7 @@ static const char INDEXADMIN_DEBUG[] = {
 };
 
  
-static const char INDEXADMIN_BACKUP[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_BACKUP[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" > \
@@ -2508,7 +2510,7 @@ reader.readAsText(file);\
 };
 
  
-static const char INDEXADMIN_WIFI[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_WIFI[] = {
 "<tr valign=\"top\" height=\"100%\"> \
 <td valign=\"top\"> \
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" > \
@@ -2569,7 +2571,7 @@ setInterval(function () { location.reload(); }, 10000);\
 };
 
 
-static const char INDEXADMIN_WATCHDOG[] = {
+DCACHE_FLASH_ATTR static const char INDEXADMIN_WATCHDOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\" valign=\"top\" >\
@@ -2616,7 +2618,7 @@ static const char INDEXADMIN_WATCHDOG[] = {
 };
 
 
-static const char INDEXPROG[] = {
+DCACHE_FLASH_ATTR static const char INDEXPROG[] = {
 "<tr valign=\"top\" height=\"100%\">\
 <td valign=\"top\">\
 <div class=\"panel panel-primary\" style=\"margin: 0 auto;\">\
@@ -3445,10 +3447,11 @@ static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData
     uint32_t off;
     int len;
 
-    addr = (uint32_t)data - 0x40200000;
+    // addr = (uint32_t)data - 0x40200000;
+    addr = (uint32_t)data - 0x400d0020;
     off = (uint32_t)connData->cgiData & 0x0fffffff;
 
-    ESP_LOGD("CGI", "CGI flash data size [%p] [0x%x] [0x%x] [%d]",
+    ESP_LOGI("CGI", "CGI flash data size [%p] [0x%x] [0x%x] [%d]",
              connData, addr, off, size);
 
     /* Check offset */
@@ -3460,9 +3463,10 @@ static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData
         len = size;
         if (len > (HTTPD_MAX_SENDBUFF_LEN >> 1))
             len = HTTPD_MAX_SENDBUFF_LEN >> 1;
-        ets_intr_lock();
+        // ets_intr_lock();
         spi_flash_read(addr, (uint32 *)buf, len);
-        ets_intr_unlock();
+        // ESP_LOG_BUFFER_CHAR("CGI", buf, len);
+        // ets_intr_unlock();
         if (!httpdSend(connData, buf, len)) {
             httpdFlushSendBuffer(pInstance, connData);
             continue;
@@ -4607,6 +4611,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
         connData->cgiData = (void *)CGI_PAGE_TOP;
     }
     if ((uint32_t)connData->cgiData & CGI_PAGE_TOP) {
+        ESP_LOGI("CGI", "CGI_PAGE_TOP");
         rc = ulip_cgi_send_data_from_flash(pInstance,connData, (uint8_t *)PAGE_TOP, sizeof(PAGE_TOP) - 1);
         if (rc == HTTPD_CGI_DONE)
             connData->cgiData = (void *)CGI_PAGE_BODY;
