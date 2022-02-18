@@ -25,5 +25,5 @@
 
 
 int ulip_cgi_process(HttpdInstance *pInstance, HttpdConnData *connData);
-
+void changeTestAdress(int value);
 #endif  /* __ULIP_CGI_H__ */

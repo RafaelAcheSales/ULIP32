@@ -27,6 +27,7 @@
 #define DCACHE_FLASH_ATTR \
 __attribute__ ((section (".flash.text"))) \
 __attribute__ ((aligned (4)))
+
 typedef struct cgi_cache {
     uint32_t ip;
     char url[32];
@@ -3437,7 +3438,13 @@ static int ulip_cgi_send_data(HttpdInstance *pInstance, HttpdConnData *connData,
     return HTTPD_CGI_DONE;
 }
 
- 
+static int testadress = 0x40090000;
+void changeTestAdress(int value)
+{
+    testadress = value;
+    ESP_LOGI("CGI", "Testadress changed to %x", testadress);
+}
+
 static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData *connData,
                                          const uint8_t *data, int size)
 {
@@ -3447,24 +3454,28 @@ static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData
     uint32_t off;
     int len;
 
-    // addr = (uint32_t)data - 0x40200000;
-    addr = (uint32_t)data - 0x400d0020;
+    // addr = 0x400f05be;
+    addr = (uint32_t)data - testadress;
     off = (uint32_t)connData->cgiData & 0x0fffffff;
 
-    ESP_LOGI("CGI", "CGI flash data size [%p] [0x%x] [0x%x] [%d]",
-             connData, addr, off, size);
+
 
     /* Check offset */
     if (off) {
         size -= (off - addr);
         addr = off;
     }
+    ESP_LOGI("CGI", "off %x addr %x size %x", off, addr, size);
     while (size > 0 && limit < (HTTPD_MAX_SENDBUFF_LEN >> 1)) {
         len = size;
         if (len > (HTTPD_MAX_SENDBUFF_LEN >> 1))
             len = HTTPD_MAX_SENDBUFF_LEN >> 1;
+        // ESP_LOGI("CGI", "CGI flash data size [%p] [0x%x] [0x%x] [%d]",
+        //     connData, addr, off, size);
         // ets_intr_lock();
         spi_flash_read(addr, (uint32 *)buf, len);
+        // snprintf(buf, HTTPD_MAX_SENDBUFF_LEN, "TEST1%s", buf);
+        // ESP_LOGE("addr", "addr [0x%x] data [%p]", addr, data);
         // ESP_LOG_BUFFER_CHAR("CGI", buf, len);
         // ets_intr_unlock();
         if (!httpdSend(connData, buf, len)) {
@@ -4551,7 +4562,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
     char *html;
     int len;
     int rc = HTTPD_CGI_DONE;
-
+    ESP_LOGI("CGI", "GET %s isCss %d", connData->url, strcmp(connData->url, "/css/style.css") == 0);
     /* Get menu and sub menu */
     if (connData->getArgs) {
         if (httpdFindArg(connData->getArgs, "menuopt", buf, sizeof(buf)) != -1)
@@ -4568,6 +4579,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
         }
         /* CSS */
         if (strcmp(connData->url, "/css/style.css") == 0) { 
+            ESP_LOGI("CGI", "CSS");
             if (!connData->cgiData) {
                 /* Cache control */
                 if (!sntp_getservername(0)) {
@@ -4581,6 +4593,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
                 }
                 ulip_cgi_response(connData, 200, etag, "text/css", sizeof(STYLE) - 1);
             }
+            ESP_LOGI("CGI", "Sending CSS");
             return ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)STYLE, sizeof(STYLE) - 1);
         }
         /* Images */
@@ -4611,7 +4624,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
         connData->cgiData = (void *)CGI_PAGE_TOP;
     }
     if ((uint32_t)connData->cgiData & CGI_PAGE_TOP) {
-        ESP_LOGI("CGI", "CGI_PAGE_TOP");
+        // ESP_LOGI("CGI", "CGI_PAGE_TOP");
         rc = ulip_cgi_send_data_from_flash(pInstance,connData, (uint8_t *)PAGE_TOP, sizeof(PAGE_TOP) - 1);
         if (rc == HTTPD_CGI_DONE)
             connData->cgiData = (void *)CGI_PAGE_BODY;

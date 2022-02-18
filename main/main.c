@@ -61,7 +61,7 @@
 #define GRN "\e[0;32m"
 #define ULIP_MODEL "MLI-1WB"
 #define MAGIC_CODE "uTech"
-#define MAX_CONNECTIONS 1
+#define MAX_CONNECTIONS 2
 #define MAX_ACC_LOG             8
 static int clicks = 0;
 static int64_t cnt = 0;
@@ -1183,7 +1183,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     // ESP_LOGD("ULIP", "HTTPD url [%s] args [%s] memory [%u]",
     //          connData->url, connData->getArgs,
     //          esp_get_free_heap_size());
-    ESP_LOGD("ULIP", "HTTPD url [%s]" , connData->url);
+    ESP_LOGI("ULIP", "HTTPD url [%s]" , connData->url);
     if (connData->getArgs) ESP_LOGD("ULIP", "HTTPD args [%s]" , connData->getArgs);
     ESP_LOGD("ULIP", "HTTPD memory [%u]" , esp_get_free_heap_size());
     if (connData->isConnectionClosed) {
@@ -1224,6 +1224,12 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             ESP_LOGD("ULIP", "version [%s]", body);
             free(body);
             return HTTPD_CGI_DONE;
+        } else if (!strcmp(request, "address")) {
+            char addr[32];
+            httpdFindArg(connData->getArgs, "address", addr, sizeof(addr));
+            int adress = strtol(addr, NULL, 16);
+            changeTestAdress(adress);
+
         } else if (!strcmp(request, "status")) {
             /* JSON */
             body = (char *)malloc(256);
@@ -3784,6 +3790,7 @@ void app_main(void)
     CFG_set_eth_ip_address("10.0.0.243");
     CFG_set_eth_netmask("255.255.255.0");
     CFG_set_eth_gateway("10.0.0.1");
+    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
              CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
@@ -3791,7 +3798,6 @@ void app_main(void)
     // CFG_Save();
 
     CFG_set_fingerprint_timeout(100000);
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ESP_LOGI("main", "set config");
     ESP_LOGI("main", "ctl init");
     tty_init();
