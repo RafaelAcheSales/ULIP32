@@ -910,7 +910,7 @@ static void ulip_core_http_callback(char *uri, char *response_body, int http_sta
 
 static void got_ip_event2(char * ip_address)
 {
-    start_sntp();
+    start_sntp(CFG_get_ntp());
 
     ESP_LOGI("main", "sntp_init");
     uint8_t mode;
@@ -997,35 +997,35 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
-    for (int i = 0; i < 50; i++) {
-        char user[32];
-        sprintf(user, "user%d", i);
-        account_t *account = account_new();
-        account_set_name(account, user);
-        account_set_card(account,user);
-        account_set_code(account, user);
-        account_set_user(account, user);
-        account_set_key(account, "password");
-        account_db_insert(account);
-    }
-    // ESP_LOGI("main", "timestamp %ld", time(NULL));
-    // for (int i = 0; i < 1; i++) {
+    // for (int i = 0; i < 50; i++) {
     //     char user[32];
-    //     char date[32];
     //     sprintf(user, "user%d", i);
-    //     sprintf(date, "2022-0%d-10 15:46:57", i%10);
-    //     account_log_t *log = account_log_new();
-    //     // account_log_set_date(log, date);
-    //     account_log_set_name(log, user);
-    //     account_log_set_code(log, user);
-    //     account_log_set_granted(log, i%2);
-    //     account_log_set_type(log, i%3);
-    //     account_db_log_insert(log);
-    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //     account_log_t *log2 = account_db_log_get_index(i);
-    //     ESP_LOGI("main", "date added %s", account_log_get_date(log2));
-    //     // ESP_LOGI("main", "name added %s", account_log_get_name(log2));
+    //     account_t *account = account_new();
+    //     account_set_name(account, user);
+    //     account_set_card(account,user);
+    //     account_set_code(account, user);
+    //     account_set_user(account, user);
+    //     account_set_key(account, "password");
+    //     account_db_insert(account);
     // }
+    // ESP_LOGI("main", "timestamp %ld", time(NULL));
+    for (int i = 0; i < 1; i++) {
+        char user[32];
+        char date[32];
+        sprintf(user, "user%d", i);
+        sprintf(date, "2022-0%d-10 15:46:57", i%10);
+        account_log_t *log = account_log_new();
+        // account_log_set_date(log, date);
+        account_log_set_name(log, user);
+        account_log_set_code(log, user);
+        account_log_set_granted(log, i%2);
+        account_log_set_type(log, i%3);
+        account_db_log_insert(log);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        account_log_t *log2 = account_db_log_get_index(i);
+        ESP_LOGI("main", "date added %s", account_log_get_date(log2));
+        // ESP_LOGI("main", "name added %s", account_log_get_name(log2));
+    }
     vTaskDelete(NULL);
 }
 void update_ip_info()
@@ -1152,6 +1152,10 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     char ip_address[16] = "";
     char netmask[16] = "";
     char gateway[16] = "";
+    esp_netif_ip_info_t eth_ipInfo = { 0 };
+    char eth_ip_address[16] = "";
+    char eth_netmask[16] = "";
+    char eth_gateway[16] = "";
     const char *server;
     int port;
     int retries;
@@ -1183,7 +1187,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     // ESP_LOGD("ULIP", "HTTPD url [%s] args [%s] memory [%u]",
     //          connData->url, connData->getArgs,
     //          esp_get_free_heap_size());
-    ESP_LOGI("ULIP", "HTTPD url [%s]" , connData->url);
+    ESP_LOGD("ULIP", "HTTPD url [%s]" , connData->url);
     if (connData->getArgs) ESP_LOGD("ULIP", "HTTPD args [%s]" , connData->getArgs);
     ESP_LOGD("ULIP", "HTTPD memory [%u]" , esp_get_free_heap_size());
     if (connData->isConnectionClosed) {
@@ -1300,7 +1304,6 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                             account_log_set_name(log, account_get_name(acc));
                             time_t now = time(NULL);
                             tm = localtime(&now);
-                            // tm = rtc_localtime();
                             sprintf(date, "%02d/%02d/%02d %02d:%02d:%02d",
                                        tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
                                        tm->tm_hour, tm->tm_min, tm->tm_sec);
@@ -1400,10 +1403,12 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             }
             /* JSON */
             config = connData->post.buff;
+            ESP_LOGI("main", "JSON: %s", config);
             while ((p = strtok(config, ","))) {
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
                 strstrip(p);
+                ESP_LOGI("main", "Config: %s", p);
                 if (!strncmp("\"hotspot\":", p, 10)) {
                     p += 10;
                     strdelimit(p, "\"", ' ');
@@ -1444,7 +1449,12 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
                     CFG_set_ssid_hidden(!strcmp(p, "on"));
-                } else if (!strncmp("\"dhcp\":", p, 7)) {
+                } else if (!strncmp("\"wifi_enable\":", p, 7)) {
+                    p += 7;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    CFG_set_wifi_disable(strcmp(p, "on"));
+                }else if (!strncmp("\"dhcp\":", p, 7)) {
                     p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
@@ -1464,7 +1474,35 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
                     CFG_set_gateway(p);
-                } else if (!strncmp("\"dns\":", p, 6)) {
+                } else if (!strncmp("\"eth_enable\":", p, 7)) {
+                    p += 13;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    CFG_set_eth_enable(!strcmp(p, "on"));
+                    ESP_LOGI("main", "eth_enable: %s", p);
+                }
+                else if (!strncmp("\"eth_dhcp\":", p, 7)) {
+                    p += 11;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    CFG_set_eth_dhcp(!strcmp(p, "on"));
+                } else if (!strncmp("\"eth_ip\":", p, 5)) {
+                    p += 9;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    CFG_set_eth_ip_address(p);
+                } else if (!strncmp("\"eth_netmask\":", p, 10)) {
+                    p += 14;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    CFG_set_eth_netmask(p);
+                } else if (!strncmp("\"eth_gateway\":", p, 10)) {
+                    p += 14;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    CFG_set_eth_gateway(p);
+                } //////////////////////////////////////////////////////////////////////////////
+                 else if (!strncmp("\"dns\":", p, 6)) {
                     p += 6;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
@@ -1479,6 +1517,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
                     CFG_set_hostname(p);
+                /////////////////////////////////////////////////////////////////////////////
                 } else if (!strncmp("\"timezone\":", p, 11)) {
                     p += 11;
                     strdelimit(p, "\"", ' ');
@@ -2044,17 +2083,23 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 return HTTPD_CGI_DONE;
             }
             if (CFG_get_hotspot()) {
-                // wifi_get_ip_info(SOFTAP_IF, &ipInfo);
+                get_wifi_ip(true, &ipInfo);
             } else {
-                // wifi_get_ip_info(STATION_IF, &ipInfo);
+                get_wifi_ip(false, &ipInfo);
             }
+            get_eth_ip(&eth_ipInfo);
             sprintf(ip_address, IPSTR, IP2STR(&ipInfo.ip));
             sprintf(netmask, IPSTR, IP2STR(&ipInfo.netmask));
             sprintf(gateway, IPSTR, IP2STR(&ipInfo.gw));
+            sprintf(eth_ip_address, IPSTR, IP2STR(&eth_ipInfo.ip));
+            sprintf(eth_netmask, IPSTR, IP2STR(&eth_ipInfo.netmask));
+            sprintf(eth_gateway, IPSTR, IP2STR(&eth_ipInfo.gw));
             CFG_get_debug(&mode, &level, &server, &port);
             len = sprintf(body, "{\"model\":\"%s\",\"serial\":\"%s\",\"mac\":\"%s\",\"release\":\"%s\",\"hotspot\":\"%s\",\"ap_mode\":\"%s\"," \
                              "\"standalone\":\"%s\",\"ssid\":\"%s\",\"password\":\"%s\",\"channel\":\"%d\",\"beacon_interval\":\"%d\"," \
-                             "\"ssid_hidden\":\"%s\",\"dhcp\":\"%s\",\"ip\":\"%s\",\"netmask\":\"%s\",\"gateway\":\"%s\",\"dns\":\"%s\"," \
+                             "\"ssid_hidden\":\"%s\",\"wifi_enable\":\"%s\",\"dhcp\":\"%s\",\"ip\":\"%s\",\"netmask\":\"%s\",\"gateway\":\"%s\"," \
+                             "\"eth_enable\":\"%s\",\"eth_dhcp\":\"%s\",\"eth_ip\":\"%s\"," \
+                             "\"eth_netmask\":\"%s\",\"eth_gateway\":\"%s\",\"dns\":\"%s\"," \
                              "\"ntp\":\"%s\",\"hostname\":\"%s\",\"ddns\":\"%s\",\"ddns_domain\":\"%s\",\"ddns_user\":\"%s\",\"ddns_password\":\"%s\"," \
                              "\"timezone\":\"%d\",\"dst\":\"%s\",\"dst_date\":\"%s\",\"server\":\"%s\",\"server_port\":\"%d\",\"server_user\":\"%s\"," \
                              "\"server_password\":\"%s\",\"server_url\":\"%s\",\"server_retries\":\"%d\",\"ota_url\":\"%s\""
@@ -2125,8 +2170,12 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_wifi_channel(),
                              CFG_get_wifi_beacon_interval(),
                              CFG_get_ssid_hidden() ? "on" : "off",
+                             CFG_get_wifi_disable() ? "off" : "on",
                              CFG_get_dhcp() ? "on" : "off",
                              ip_address, netmask, gateway,
+                             CFG_get_eth_enable() ? "on" : "off",
+                             CFG_get_eth_dhcp() ? "on" : "off",
+                             eth_ip_address, eth_netmask, eth_gateway,
                              CFG_get_dns() ? CFG_get_dns() : "",
                              CFG_get_ntp() ? CFG_get_ntp() : "",
                              CFG_get_hostname() ? CFG_get_hostname() : "",
@@ -3667,7 +3716,7 @@ int ulip_core_log2html(char *html, int len)
                         "<INPUT type=\"hidden\" name=\"menuopt\" value=\"5\">");
     size += snprintf(html + size, len - size, "%s",
                         "</td></tr></table></FORM></div></div></td></tr></table>");
-
+    ESP_LOG_BUFFER_CHAR("main", html, size);
     return size;
 }
 static int ulip_core_httpd_auth(HttpdConnData *connData,
@@ -3775,21 +3824,21 @@ void app_main(void)
     // sntp_init();
     CFG_Load();
     // CFG_Default();
-    CFG_set_control_mode(0);
-    CFG_set_control_timeout(2);
-    CFG_set_ip_address("10.0.0.140");
-    CFG_set_netmask("255.255.255.0");
-    CFG_set_gateway("10.0.0.1");
-    CFG_set_ap_mode(false);
-    CFG_set_dhcp(true);
-    CFG_set_wifi_ssid("uTech-Wifi");
-    CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(true);
+    // CFG_set_control_mode(0);
+    // CFG_set_control_timeout(2);
+    // CFG_set_ip_address("10.0.0.140");
+    // CFG_set_netmask("255.255.255.0");
+    // CFG_set_gateway("10.0.0.1");
+    // CFG_set_ap_mode(false);
+    // CFG_set_dhcp(true);
+    // CFG_set_wifi_ssid("uTech-Wifi");
+    // CFG_set_wifi_passwd("01566062");
+    // CFG_set_wifi_disable(true);
     CFG_set_eth_dhcp(true);
     CFG_set_eth_enable(true);
-    CFG_set_eth_ip_address("10.0.0.243");
-    CFG_set_eth_netmask("255.255.255.0");
-    CFG_set_eth_gateway("10.0.0.1");
+    // CFG_set_eth_ip_address("10.0.0.243");
+    // CFG_set_eth_netmask("255.255.255.0");
+    // CFG_set_eth_gateway("10.0.0.1");
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),

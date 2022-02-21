@@ -390,7 +390,11 @@ DCACHE_FLASH_ATTR static const char INDEXREDE[] = {
 <td colspan=\"2\">&nbsp;</td> \
 </tr> \
 <tr> \
-<td colspan=\"2\" class=\"alert-info\"><b>Rede</b></td> \
+<td colspan=\"2\" class=\"alert-info\"><b>Rede Wifi</b></td> \
+</tr> \
+<tr> \
+<td style=\"padding:10px 0px 10px 0px;\"><b>Enable</b></td> \
+<td><INPUT type=\"checkbox\" name=\"wifi_enable\"></td> \
 </tr> \
 <tr> \
 <td style=\"padding:10px 0px 10px 0px;\"><b>DHCP</b></td> \
@@ -409,6 +413,39 @@ DCACHE_FLASH_ATTR static const char INDEXREDE[] = {
 <td><INPUT type=\"text\" class=\"form-control\" name=\"gateway\" maxlength=\"15\"></td> \
 </tr> \
 <tr> \
+<td colspan=\"2\">&nbsp;</td> \
+</tr> \
+<tr> \
+<td colspan=\"2\" class=\"alert-info\"><b>Rede Ethernet</b></td> \
+</tr> \
+<tr> \
+<td style=\"padding:10px 0px 10px 0px;\"><b>Enable</b></td> \
+<td><INPUT type=\"checkbox\" name=\"eth_enable\"></td> \
+</tr> \
+<tr> \
+<td style=\"padding:10px 0px 10px 0px;\"><b>DHCP</b></td> \
+<td><INPUT type=\"checkbox\" name=\"eth_dhcp\"></td> \
+</tr> \
+<tr> \
+<td><b>Endere&ccedil;o IP</b></td> \
+<td><INPUT type=\"text\" class=\"form-control\" name=\"eth_ip\" maxlength=\"15\"></td> \
+</tr> \
+<tr> \
+<td><b>M&aacute;scara</b></td> \
+<td><INPUT type=\"text\" class=\"form-control\" name=\"eth_netmask\" maxlength=\"15\"></td> \
+</tr> \
+<tr> \
+<td><b>Gateway</b></td> \
+<td><INPUT type=\"text\" class=\"form-control\" name=\"eth_gateway\" maxlength=\"15\"></td> \
+</tr> \
+<tr> \
+<tr> \
+<td colspan=\"2\">&nbsp;</td> \
+</tr> \
+<tr> \
+<td colspan=\"2\" class=\"alert-info\"><b>Rede geral</b></td> \
+</tr> \
+<tr> \
 <td><b>DNS</b></td> \
 <td><INPUT type=\"text\" class=\"form-control\" name=\"dns\" maxlength=\"15\"></td> \
 </tr> \
@@ -419,9 +456,6 @@ DCACHE_FLASH_ATTR static const char INDEXREDE[] = {
 <tr> \
 <td><b>Hostname</b></td> \
 <td><INPUT type=\"text\" class=\"form-control\" name=\"hostname\" maxlength=\"20\"></td> \
-</tr> \
-<tr> \
-<td colspan=\"2\">&nbsp;</td> \
 </tr> \
 <tr> \
 <td colspan=\"2\" class=\"alert-info\"><b>DDNS</b></td> \
@@ -3454,7 +3488,6 @@ static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData
     uint32_t off;
     int len;
 
-    // addr = 0x400f05be;
     addr = (uint32_t)data - testadress;
     off = (uint32_t)connData->cgiData & 0x0fffffff;
 
@@ -3465,7 +3498,7 @@ static int ulip_cgi_send_data_from_flash(HttpdInstance *pInstance, HttpdConnData
         size -= (off - addr);
         addr = off;
     }
-    ESP_LOGI("CGI", "off %x addr %x size %x", off, addr, size);
+    // ESP_LOGI("CGI", "off %x addr %x size %x", off, addr, size);
     while (size > 0 && limit < (HTTPD_MAX_SENDBUFF_LEN >> 1)) {
         len = size;
         if (len > (HTTPD_MAX_SENDBUFF_LEN >> 1))
@@ -3624,6 +3657,8 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                            CFG_get_wifi_beacon_interval());
         size += sprintf(js + size, "document.NETWORK.hidessid.checked=%s;\n",
                            CFG_get_ssid_hidden() ? "true" : "false");
+        size += sprintf(js + size, "document.NETWORK.wifi_enable.checked=%s;\n",
+                           CFG_get_wifi_disable() ? "false" : "true");
         size += sprintf(js + size, "document.NETWORK.dhcp.checked=%s;\n",
                            CFG_get_dhcp() ? "true" : "false");
         size += sprintf(js + size, "document.NETWORK.ip.value=\"%s\";\n",
@@ -3632,6 +3667,17 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                            CFG_get_netmask() ? CFG_get_netmask() : "");
         size += sprintf(js + size, "document.NETWORK.gateway.value=\"%s\";\n",
                            CFG_get_gateway() ? CFG_get_gateway() : "");
+        size += sprintf(js + size, "document.NETWORK.eth_enable.checked=%s;\n",
+                           CFG_get_eth_enable()? "true" : "false");
+        size += sprintf(js + size, "document.NETWORK.eth_dhcp.checked=%s;\n",
+                           CFG_get_eth_dhcp() ? "true" : "false");
+        size += sprintf(js + size, "document.NETWORK.eth_ip.value=\"%s\";\n",
+                           CFG_get_eth_ip_address() ? CFG_get_eth_ip_address() : "");
+        ESP_LOGI("CGI", "eth_ip sending: %s", CFG_get_eth_ip_address());
+        size += sprintf(js + size, "document.NETWORK.eth_netmask.value=\"%s\";\n",
+                           CFG_get_eth_netmask() ? CFG_get_eth_netmask() : "");
+        size += sprintf(js + size, "document.NETWORK.eth_gateway.value=\"%s\";\n",
+                           CFG_get_eth_gateway() ? CFG_get_eth_gateway() : "");
         size += sprintf(js + size, "document.NETWORK.dns.value=\"%s\";\n",
                            CFG_get_dns() ? CFG_get_dns() : "");
         size += sprintf(js + size, "document.NETWORK.ntp.value=\"%s\";\n",
@@ -4562,7 +4608,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
     char *html;
     int len;
     int rc = HTTPD_CGI_DONE;
-    ESP_LOGI("CGI", "GET %s isCss %d", connData->url, strcmp(connData->url, "/css/style.css") == 0);
+    // ESP_LOGI("CGI", "GET %s isCss %d", connData->url, strcmp(connData->url, "/css/style.css") == 0);
     /* Get menu and sub menu */
     if (connData->getArgs) {
         if (httpdFindArg(connData->getArgs, "menuopt", buf, sizeof(buf)) != -1)
@@ -4839,6 +4885,11 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     CFG_set_ssid_hidden(true);
                 else
                     CFG_set_ssid_hidden(false);
+                if (httpdFindArg(connData->post.buff, "wifi_enable", buf, sizeof(buf)) != -1) {
+                    CFG_set_wifi_disable(false);
+                } else{
+                    CFG_set_wifi_disable(true);
+                }
                 if (httpdFindArg(connData->post.buff, "dhcp", buf, sizeof(buf)) != -1) {
                     CFG_set_dhcp(true);
                 } else{
@@ -4850,6 +4901,23 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     CFG_set_netmask(buf);
                 if (httpdFindArg(connData->post.buff, "gateway", buf, sizeof(buf)) != -1)
                     CFG_set_gateway(buf);
+
+                if (httpdFindArg(connData->post.buff, "eth_enable", buf, sizeof(buf)) != -1) {
+                    CFG_set_eth_enable(true);
+                } else{
+                    CFG_set_eth_enable(false);
+                }
+                if (httpdFindArg(connData->post.buff, "eth_dhcp", buf, sizeof(buf)) != -1) {
+                    CFG_set_eth_dhcp(true);
+                } else{
+                    CFG_set_eth_dhcp(false);
+                }
+                if (httpdFindArg(connData->post.buff, "eth_ip", buf, sizeof(buf)) != -1)
+                    CFG_set_eth_ip_address(buf);
+                if (httpdFindArg(connData->post.buff, "eth_netmask", buf, sizeof(buf)) != -1)
+                    CFG_set_eth_netmask(buf);
+                if (httpdFindArg(connData->post.buff, "eth_gateway", buf, sizeof(buf)) != -1)
+                    CFG_set_eth_gateway(buf);
                 if (httpdFindArg(connData->post.buff, "dns", buf, sizeof(buf)) != -1)
                     CFG_set_dns(buf);
                 if (httpdFindArg(connData->post.buff, "ntp", buf, sizeof(buf)) != -1)

@@ -1,1 +1,1 @@
-void start_sntp(void);
+void start_sntp(char *server_name);

@@ -29,8 +29,8 @@ static const char *TAG = "example";
  */
 
 
-static void obtain_time(void);
-static void initialize_sntp(void);
+static void obtain_time(char *server_name);
+static void initialize_sntp(char *server_name);
 
 #ifdef CONFIG_SNTP_TIME_SYNC_METHOD_CUSTOM
 void sntp_sync_time(struct timeval *tv)
@@ -46,7 +46,7 @@ void time_sync_notification_cb(struct timeval *tv)
     ESP_LOGI(TAG, "Notification of a time synchronization event");
 }
 
-void start_sntp(void)
+void start_sntp(char *server_name)
 {
     setenv("TZ", "GRNLNDST3GRNLNDDT", 1);
     tzset();
@@ -57,42 +57,11 @@ void start_sntp(void)
     // Is time set? If not, tm_year will be (1970 - 1900).
     if (timeinfo.tm_year < (2016 - 1900)) {
         ESP_LOGI(TAG, "Time is not set yet. Connecting to WiFi and getting time over NTP.");
-        obtain_time();
+        obtain_time(server_name);
         // update 'now' variable with current time
         time(&now);
     }
-#ifdef CONFIG_SNTP_TIME_SYNC_METHOD_SMOOTH
-    else {
-        // add 500 ms error to the current system time.
-        // Only to demonstrate a work of adjusting method!
-        {
-            ESP_LOGI(TAG, "Add a error for test adjtime");
-            struct timeval tv_now;
-            gettimeofday(&tv_now, NULL);
-            int64_t cpu_time = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
-            int64_t error_time = cpu_time + 500 * 1000L;
-            struct timeval tv_error = { .tv_sec = error_time / 1000000L, .tv_usec = error_time % 1000000L };
-            settimeofday(&tv_error, NULL);
-        }
-
-        ESP_LOGI(TAG, "Time was set, now just adjusting it. Use SMOOTH SYNC method.");
-        obtain_time();
-        // update 'now' variable with current time
-        time(&now);
-    }
-#endif
-
     char strftime_buf[64];
-
-    // Set timezone to Eastern Standard Time and print local time
-    // setenv("TZ", "EST5EDT,M3.2.0/2,M11.1.0", 1);
-    // tzset();
-    // localtime_r(&now, &timeinfo);
-    // strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
-    // ESP_LOGI(TAG, "The current date/time in New York is: %s", strftime_buf);
-
-    // Set timezone to China Standard Time
-
     localtime_r(&now, &timeinfo);
     strftime(strftime_buf, sizeof(strftime_buf), "%c", &timeinfo);
     ESP_LOGI(TAG, "The current date/time in SaoPaulo is: %s", strftime_buf);
@@ -114,7 +83,7 @@ void start_sntp(void)
     // esp_deep_sleep(1000000LL * deep_sleep_sec);
 }
 
-static void obtain_time(void)
+static void obtain_time(char *server_name)
 {
     // ESP_ERROR_CHECK( nvs_flash_init() );
     // ESP_ERROR_CHECK(esp_netif_init());
@@ -126,7 +95,7 @@ static void obtain_time(void)
      */
     // ESP_ERROR_CHECK(example_connect());
 
-    initialize_sntp();
+    initialize_sntp(server_name);
 
     // wait for time to be set
     time_t now = 0;
@@ -143,7 +112,7 @@ static void obtain_time(void)
     // ESP_ERROR_CHECK( example_disconnect() );
 }
 
-static void initialize_sntp(void)
+static void initialize_sntp(char *server_name)
 {
     ESP_LOGI(TAG, "Initializing SNTP");
     sntp_setoperatingmode(SNTP_OPMODE_POLL);
