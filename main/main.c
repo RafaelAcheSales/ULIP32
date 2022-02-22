@@ -899,7 +899,7 @@ static int rfid_event(int event, const char *data, int len,
 char tasks_info[1024];
 static void got_ip_event()
 {
-    
+   
 }
 static void ulip_core_http_callback(char *uri, char *response_body, int http_status,
                                     char *response_headers, int body_size)
@@ -918,7 +918,7 @@ static void got_ip_event2(char * ip_address)
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    // udp_logging_init(host, port, udp_logging_vprintf);
+    udp_logging_init(host, port, udp_logging_vprintf);
     CFG_set_server_ip(ip_address);
 
     // rfid_init(CFG_get_rfid_timeout(),
@@ -3722,16 +3722,18 @@ int ulip_core_log2html(char *html, int len)
 static int ulip_core_httpd_auth(HttpdConnData *connData,
                                 char *user, char *pass)
 {
-    return HTTPD_CGI_AUTHENTICATED;
+    // return HTTPD_CGI_AUTHENTICATED;
     int rc = false;
     account_t *acc;
     char buf[128];
     int index;
-
+    // ESP_LOGI("main", "user: %s pass: %s webuser: %s webpass: %s",
+    //          user, pass, CFG_get_web_user(), CFG_get_web_passwd());
     if (!user || !pass) return false;
 
     if (!strcmp(user, CFG_get_web_user())) {
         /* Admin */
+        // ESP_LOGI("main", "Admin login");
         rc = !strcmp(pass, CFG_get_web_passwd());
     } else if (CFG_get_user_auth()) {
         /* User */
@@ -3839,6 +3841,8 @@ void app_main(void)
     // CFG_set_eth_ip_address("10.0.0.243");
     // CFG_set_eth_netmask("255.255.255.0");
     // CFG_set_eth_gateway("10.0.0.1");
+    CFG_set_web_user("admin");
+    CFG_set_web_passwd("01566062");
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),

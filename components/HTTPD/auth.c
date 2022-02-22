@@ -14,6 +14,7 @@ HTTP auth implementation. Only does basic authentication for now.
 
 #include "mbedtls/base64.h"
 #include "auth.h"
+#include "string.h"
 
 static AuthGetUserPw authGetUser = NULL;
 
@@ -49,8 +50,10 @@ int authBasic(HttpdConnData *connData)
         unsigned int olen;
         r = mbedtls_base64_decode((uint8_t *)auth, sizeof(auth), &olen
                                     , (uint8_t *)hdr+6, strlen(hdr)-6);
-        auth[r] = 0;
+        auth[olen] = 0;
+        // printf("auth: %s\n", auth);
         user = strtok_r(auth, ":", &pass);
+        // printf("user %s pass %s\n", user, pass);
         if (authGetUser(connData, user, pass))
             return HTTPD_CGI_AUTHENTICATED;
         httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -86,8 +89,8 @@ int authBasicGetUsername(HttpdConnData *connData,
         unsigned int olen;
         r = mbedtls_base64_decode((uint8_t *)auth, sizeof(auth), &olen
                                     , (uint8_t *)hdr+6, strlen(hdr)-6);
-        if (r < 0) r = 0;
-        auth[r] = 0;
+        if (olen < 0) olen = 0;
+        auth[olen] = 0;
         user = strtok_r(auth, ":", &pass);
         strncpy(username, user, len - 1);
         username[len - 1] = '\0';
@@ -115,8 +118,8 @@ int authBasicGetPassword(HttpdConnData *connData,
         unsigned int olen;
         r = mbedtls_base64_decode((uint8_t *)auth, sizeof(auth), &olen
                                     , (uint8_t *)hdr+6, strlen(hdr)-6);
-        if (r < 0) r = 0;
-        auth[r] = 0;
+        if (olen < 0) olen = 0;
+        auth[olen] = 0;
         user = strtok_r(auth, ":", &pass);
         strncpy(password, pass, len - 1);
         password[len - 1] = '\0';

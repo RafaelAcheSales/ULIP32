@@ -3561,7 +3561,8 @@ static void ulip_cgi_response(HttpdConnData *connData, int status,
                    rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
                    tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
         httpdHeader(connData, "Date", date);
-        tm = localtime(now + 31536000);
+        now += 31536000;
+        tm = localtime(&now);
         sprintf(date, "%s, %02d %s %d %02d:%02d:%02d GMT",
                    rtc_weekday(tm), tm->tm_mday, rtc_month(tm),
                    tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
@@ -3673,7 +3674,6 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                            CFG_get_eth_dhcp() ? "true" : "false");
         size += sprintf(js + size, "document.NETWORK.eth_ip.value=\"%s\";\n",
                            CFG_get_eth_ip_address() ? CFG_get_eth_ip_address() : "");
-        ESP_LOGI("CGI", "eth_ip sending: %s", CFG_get_eth_ip_address());
         size += sprintf(js + size, "document.NETWORK.eth_netmask.value=\"%s\";\n",
                            CFG_get_eth_netmask() ? CFG_get_eth_netmask() : "");
         size += sprintf(js + size, "document.NETWORK.eth_gateway.value=\"%s\";\n",
@@ -4625,7 +4625,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
         }
         /* CSS */
         if (strcmp(connData->url, "/css/style.css") == 0) { 
-            ESP_LOGI("CGI", "CSS");
+            // ESP_LOGI("CGI", "CSS");
             if (!connData->cgiData) {
                 /* Cache control */
                 if (!sntp_getservername(0)) {
@@ -4639,7 +4639,7 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
                 }
                 ulip_cgi_response(connData, 200, etag, "text/css", sizeof(STYLE) - 1);
             }
-            ESP_LOGI("CGI", "Sending CSS");
+            // ESP_LOGI("CGI", "Sending CSS");
             return ulip_cgi_send_data_from_flash(pInstance, connData, (uint8_t *)STYLE, sizeof(STYLE) - 1);
         }
         /* Images */
@@ -4874,7 +4874,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_ap_mode(false);
                 if (httpdFindArg(connData->post.buff, "ssid", buf, sizeof(buf)) != -1)
-                    // CFG_set_wifi_ssid(buf);
+                    CFG_set_wifi_ssid(buf);
                 if (httpdFindArg(connData->post.buff, "passwd", buf, sizeof(buf)) != -1)
                     CFG_set_wifi_passwd(buf);
                 if (httpdFindArg(connData->post.buff, "channel", buf, sizeof(buf)) != -1)
