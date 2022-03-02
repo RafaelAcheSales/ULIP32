@@ -3716,7 +3716,6 @@ int ulip_core_log2html(char *html, int len)
                         "<INPUT type=\"hidden\" name=\"menuopt\" value=\"5\">");
     size += snprintf(html + size, len - size, "%s",
                         "</td></tr></table></FORM></div></div></td></tr></table>");
-    ESP_LOG_BUFFER_CHAR("main", html, size);
     return size;
 }
 static int ulip_core_httpd_auth(HttpdConnData *connData,
@@ -3836,14 +3835,15 @@ void app_main(void)
     // CFG_set_wifi_ssid("uTech-Wifi");
     // CFG_set_wifi_passwd("01566062");
     // CFG_set_wifi_disable(true);
-    CFG_set_eth_dhcp(true);
+    CFG_set_eth_dhcp(false);
     CFG_set_eth_enable(true);
-    // CFG_set_eth_ip_address("10.0.0.243");
-    // CFG_set_eth_netmask("255.255.255.0");
-    // CFG_set_eth_gateway("10.0.0.1");
+    CFG_set_eth_ip_address("10.0.0.250");
+    CFG_set_eth_netmask("255.255.255.0");
+    CFG_set_eth_gateway("10.0.0.1");
     CFG_set_web_user("admin");
     CFG_set_web_passwd("01566062");
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
+    CFG_Save();
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
              CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
@@ -3883,6 +3883,7 @@ void app_main(void)
     // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
     //                rs485_event, NULL);
     printf("Hello world!\n");
+    
     ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
 
     // vTaskList(tasks_info);
