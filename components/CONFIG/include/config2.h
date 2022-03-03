@@ -33,9 +33,9 @@
 #define CFG_WEB_PASSWD          "admin"
 
 #define CFG_RFID_TIMEOUT        1000
-#define CFG_QRCODE_TIMEOUT      1000000
+#define CFG_QRCODE_TIMEOUT      1000
 #define CFG_QRCODE_VALIDITY     30
-#define CFG_FPM_TIMEOUT         200000
+#define CFG_FPM_TIMEOUT         200
 #define CFG_DHT_TIMEOUT         60000
 #define CFG_MQ2_TIMEOUT         60000
 #define CFG_PIR_TIMEOUT         30000

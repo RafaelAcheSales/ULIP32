@@ -16,10 +16,10 @@ static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x
 
 #define QRCODE_TTY              2
 #define QRCODE_BFSIZE           512
-#define QRCODE_TIMEOUT          1000000  /* usec */
+#define QRCODE_TIMEOUT          1000  /* msec */
 #define QRCODE_CARDSIZE         256
-#define QRCODE_LED_TIMEOUT      500000   /* usec */
-#define QRCODE_ALARM_TIMEOUT    2000000  /* usec */
+#define QRCODE_LED_TIMEOUT      500   /* msec */
+#define QRCODE_ALARM_TIMEOUT    2000  /* msec */
 #define QRCODE_VALIDITY         30
 
 #define WDI2000_XMIT_HEAD       0x007E
@@ -134,7 +134,7 @@ void qrcode_module_initialize(int stage)
             break;
         case 2:
             /* Single read time */
-            data = (qrcode_timeout / 100000) >> 2;
+            data = (qrcode_timeout / 100) >> 2;
             qrcode_send_command(WDI2000_WRITE_CMD, 0x0006, &data, 1);
             break;
         case 3:
@@ -225,7 +225,7 @@ static void qrcode_led_blink(void)
         qrcode_led_enable();
     if (!esp_timer_is_active(led_timer))
     {
-        ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, QRCODE_LED_TIMEOUT));
+        ESP_ERROR_CHECK(esp_timer_start_periodic(led_timer, QRCODE_LED_TIMEOUT*1000));
     }
 
     // os_timer_setfn(&qrcode_led_timer, (os_timer_func_t *)qrcode_led_timeout, NULL);
@@ -488,7 +488,7 @@ int qrcode_init(bool led, bool led_alarm, int timeout,
     
     // ESP_LOGI("QRCODE", "timeout is %d", qrcode_timeout);
     ESP_ERROR_CHECK(esp_timer_create(&polling_timer_args, &polling_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(polling_timer, qrcode_timeout>>1));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(polling_timer, (qrcode_timeout>>1)*1000));
     // ESP_LOGI("QRCODE", "poling timer started");
     const esp_timer_create_args_t led_timer_args = {
             .callback = &qrcode_led_timeout,

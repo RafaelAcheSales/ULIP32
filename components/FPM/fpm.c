@@ -14,7 +14,7 @@
 
 #define FPM_TTY                     1
 #define FPM_BFSIZE                  1024
-#define FPM_TIMEOUT                 100000  /* usec */
+#define FPM_TIMEOUT                 100  /* msec */
 #define FPM_SECURITY_LEVEL          3
 #define FPM_TEMPSIZE                498
 
@@ -761,7 +761,7 @@ int fpm_init(int timeout, int security, int identify_retries,
     };
     
     ESP_ERROR_CHECK(esp_timer_create(&fpm_timer_args, &fpm_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(fpm_timer, fpm_timeout));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(fpm_timer, fpm_timeout*1000));
 
 
     return 0;

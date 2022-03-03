@@ -1305,7 +1305,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                             time_t now = time(NULL);
                             tm = localtime(&now);
                             sprintf(date, "%02d/%02d/%02d %02d:%02d:%02d",
-                                       tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
+                                       tm->tm_mday, tm->tm_mon + 1, (tm->tm_year+1900) % 100,
                                        tm->tm_hour, tm->tm_min, tm->tm_sec);
                             account_log_set_date(log, date);
                             account_log_set_code(log, username);
@@ -1479,7 +1479,6 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
                     CFG_set_eth_enable(!strcmp(p, "on"));
-                    ESP_LOGI("main", "eth_enable: %s", p);
                 }
                 else if (!strncmp("\"eth_dhcp\":", p, 7)) {
                     p += 11;
@@ -3835,13 +3834,13 @@ void app_main(void)
     // CFG_set_wifi_ssid("uTech-Wifi");
     // CFG_set_wifi_passwd("01566062");
     // CFG_set_wifi_disable(true);
-    CFG_set_eth_dhcp(false);
+    CFG_set_eth_dhcp(true);
     CFG_set_eth_enable(true);
-    CFG_set_eth_ip_address("10.0.0.250");
+    CFG_set_eth_ip_address("10.0.0.254");
     CFG_set_eth_netmask("255.255.255.0");
     CFG_set_eth_gateway("10.0.0.1");
-    CFG_set_web_user("admin");
-    CFG_set_web_passwd("01566062");
+    // CFG_set_web_user("admin");
+    // CFG_set_web_passwd("01566062");
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     CFG_Save();
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
@@ -3911,9 +3910,7 @@ void app_main(void)
     // printf(cur_task);
     ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
              CFG_get_eth_enable(), CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask());
-    /*
-    */
-    // start_httpd(&ulip_core_httpd_request);
+
     authSetCallback(ulip_core_httpd_auth);
     if (CFG_get_eth_enable())
         start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);

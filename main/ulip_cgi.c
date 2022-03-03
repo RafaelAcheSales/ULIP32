@@ -1,5 +1,5 @@
 /* vim: set ts=4 et sta noai cin: */
-
+#include <sys/queue.h>
 #include <time.h>   
 #include "http.h"
 #include "config2.h"
@@ -3333,19 +3333,21 @@ static void ulip_cgi_scan_cleanup(void *arg)
 }
 
  
-static void ulip_cgi_scan_callback(void *arg, STATUS status)
+static void ulip_cgi_scan_callback(uint16_t *list_size,  wifi_ap_record_t * list)
 {
-    wifi_ap_record_t *bss = arg;
+    ESP_LOGI("CGI", "Scan callback %d", *list_size);
     const char *auth;
     int size = 0;
-    int i = 0;
-
     if (scan_html)
         free(scan_html);
     scan_html = (char *)calloc(1,1280);
     if (!scan_html) return;
-    while (bss != NULL) {
-        switch (bss->authmode) {
+    int max_size = *list_size;
+    for (int i = 0; i < max_size; i++)
+    {
+        ESP_LOGI("CGI", "wifi ssid %s", list[i].ssid);
+        switch (list[i].authmode)
+        {
             case WIFI_AUTH_OPEN:
                 auth = "Aberta";
                 break;
@@ -3362,25 +3364,58 @@ static void ulip_cgi_scan_callback(void *arg, STATUS status)
                 auth = "WPA/WPA2";
                 break;
             default:
-                auth = "-";
+                auth = " - ";
                 break;
         }
         uint8_t channel;
         esp_wifi_get_channel(&channel, NULL);
-        wifi_sta_list_t list;
-        esp_wifi_ap_get_sta_list(&list);
-        if (!strcmp((char *)bss->ssid, CFG_get_wifi_ssid()))
-
+        if (!strcmp((char *)list[i].ssid, CFG_get_wifi_ssid()))
             size += snprintf(scan_html + size, 1280 - size,
                                 "<tr style=\\\"background-color:#d2d2d2;\\\"><td>%s</td><td>%s</td><td>%d</td><td>%d</td></tr>",
-                                bss->ssid, auth, channel, list.sta[0].rssi);
+                                list[i].ssid, auth, channel, list[i].rssi);
         else if (i < 15)
             size += snprintf(scan_html + size, 1280 - size,
                                 "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td></tr>",
-                                bss->ssid, auth, bss->primary, bss->rssi);
-        // bss = STAILQ_NEXT(bss, next);
-        i++;
+                                list[i].ssid, auth, list[i].primary, list[i].rssi);
+
     }
+    // while (bss != NULL) {
+    //     switch (bss->authmode) {
+    //         case WIFI_AUTH_OPEN:
+    //             auth = "Aberta";
+    //             break;
+    //         case WIFI_AUTH_WEP:
+    //             auth = "WEP";
+    //             break;
+    //         case WIFI_AUTH_WPA_PSK:
+    //             auth = "WPA";
+    //             break;
+    //         case WIFI_AUTH_WPA2_PSK:
+    //             auth = "WPA2";
+    //             break;
+    //         case WIFI_AUTH_WPA_WPA2_PSK:
+    //             auth = "WPA/WPA2";
+    //             break;
+    //         default:
+    //             auth = "-";
+    //             break;
+    //     }
+    //     uint8_t channel;
+    //     esp_wifi_get_channel(&channel, NULL);
+    //     wifi_sta_list_t list;
+    //     esp_wifi_ap_get_sta_list(&list);
+    //     if (!strcmp((char *)bss->ssid, CFG_get_wifi_ssid()))
+
+    //         size += snprintf(scan_html + size, 1280 - size,
+    //                             "<tr style=\\\"background-color:#d2d2d2;\\\"><td>%s</td><td>%s</td><td>%d</td><td>%d</td></tr>",
+    //                             bss->ssid, auth, channel, list.sta[0].rssi);
+    //     else if (i < 15)
+    //         size += snprintf(scan_html + size, 1280 - size,
+    //                             "<tr><td>%s</td><td>%s</td><td>%d</td><td>%d</td></tr>",
+    //                             bss->ssid, auth, bss->primary, bss->rssi);
+    //     bss = STAILQ_NEXT(bss, next);
+    //     i++;
+    // }
     // timer_disarm(&scan_timer);
     // timer_setfn(&scan_timer, (timer_func_t *)ulip_cgi_scan_cleanup, NULL);
     // timer_arm(&scan_timer, 30000, false);
@@ -3614,6 +3649,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
     const char *host;
     uint16_t port;
     char date[64];
+    uint8_t mac[6];
     char fingerprint[700];
     acc_permission_t *perm;
     const char *period;
@@ -4393,18 +4429,19 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
             case MENU_ADMIN_TAB_SYSTEM:
                 size += sprintf(js + size, "document.INDEXADMIN.serial.value='%s';\n",
                                    CFG_get_serialnum());
-                size += sprintf(js + size, "document.INDEXADMIN.mac.value='%s';\n",
-                                   CFG_get_ethaddr());
+                ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_ETH));
+                size += sprintf(js + size, "document.INDEXADMIN.mac.value='"MACSTR"';\n",
+                                   MAC2STR(mac));
                 time_t t = time(NULL);
                 tm = localtime(&t);
                 sprintf(date, "%02d/%02d/%04d %02d:%02d:%02d",
-                           tm->tm_mday, tm->tm_mon + 1, tm->tm_year,
+                           tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900,
                            tm->tm_hour, tm->tm_min, tm->tm_sec);
                 size += sprintf(js + size, "document.INDEXADMIN.date.value='%s';\n",
                                    date);
                 size += sprintf(js + size, "document.INDEXADMIN.release.value='%s';\n",
                                    CFG_get_release());
-                time_value = esp_timer_get_time()/1000; 
+                time_value = esp_timer_get_time()/1000000; 
                 day = time_value / 86400;
                 time_value -= day * 86400;
                 hour = time_value / 3600;
@@ -4445,6 +4482,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
             case MENU_ADMIN_TAB_WIFI:
                 memset(&scanConf, 0, sizeof(scanConf));
                 scanConf.show_hidden = 1;
+                scanConf.scan_type = WIFI_SCAN_TYPE_ACTIVE;
                 wifi_station_scan(&scanConf, ulip_cgi_scan_callback);
                 if (scan_html)
                     size += sprintf(js + size, "document.getElementById('wifi').innerHTML=\"%s\";\n",
@@ -5576,7 +5614,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     case MENU_ADMIN_TAB_WATCHDOG:
                         if (httpdFindArg(connData->post.buff, "shutdown", buf, sizeof(buf)) != -1) {
                             //TODO: #3 shutdown
-                            // CFG_set_rtc_shutdown(strtol(buf, NULL, 10));
+                            CFG_set_rtc_shutdown(strtol(buf, NULL, 10));
                             // rtc_set_shutdown(CFG_get_rtc_shutdown() * 3600);
                         }
                         break;
