@@ -99,7 +99,10 @@ Para receber via UART os Logs é necessario rodar o seguinte comando:
 
 '''idf.py -p PORT monitor'''
 
+
 == Possíveis erros ==
 
  * Não conseguir rodar comandos de build ou flash pois o Passo 4 não foi respeitado
  * Esp32 não se comunica pois o sinal DTR está oscilando, para resolver bastar rodar o comando com o argumento '''--before no_reset'''
+ 
+

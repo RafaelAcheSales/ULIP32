@@ -16,9 +16,9 @@
 #define SENSOR_PIN      36
 #define SENSOR_INTR     4
 #define INPUT_MASK      (1ULL<<FPM_PIN | 1ULL<<SENSOR_PIN | 1ULL<<BUZZER_PIN ) 
-#define CTL_BEEP_TIME   100000
+#define CTL_BEEP_TIME   100
 #define CTL_BEEP_COUNT  3
-#define CTL_TIMEOUT     100000
+#define CTL_TIMEOUT     100
 #define CTL_RELAY_PULSE 200
 static esp_timer_handle_t ctl_timer;
 static uint32_t ctl_beep_time;

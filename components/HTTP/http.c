@@ -18,10 +18,10 @@ esp_err_t _http_event_handle(esp_http_client_event_t *evt)
             total_len = 0;
             break;
         case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
+            // ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
             break;
         case HTTP_EVENT_ON_HEADER:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER");
+            // ESP_LOGI(TAG, "HTTP_EsVENT_ON_HEADER");
             // ESP_LOGI(TAG,"%s", (char*)evt->data);
             break;
         case HTTP_EVENT_ON_DATA:
@@ -47,7 +47,7 @@ esp_err_t _http_event_handle(esp_http_client_event_t *evt)
 
             break;
         case HTTP_EVENT_ON_FINISH:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+            // ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
             if (buffer != NULL) {
                 printf("%s", buffer);
                 free(buffer);
@@ -95,7 +95,10 @@ void http_raw_request(const char *hostname, int port, bool secure,
     char url[MAX_URL_SIZE];
     char key[256];
     char *value;
+    ESP_LOGD(TAG, "http_raw_request: hostname=%s Header=%s:%s", hostname, header_key, header_value);
 
+    if (secure)
+        ESP_LOGD("HTTP", "user %s, passwd %s, path %s", user, passwd, path);
     
 
     esp_http_client_config_t config = {

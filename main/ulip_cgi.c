@@ -3,6 +3,7 @@
 #include <time.h>   
 #include "http.h"
 #include "config2.h"
+#include "qrcode2.h"
 #include "ctl.h"
 #include "account.h"
 #include "esp_timer.h"
@@ -13,6 +14,7 @@
 #include "esp_sntp.h"
 #include "mbedtls/base64.h"
 #include "udp_logging.h"    
+#include "fpm.h"
 
 // #include "ulip_model.h"
 // #include "ulip_core.h"
@@ -232,37 +234,37 @@ static const char PAGE_TOP[] = {
 <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
 <meta http-equiv=\"Content-Type\" content=\"text/html;charset=iso-8859-1\" >\
 <link rel=\"stylesheet\" type=\"text/css\" href=\"/css/style.css\"/>"
-#ifdef __MLI_1W_TYPE__
+#ifdef CONFIG__MLI_1W_TYPE__
 "<TITLE>MLI-1W - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WQ_TYPE__)
+#elif defined(CONFIG__MLI_1WQ_TYPE__)
 "<TITLE>MLI-1WQ - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WQB_TYPE__)
+#elif defined(CONFIG__MLI_1WQB_TYPE__)
 "<TITLE>MLI-1WQB - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WQF_TYPE__)
+#elif defined(CONFIG__MLI_1WQF_TYPE__)
 "<TITLE>MLI-1WQF - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WB_TYPE__)
+#elif defined(CONFIG__MLI_1WB_TYPE__)
 "<TITLE>MLI-1WB - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WF_TYPE__)
+#elif defined(CONFIG__MLI_1WF_TYPE__)
 "<TITLE>MLI-1WF - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WRQ_TYPE__)
+#elif defined(CONFIG__MLI_1WRQ_TYPE__)
 "<TITLE>MLI-1WRQ - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WR_TYPE__)
+#elif defined(CONFIG__MLI_1WR_TYPE__)
 "<TITLE>MLI-1WR - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WRF_TYPE__)
+#elif defined(CONFIG__MLI_1WRF_TYPE__)
 "<TITLE>MLI-1WRF - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WRS_TYPE__)
+#elif defined(CONFIG__MLI_1WRS_TYPE__)
 "<TITLE>MLI-1WRS - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WLS_TYPE__)
+#elif defined(CONFIG__MLI_1WLS_TYPE__)
 "<TITLE>MLI-1WLS - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WRG_TYPE__)
+#elif defined(CONFIG__MLI_1WRG_TYPE__)
 "<TITLE>MLI-1WRG - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WLG_TYPE__)
+#elif defined(CONFIG__MLI_1WLG_TYPE__)
 "<TITLE>MLI-1WLG - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WRP_TYPE__)
+#elif defined(CONFIG__MLI_1WRP_TYPE__)
 "<TITLE>MLI-1WRP - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WRC_TYPE__)
+#elif defined(CONFIG__MLI_1WRC_TYPE__)
 "<TITLE>MLI-1WRC - &micro;Tech Tecnologia</TITLE>"
-#elif defined(__MLI_1WLC_TYPE__)
+#elif defined(CONFIG__MLI_1WLC_TYPE__)
 "<TITLE>MLI-1WLC - &micro;Tech Tecnologia</TITLE>"
 #endif
 "</head>\
@@ -273,37 +275,37 @@ static const char PAGE_TOP[] = {
 #if 0
 "<a href=\"http://www.utech.com.br/\"><img style=\"max-width:120px;padding:10px;vertical-align:middle;\" src=imgs/logo_utech.png border=0></a>"
 #endif
-#ifdef __MLI_1W_TYPE__
+#ifdef CONFIG__MLI_1W_TYPE__
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1W - Leitor IP</b></a>"
-#elif defined(__MLI_1WQ_TYPE__)
+#elif defined(CONFIG__MLI_1WQ_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WQ - Leitor IP</b></a>"
-#elif defined(__MLI_1WQB_TYPE__)
+#elif defined(CONFIG__MLI_1WQB_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WQB - Leitor IP</b></a>"
-#elif defined(__MLI_1WQF_TYPE__)
+#elif defined(CONFIG__MLI_1WQF_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WQF - Leitor IP</b></a>"
-#elif defined(__MLI_1WB_TYPE__)
+#elif defined(CONFIG__MLI_1WB_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WB - Leitor IP</b></a>"
-#elif defined(__MLI_1WF_TYPE__)
+#elif defined(CONFIG__MLI_1WF_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WF - Leitor IP</b></a>"
-#elif defined(__MLI_1WRQ_TYPE__)
+#elif defined(CONFIG__MLI_1WRQ_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WRQ - Leitor IP</b></a>"
-#elif defined(__MLI_1WR_TYPE__)
+#elif defined(CONFIG__MLI_1WR_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WR - Leitor IP</b></a>"
-#elif defined(__MLI_1WRF_TYPE__)
+#elif defined(CONFIG__MLI_1WRF_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WRF - Leitor IP</b></a>"
-#elif defined(__MLI_1WRS_TYPE__)
+#elif defined(CONFIG__MLI_1WRS_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WRS - Leitor IP</b></a>"
-#elif defined(__MLI_1WLS_TYPE__)
+#elif defined(CONFIG__MLI_1WLS_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WLS - Leitor IP</b></a>"
-#elif defined(__MLI_1WRG_TYPE__)
+#elif defined(CONFIG__MLI_1WRG_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WRG - Leitor IP</b></a>"
-#elif defined(__MLI_1WLG_TYPE__)
+#elif defined(CONFIG__MLI_1WLG_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WLG - Leitor IP</b></a>"
-#elif defined(__MLI_1WRP_TYPE__)
+#elif defined(CONFIG__MLI_1WRP_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WRP - Leitor IP</b></a>"
-#elif defined(__MLI_1WRC_TYPE__)
+#elif defined(CONFIG__MLI_1WRC_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WRC - Leitor IP</b></a>"
-#elif defined(__MLI_1WLC_TYPE__)
+#elif defined(CONFIG__MLI_1WLC_TYPE__)
 "<a style=\"color: #696969;padding-left:20px;\" href=\"http://www.utech.com.br/\"><b>MLI-1WLC - Leitor IP</b></a>"
 #endif
 "</td>\
@@ -316,10 +318,10 @@ static const char PAGE_TOP[] = {
 <tr id=\"http\" bgcolor=\"#032449\"><td style=\"padding:12px 40px;\"><a style=\"color:#ffffff\" href=\"?menuopt=3\"><b>Integra&ccedil;&atilde;o</b></a></td></tr>\
 <tr id=\"prog\" bgcolor=\"#032449\"><td style=\"padding:12px 40px;\"><a style=\"color:#ffffff\" href=\"?menuopt=8\"><b>Programa&ccedil;&atilde;o</b></a></td></tr>\
 <tr id=\"user\" bgcolor=\"#032449\"><td style=\"padding:12px 40px;\"><a style=\"color:#ffffff\" href=\"?menuopt=4\"><b>Usu&aacute;rios</b></a></td></tr>"
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr id=\"log\" bgcolor=\"#032449\"><td style=\"padding:12px 40px;\"><a style=\"color:#ffffff\" href=\"?menuopt=5\"><b>Acessos</b></a></td></tr>"
 #else
 "<tr id=\"log\" bgcolor=\"#032449\"><td style=\"padding:12px 40px;\"><a style=\"color:#ffffff\" href=\"?menuopt=5\"><b>Telemetria</b></a></td></tr>"
@@ -508,10 +510,10 @@ DCACHE_FLASH_ATTR static const char INDEXACIONAMENTO[] = {
 <div class=\"panel-body\">\
 <FORM name=\"CONTROL\" action=\"save\" method=\"POST\">\
 <table border=\"0\" align=\"left\" width=\"98%\" height=\"100%\">"
-#if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || \
-    defined(__MLI_1WRF_TYPE__) || defined(__MLI_1WRS_TYPE__) || \
-    defined(__MLI_1WLS_TYPE__) || defined(__MLI_1WRP_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRQ_TYPE__) || defined(CONFIG__MLI_1WR_TYPE__) || \
+    defined(CONFIG__MLI_1WRF_TYPE__) || defined(CONFIG__MLI_1WRS_TYPE__) || \
+    defined(CONFIG__MLI_1WLS_TYPE__) || defined(CONFIG__MLI_1WRP_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<script type=\"text/javascript\">\
 function select_address(ff)\
 {\
@@ -520,8 +522,8 @@ ff.options[i]=new Option(i+1,i+1);\
 }\n\
 </script>"
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<script type=\"text/javascript\">\
 function select_temperature(ff)\
 {\
@@ -547,7 +549,7 @@ ff.options[i]=new Option(i,i);\
 }\n\
 </script>"
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
 "<script type=\"text/javascript\">\
 function select_day(ff)\
 {\
@@ -562,7 +564,7 @@ ff.options[i]=new Option(i+1,i+1);\
 <td><b>Descri&ccedil;&atilde;o</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"desc\" maxlength=\"128\" style=\"margin-top:5px;\"></td>\
 </tr>"
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
 "<tr>\
 <td style=\"padding:10px 0px 10px 0px;\"><b>Modo Standalone</b></td>\
 <td><INPUT type=\"checkbox\" name=\"standalone\"></td>\
@@ -578,9 +580,9 @@ ff.options[i]=new Option(i+1,i+1);\
 <td><b>Tempo de Acionamento</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"timeout\"><b> ms</b></td>\
 </tr>"
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td><b>Tempo de Acionamento de Acessibilidade</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"acc_timeout\"><b> ms</b></td>\
@@ -599,9 +601,9 @@ ff.options[i]=new Option(i+1,i+1);\
 <td><b>Habilitar Fun&ccedil;&atilde;o Botoeira no Sensor</b></td>\
 <td><INPUT type=\"checkbox\" name=\"button_enable\"></td>\
 </tr>"
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td><b>Tempo de Bloqueio de Dupla Passagem</b></td>\
 <td><INPUT type=\"number\" class=\"form-control\" name=\"doublepass_timeout\" min=\"0\"><b> s</b></td>\
@@ -624,10 +626,10 @@ ff.options[i]=new Option(i+1,i+1);\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"timeout\"><b> ms</b></td>\
 </tr><tr>"
 #endif
-#if !defined(__MLI_1WF_TYPE__) && !defined(__MLI_1WQF_TYPE__) && !defined(__MLI_1WRF_TYPE__) && \
-    !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && !defined(__MLI_1WRG_TYPE__) && \
-    !defined(__MLI_1WLG_TYPE__) && !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WF_TYPE__) && !defined(CONFIG__MLI_1WQF_TYPE__) && !defined(CONFIG__MLI_1WRF_TYPE__) && \
+    !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && !defined(CONFIG__MLI_1WRG_TYPE__) && \
+    !defined(CONFIG__MLI_1WLG_TYPE__) && !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -657,7 +659,7 @@ ff.options[i]=new Option(i+1,i+1);\
 </td>\
 </tr>"
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -685,7 +687,7 @@ ff.options[i]=new Option(i+1,i+1);\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"qrcode_validity\"><b> s</b></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -740,7 +742,7 @@ ff.options[i]=new Option(i+1,i+1);\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"rf433_panic_timo\"><b> ms</b></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -771,9 +773,9 @@ ff.options[i]=new Option(i+1,i+1);\
 </select></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || \
-    defined(__MLI_1WRF_TYPE__) || defined(__MLI_1WRS_TYPE__) || \
-    defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__)
+#if defined(CONFIG__MLI_1WRQ_TYPE__) || defined(CONFIG__MLI_1WR_TYPE__) || \
+    defined(CONFIG__MLI_1WRF_TYPE__) || defined(CONFIG__MLI_1WRS_TYPE__) || \
+    defined(CONFIG__MLI_1WRP_TYPE__) || defined(CONFIG__MLI_1WRC_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -797,7 +799,7 @@ select_address(document.CONTROL.rs485_server_addr);\
 </select></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WLS_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -838,8 +840,8 @@ select_address(document.CONTROL.lora_server_addr);\
 </select></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -886,7 +888,7 @@ select_humidity(document.CONTROL.dht_rh_lower);\
 <td><INPUT type=\"checkbox\" name=\"dht_alarm\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -911,7 +913,7 @@ select_humidity(document.CONTROL.dht_rh_lower);\
 <td><INPUT type=\"checkbox\" name=\"temt_alarm\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#if defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -933,7 +935,7 @@ select_humidity(document.CONTROL.dht_rh_lower);\
 <td><INPUT type=\"checkbox\" name=\"mq2_alarm\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -965,9 +967,9 @@ select_humidity(document.CONTROL.dht_rh_lower);\
 <INPUT type=\"submit\" class=\"btn btn-primary\" name=\"cli_reset\" value=\"Resetar\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -1012,7 +1014,7 @@ select_humidity(document.CONTROL.dht_rh_lower);\
 <td><INPUT type=\"checkbox\" name=\"sensor_alarm\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
 "<tr>\
 <td colspan=\"2\">&nbsp;</td>\
 </tr><tr>\
@@ -1173,8 +1175,8 @@ DCACHE_FLASH_ATTR static const char INDEXUSER[] = {
 <td> \
 <FORM name=\"USRADD\" method=\"POST\">\
 <INPUT type=\"submit\" name=\"user_Add\" value=\"Adicionar\" class=\"btn btn-primary\">&nbsp;"
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
 "<INPUT type=\"submit\" name=\"user_Det\" value=\"Detectar\" class=\"btn btn-primary\" onclick=\"return confirm('Deseja detectar usuario?');\">&nbsp;\
 <INPUT type=\"submit\" name=\"user_Erase\" value=\"Apagar\" class=\"btn btn-primary\" onclick=\"return confirm('Deseja apagar usuario?');\">&nbsp;"
 #endif
@@ -1210,28 +1212,28 @@ DCACHE_FLASH_ATTR static const char INDEXUSER[] = {
 <td><b>Senha</b></td>\
 <td><INPUT type=\"number\" class=\"form-control\" name=\"pass\" maxlength=\"20\"></td>\
 </tr>"
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td><b>Cart&atilde;o</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"card\" maxlength=\"32\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
 "<tr>\
 <td><b>C&oacute;digo QR</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"code\" maxlength=\"128\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__)
 "<tr>\
 <td><b>C&oacute;digo RF</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"rfcode\" maxlength=\"16\"></td>\
 </tr>"
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
 "<tr>\
 <td><b>Biometria</b></td>\
 <td>\
@@ -1259,10 +1261,10 @@ DCACHE_FLASH_ATTR static const char INDEXUSER[] = {
 </td>\
 </tr>"
 #endif
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td><b>N&uacute;mero de Acessos Permitidos</b></td>\
 <td><INPUT type=\"text\" class=\"form-control\" name=\"lifecount\" maxlength=\"5\"></td>\
@@ -1569,10 +1571,10 @@ reader.readAsText(file);\
 </script>"
 };
 
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
  
 DCACHE_FLASH_ATTR static const char INDEXLOG[] = {
 "<tr valign=\"top\" height=\"100%\">\
@@ -1614,7 +1616,7 @@ DCACHE_FLASH_ATTR static const char INDEXLOG[] = {
 </div>\
 <table border=\"0\" align=\"left\" width=\"98%\" height=\"100%\">\
 <tr>"
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
 "<td class=\"alert-info\" align=\"center\"><b>Hor&aacute;rio</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Temperatura</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Humidade</b></td>\
@@ -1623,14 +1625,14 @@ DCACHE_FLASH_ATTR static const char INDEXLOG[] = {
 <td class=\"alert-info\" align=\"center\"><b>N&iacute;vel</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Volume</b></td>\
 </tr>"
-#elif defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#elif defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
 "<td class=\"alert-info\" align=\"center\"><b>Hor&aacute;rio</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Fuma&ccedil;a e G&aacute;s</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Movimento</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>N&iacute;vel</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Volume</b></td>\
 </tr>"
-#elif defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#elif defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<td class=\"alert-info\" align=\"center\"><b>Hor&aacute;rio</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Temperatura</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Humidade</b></td>\
@@ -1660,7 +1662,7 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 <div class=\"panel-body\">\
 <FORM name=\"STATUS\" action=\"status\" method=\"POST\">\
 <table border=\"0\" align=\"left\" width=\"98%\" height=\"100%\">"
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
 "<tr>\
 <td class=\"alert-info\" align=\"center\"><b>Alarme</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>P&acirc;nico</b></td>\
@@ -1681,7 +1683,7 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 <td colspan=\"3\">&nbsp;</td>\
 </tr>"
 #endif
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
 "<tr>\
 <td class=\"alert-info\" align=\"center\"><b>Rel&ecirc;</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Sensor</b></td>\
@@ -1725,16 +1727,16 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 </td>\
 </tr>"
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WRG_TYPE__) || \
-    defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__) || \
-    defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WRG_TYPE__) || \
+    defined(CONFIG__MLI_1WRP_TYPE__) || defined(CONFIG__MLI_1WRC_TYPE__) || \
+    defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr> \
 <td colspan=\"3\">&nbsp;</td>\
 </tr><tr>\
 <td colspan=\"3\">\
 <table width=\"100%\">"
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
 "<tr>\
 <td class=\"alert-info\" align=\"center\"><b>Temperatura</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Umidade</b></td>\
@@ -1754,7 +1756,7 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 <td align=\"center\"><INPUT type=\"text\" class=\"form-control stat\" readonly=\"true\" name=\"level\"></td>\
 <td align=\"center\"><INPUT type=\"text\" class=\"form-control stat\" readonly=\"true\" name=\"volume\"></td>\
 </tr>"
-#elif defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#elif defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
 "<tr>\
 <td class=\"alert-info\" align=\"center\"><b>Temperatura</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Umidade</b></td>\
@@ -1774,7 +1776,7 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 <td align=\"center\"><INPUT type=\"text\" class=\"form-control stat\" readonly=\"true\" name=\"level\"></td>\
 <td align=\"center\"><INPUT type=\"text\" class=\"form-control stat\" readonly=\"true\" name=\"volume\"></td>\
 </tr>"
-#elif defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#elif defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
 "<tr>\
 <td class=\"alert-info\" align=\"center\"><b>Temperatura</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Umidade</b></td>\
@@ -1794,7 +1796,7 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 <td align=\"center\"><INPUT type=\"text\" class=\"form-control stat\" readonly=\"true\" name=\"level\"></td>\
 <td align=\"center\"><INPUT type=\"text\" class=\"form-control stat\" readonly=\"true\" name=\"volume\"></td>\
 </tr>"
-#elif defined(__MLI_1WRP_TYPE__)
+#elif defined(CONFIG__MLI_1WRP_TYPE__)
 "<tr>\
 <td class=\"alert-info\" align=\"center\"><b>Tens&atilde;o</b></td>\
 <td class=\"alert-info\" align=\"center\"><b>Corrente</b></td>\
@@ -1899,7 +1901,7 @@ DCACHE_FLASH_ATTR static const char INDEXSTATUS[] = {
 <td colspan=\"3\" align=\"center\" valign=\"middle\"><BR>\
 <INPUT type=\"submit\" name=\"update\" class=\"btn btn-primary\" value=\"Atualizar\">\
 <INPUT type=\"hidden\" name=\"menuopt\" value=\"6\">"
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
 "&nbsp;<INPUT type=\"submit\" name=\"stat_Reset\" class=\"btn btn-primary\" value=\"Resetar\" onclick=\"return confirm('Deseja resetar contadores?');\">"
 #endif
 "</td>\
@@ -3732,16 +3734,16 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
     } else if (menuopt == MENU_CONTROL) {
         size += sprintf(js + size, "document.CONTROL.desc.value=\"%s\";\n",
                            CFG_get_control_description() ? CFG_get_control_description() : "");
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
         size += sprintf(js + size, "document.CONTROL.standalone.checked=%s;\n",
                            CFG_get_standalone() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.mode.value=\"%d\";\n",
                            CFG_get_control_mode());
         size += sprintf(js + size, "document.CONTROL.timeout.value=\"%d\";\n",
                            CFG_get_control_timeout());
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.acc_timeout.value=\"%d\";\n",
                            CFG_get_control_acc_timeout());
 #endif
@@ -3753,14 +3755,14 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                            CFG_get_breakin_alarm() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.button_enable.checked=%s;\n",
                            CFG_get_button_enable() ? "true" : "false");
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.doublepass_timeout.value=\"%d\";\n",
                            CFG_get_control_doublepass_timeout());
 #endif
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
         size += sprintf(js + size, "document.CONTROL.relay_status.value=\"%d\";\n",
                            CFG_get_relay_status());
         size += sprintf(js + size, "document.CONTROL.button_enable.checked=%s;\n",
@@ -3768,10 +3770,10 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.timeout.value=\"%d\";\n",
                            CFG_get_control_timeout());
 #endif
-#if !defined(__MLI_1WF_TYPE__) && !defined(__MLI_1WQF_TYPE__) && !defined(__MLI_1WRF_TYPE__) && \
-    !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && !defined(__MLI_1WRG_TYPE__) && \
-    !defined(__MLI_1WLG_TYPE__) && !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WF_TYPE__) && !defined(CONFIG__MLI_1WQF_TYPE__) && !defined(CONFIG__MLI_1WRF_TYPE__) && \
+    !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && !defined(CONFIG__MLI_1WRG_TYPE__) && \
+    !defined(CONFIG__MLI_1WLG_TYPE__) && !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.rfid.checked=%s;\n",
                            CFG_get_rfid_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.rfid_timo.value=\"%d\";\n",
@@ -3785,7 +3787,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.rfid_format.value=\"%d\";\n",
                            CFG_get_rfid_format());
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
         size += sprintf(js + size, "document.CONTROL.qrcode.checked=%s;\n",
                            CFG_get_qrcode_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.qrcode_timo.value=\"%d\";\n",
@@ -3801,7 +3803,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.qrcode_validity.value=\"%d\";\n",
                            CFG_get_qrcode_validity());
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__)
         size += sprintf(js + size, "document.CONTROL.rf433.checked=%s;\n",
                            CFG_get_rf433_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.rf433_rc.checked=%s;\n",
@@ -3819,7 +3821,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.rf433_ba.value=\"%d\";\n",
                            CFG_get_rf433_ba());
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
         size += sprintf(js + size, "document.CONTROL.fpm.checked=%s;\n",
                            CFG_get_fingerprint_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.fpm_timo.value=\"%d\";\n",
@@ -3829,8 +3831,8 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.fpm_id.value=\"%d\";\n",
                            CFG_get_fingerprint_identify_retries());
 #endif
-#if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || defined(__MLI_1WRF_TYPE__) || \
-    defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__)
+#if defined(CONFIG__MLI_1WRQ_TYPE__) || defined(CONFIG__MLI_1WR_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__) || \
+    defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WRP_TYPE__) || defined(CONFIG__MLI_1WRC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.rs485.checked=%s;\n",
                            CFG_get_rs485_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.rs485_addr.value=\"%d\";\n",
@@ -3838,7 +3840,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.rs485_server_addr.value=\"%d\";\n",
                            CFG_get_rs485_server_hwaddr());
 #endif
-#if defined(__MLI_1WLS_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WLS_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.lora.checked=%s;\n",
                            CFG_get_lora_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.lora_channel.value=\"%d\";\n",
@@ -3850,8 +3852,8 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.lora_server_addr.value=\"%d\";\n",
                            CFG_get_lora_server_address());
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || defined(__MLI_1WRC_TYPE__) || \
-    defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || defined(CONFIG__MLI_1WRC_TYPE__) || \
+    defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.dht_enable.checked=%s;\n",
                            CFG_get_dht_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.dht_timo.value=\"%d\";\n",
@@ -3869,7 +3871,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.dht_alarm.checked=%s;\n",
                            CFG_get_dht_alarm() ? "true" : "false");
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
         size += sprintf(js + size, "document.CONTROL.temt_enable.checked=%s;\n",
                            CFG_get_temt_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.temt_timo.value=\"%d\";\n",
@@ -3883,7 +3885,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.temt_alarm.checked=%s;\n",
                            CFG_get_temt_alarm() ? "true" : "false");
 #endif
-#if defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#if defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
         size += sprintf(js + size, "document.CONTROL.mq2_enable.checked=%s;\n",
                            CFG_get_mq2_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.mq2_timo.value=\"%d\";\n",
@@ -3895,7 +3897,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.mq2_alarm.checked=%s;\n",
                            CFG_get_mq2_alarm() ? "true" : "false");
 #endif
-#if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.cli_enable.checked=%s;\n",
                            CFG_get_cli_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.cli_timo.value=\"%d\";\n",
@@ -3918,9 +3920,9 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
             size += sprintf(js + size, "%s", "document.CONTROL.cli_reset.disabled=false;\n");
         }
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.CONTROL.pir_enable.checked=%s;\n",
                            CFG_get_pir_enable() ? "true" : "false");
         size += sprintf(js + size, "document.CONTROL.pir_timo.value=\"%d\";\n",
@@ -3942,7 +3944,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         size += sprintf(js + size, "document.CONTROL.sensor_alarm.checked=%s;\n",
                            CFG_get_sensor_alarm() ? "true" : "false");
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
         size += sprintf(js + size, "document.CONTROL.pow_vol_cal.value=\"%d\";\n",
                            CFG_get_pow_voltage_cal());
         size += sprintf(js + size, "document.CONTROL.pow_vol_upper.value=\"%d\";\n",
@@ -4009,14 +4011,14 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                                account_get_user(acc) ? account_get_user(acc) : "");
             size += sprintf(js + size, "document.USER.pass.value=\"%s\";\n",
                                account_get_password(acc) ? account_get_password(acc) : "");
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
             size += sprintf(js + size, "document.USER.card.value=\"%s\";\n",
                                account_get_card(acc) ? account_get_card(acc) : "");
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
             size += sprintf(js + size, "document.USER.code.value=\"%s\";\n",
                                account_get_code(acc) ? account_get_code(acc) : "");
             if (qrcode_get_dynamic()) {
@@ -4024,26 +4026,30 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                 size += sprintf(js + size, "document.USER.code.style.backgroundColor='#dddddd';\n");
             }
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__)
             size += sprintf(js + size, "document.USER.rfcode.value=\"%s\";\n",
                                account_get_rfcode(acc) ? account_get_rfcode(acc) : "");
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
             if (account_get_fingerprint(acc)) {
-                base64Encode(ACCOUNT_FINGERPRINT_SIZE, account_get_fingerprint(acc),
-                             sizeof(fingerprint), fingerprint);
+                // base64Encode(ACCOUNT_FINGERPRINT_SIZE, account_get_fingerprint(acc),
+                //              sizeof(fingerprint), fingerprint);
+                size_t olen;
+                mbedtls_base64_encode((unsigned char *)fingerprint, sizeof(fingerprint), &olen,
+                                      account_get_fingerprint(acc), ACCOUNT_FINGERPRINT_SIZE);
                 size += sprintf(js + size, "document.USER.fingerprint.value=\"%s\";\n",
                                    fingerprint);
             } else {
                 size += sprintf(js + size, "document.USER.fingerprint.value=\"\";\n");
             }
+            ESP_LOGI("CGI", "fingerprint: %s of %s", account_get_finger(acc) ? account_get_finger(acc) : "", account_get_name(acc) ? account_get_name(acc) : "");
             size += sprintf(js + size, "document.USER.finger.value=\"%s\";\n",
                                account_get_finger(acc) ? account_get_finger(acc) : "");
 #endif
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
             size += sprintf(js + size, "document.USER.lifecount.value=\"%d\";\n",
                                account_get_lifecount(acc));
             size += sprintf(js + size, "document.USER.accessibility.checked=%s;\n",
@@ -4160,7 +4166,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
                 }
             }
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
             size += sprintf(js + size, "%s", "document.USER.user_Finger.style.display='inline';\n");
             if (ulip_core_capture_finger_status()) {
                 if (fpm_get_enroll() == subopt) {
@@ -4191,7 +4197,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
     } else if (menuopt == MENU_LOG) {
         size += sprintf(js + size, "%s", "document.getElementById('log').style.backgroundColor='#0075be';\n");
     } else if (menuopt == MENU_STATUS) {
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
         if (ctl_alarm_status() == CTL_ALARM_ON) {
             size += sprintf(js + size, "%s", "document.STATUS.alarm.value=\"Habilitado\";\n");
             size += sprintf(js + size, "%s", "document.STATUS.alarm.classList.add('danger');\n");
@@ -4221,7 +4227,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
             size += sprintf(js + size, "%s", "document.STATUS.sensor.value=\"Desabilitado\";\n");
             size += sprintf(js + size, "%s", "document.STATUS.sensor.classList.add('success');\n");
         }
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
         if (ctl_relay_ext_status() == CTL_RELAY_ON) {
             size += sprintf(js + size, "%s", "document.STATUS.relayaux.value=\"Habilitado\";\n");
             size += sprintf(js + size, "%s", "document.STATUS.relayaux.classList.add('danger');\n");
@@ -4230,8 +4236,8 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
             size += sprintf(js + size, "%s", "document.STATUS.relayaux.classList.add('success');\n");
         }
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.STATUS.temp.value=\"%s \\272C\";\n",
                            dht_get_str_temperature());
         if (dht_get_temperature_alarm())
@@ -4244,30 +4250,30 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
         else
             size += sprintf(js + size, "%s", "document.STATUS.rh.classList.add('success');\n");
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
         size += sprintf(js + size, "document.STATUS.lux.value=\"%d lx\";\n", temt_get_lux());
         if (temt_get_alarm())
             size += sprintf(js + size, "%s", "document.STATUS.lux.classList.add('danger');\n");
         else
             size += sprintf(js + size, "%s", "document.STATUS.lux.classList.add('success');\n");
 #endif
-#if defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#if defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
         size += sprintf(js + size, "document.STATUS.gas.value=\"%d\";\n", mq2_get_gas());
         if (mq2_get_alarm())
             size += sprintf(js + size, "%s", "document.STATUS.gas.classList.add('danger');\n");
         else
             size += sprintf(js + size, "%s", "document.STATUS.gas.classList.add('success');\n");
 #endif
-#if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
         size += sprintf(js + size, "document.STATUS.loop.value=\"%d\";\n", cli_get_value());
         if (cli_get_alarm())
             size += sprintf(js + size, "%s", "document.STATUS.loop.classList.add('danger');\n");
         else
             size += sprintf(js + size, "%s", "document.STATUS.loop.classList.add('success');\n");
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WRG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WRG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
         if (pir_get_status()) {
             size += sprintf(js + size, "%s", "document.STATUS.pir.value=\"Alarme\";\n");
             size += sprintf(js + size, "%s", "document.STATUS.pir.classList.add('danger');\n");
@@ -4304,7 +4310,7 @@ static void ulip_cgi_init_js(HttpdInstance *pInstance, HttpdConnData *connData, 
             size += sprintf(js + size, "%s", "document.STATUS.level.classList.add('default');\n");
         }
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
         size += sprintf(js + size, "document.STATUS.vol.value=\"%s V\";\n",
                            pow_get_voltage_str());
         if (pow_get_voltage_alarm())
@@ -4766,10 +4772,10 @@ static int ulip_cgi_get_handler(HttpdInstance *pInstance, HttpdConnData *connDat
             }
             html = (char *)malloc(2048);
             if (html) {
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
                 len = ulip_core_log2html(html, 2048);
 #else
                 len = ulip_core_telemetry2html(html, 2048);
@@ -4976,7 +4982,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
             case MENU_CONTROL:
                 if (httpdFindArg(connData->post.buff, "desc", buf, sizeof(buf)) != -1)
                     CFG_set_control_description(buf);
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
                 if (httpdFindArg(connData->post.buff, "standalone", buf, sizeof(buf)) != -1)
                     CFG_set_standalone(true);
                 else
@@ -4991,9 +4997,9 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     CFG_set_control_mode(strtol(buf, NULL, 10));
                 if (httpdFindArg(connData->post.buff, "timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_timeout(strtol(buf, NULL, 10));
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
                 if (httpdFindArg(connData->post.buff, "acc_timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_acc_timeout(strtol(buf, NULL, 10));
 #endif
@@ -5005,14 +5011,14 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     CFG_set_button_enable(true);
                 else
                     CFG_set_button_enable(false);
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
                 if (httpdFindArg(connData->post.buff, "doublepass_timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_doublepass_timeout(strtol(buf, NULL, 10));
 #endif
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
                 if (httpdFindArg(connData->post.buff, "relay_status", buf, sizeof(buf)) != -1)
                     CFG_set_relay_status(strtol(buf, NULL, 10));
                 if (httpdFindArg(connData->post.buff, "button_enable", buf, sizeof(buf)) != -1)
@@ -5022,7 +5028,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "timeout", buf, sizeof(buf)) != -1)
                     CFG_set_control_timeout(strtol(buf, NULL, 10));
 #endif
-#if !defined(__MLI_1WF_TYPE__) && !defined(__MLI_1WQF_TYPE__) && !defined(__MLI_1WRF_TYPE__)
+#if !defined(CONFIG__MLI_1WF_TYPE__) && !defined(CONFIG__MLI_1WQF_TYPE__) && !defined(CONFIG__MLI_1WRF_TYPE__)
                 if (httpdFindArg(connData->post.buff, "rfid", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_enable(true);
                 else
@@ -5040,7 +5046,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "rfid_format", buf, sizeof(buf)) != -1)
                     CFG_set_rfid_format(strtol(buf, NULL, 10));
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
                 if (httpdFindArg(connData->post.buff, "qrcode", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_enable(true);
                 else
@@ -5064,7 +5070,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "qrcode_validity", buf, sizeof(buf)) != -1)
                     CFG_set_qrcode_validity(strtol(buf, NULL, 10));
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__)
                 if (httpdFindArg(connData->post.buff, "rf433", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_enable(true);
                 else
@@ -5090,7 +5096,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "rf433_ba", buf, sizeof(buf)) != -1)
                     CFG_set_rf433_ba(strtol(buf, NULL, 10));
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                 if (httpdFindArg(connData->post.buff, "fpm", buf, sizeof(buf)) != -1)
                     CFG_set_fingerprint_enable(true);
                 else
@@ -5102,8 +5108,8 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "fpm_id", buf, sizeof(buf)) != -1)
                     CFG_set_fingerprint_identify_retries(strtol(buf, NULL, 10));
 #endif
-#if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || defined(__MLI_1WRF_TYPE__) || \
-    defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__)
+#if defined(CONFIG__MLI_1WRQ_TYPE__) || defined(CONFIG__MLI_1WR_TYPE__) || defined(CONFIG__MLI_1WRF_TYPE__) || \
+    defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WRP_TYPE__) || defined(CONFIG__MLI_1WRC_TYPE__)
                 if (httpdFindArg(connData->post.buff, "rs485", buf, sizeof(buf)) != -1)
                     CFG_set_rs485_enable(true);
                 else
@@ -5113,7 +5119,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "rs485_server_addr", buf, sizeof(buf)) != -1)
                     CFG_set_rs485_server_hwaddr(strtol(buf, NULL, 10));
 #endif
-#if defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WLS_TYPE__)
                 if (httpdFindArg(connData->post.buff, "lora", buf, sizeof(buf)) != -1)
                     CFG_set_lora_enable(true);
                 else
@@ -5127,8 +5133,8 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (httpdFindArg(connData->post.buff, "lora_server_addr", buf, sizeof(buf)) != -1)
                     CFG_set_lora_server_address(strtol(buf, NULL, 10));
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
                 if (httpdFindArg(connData->post.buff, "dht_enable", buf, sizeof(buf)) != -1)
                     CFG_set_dht_enable(true);
                 else
@@ -5152,7 +5158,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_dht_alarm(false);
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
                 if (httpdFindArg(connData->post.buff, "temt_enable", buf, sizeof(buf)) != -1)
                     CFG_set_temt_enable(true);
                 else
@@ -5172,7 +5178,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_temt_alarm(false);
 #endif
-#if defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#if defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
                 if (httpdFindArg(connData->post.buff, "mq2_enable", buf, sizeof(buf)) != -1)
                     CFG_set_mq2_enable(true);
                 else
@@ -5190,7 +5196,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_mq2_alarm(false);
 #endif
-#if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
                 if (httpdFindArg(connData->post.buff, "cli_enable", buf, sizeof(buf)) != -1)
                     CFG_set_cli_enable(true);
                 else
@@ -5212,9 +5218,9 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_cli_alarm(false);
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
                 if (httpdFindArg(connData->post.buff, "pir_enable", buf, sizeof(buf)) != -1)
                     CFG_set_pir_enable(true);
                 else
@@ -5248,7 +5254,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 else
                     CFG_set_sensor_alarm(false);
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
                 if (httpdFindArg(connData->post.buff, "pow_vol_cal", buf, sizeof(buf)) != -1)
                     CFG_set_pow_voltage_cal(strtol(buf, NULL, 10));
                 if (httpdFindArg(connData->post.buff, "pow_vol_upper", buf, sizeof(buf)) != -1)
@@ -5444,15 +5450,15 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     account_set_user(acc, user);
                     account_set_password(acc, pass);
                     account_set_card(acc, card);
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || \
-    defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || \
+    defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
                     if (!qrcode_get_dynamic()) {
                         account_set_code(acc, code);
                     } else {
                         /* Create code from timestamp */
                         if (!account_get_code(acc)) {
-                            tm = rtc_localtime();
-                            now = rtc_mktime(tm);
+                            now = time(NULL);
+                            tm = localtime(&now);
                             snprintf(code, sizeof(code), "%u", now);
                             account_set_code(acc, code);
                         }
@@ -5473,11 +5479,11 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                     if (size)
                         account_set_permission(acc, perm, size);
                     index = account_db_insert(acc);
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                     if (*fingerprint == 0)
                         fpm_delete_template(index);
                     else
-                        fpm_set_template(index, fingerprint);
+                        fpm_set_template(index, (unsigned char *)fingerprint);
 #endif
                     account_destroy(acc);
                     ESP_LOGI("CGI", "Save account [%d]", index);
@@ -5717,7 +5723,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
 
     switch (menuopt) {
         case MENU_STATUS:
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
             if (httpdFindArg(connData->post.buff, "stat_Alarm", buf, sizeof(buf)) != -1) {
                 if (ctl_alarm_status() == CTL_ALARM_ON)
                     ctl_alarm_off();
@@ -5765,7 +5771,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 ulip_core_erase_user(!ulip_core_erase_status());
             } else if (httpdFindArg(connData->post.buff, "user_Clean", buf, sizeof(buf)) != -1) {
                 account_db_remove_all();
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                 fpm_delete_all();
 #endif
             } else if (httpdFindArg(connData->post.buff, "user_Search", buf, sizeof(buf)) != -1) {
@@ -5806,14 +5812,14 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                 if (subopt != -1) {
                     ESP_LOGI("CGI", "Delete account [%d]", subopt);
                     account_db_delete(subopt);
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                     fpm_delete_template(subopt);
 #endif
                     /* First */
                     subopt = account_db_get_first(); 
                 }
             } else if (httpdFindArg(connData->post.buff, "user_Finger", buf, sizeof(buf)) != -1) {
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                 if (subopt != -1) {
                     ESP_LOGI("CGI", "Account [%d] capture finger", subopt);
                     ulip_core_capture_finger(!ulip_core_capture_finger_status(), subopt);
@@ -5824,10 +5830,10 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
         case MENU_LOG:
             if (httpdFindArg(connData->post.buff, "log_Remove", buf, sizeof(buf)) != -1) {
                 ESP_LOGI("CGI", "Remove access log");
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
                 ulip_core_log_remove();
 #else
                 ulip_core_telemetry_remove();
@@ -5835,7 +5841,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
             }
             break;
         case MENU_CONTROL:
-#if defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
             if (httpdFindArg(connData->post.buff, "cli_cal", buf, sizeof(buf)) != -1) {
                 uint16_t value = cli_set_calibration();
                 if (value && value != CFG_get_cli_cal()) {

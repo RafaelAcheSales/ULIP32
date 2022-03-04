@@ -304,7 +304,7 @@ static void tty_task(void)
         if (size)
         {
             ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
-            // ESP_LOG_BUFFER_HEX("TTY", buf, len);
+            ESP_LOG_BUFFER_HEX("TTY", buf, len);
             p->func(UART1, buf, len, p->user_data);
         }
     }
@@ -550,7 +550,7 @@ int tty_write(int tty, unsigned char *data, int len)
         //     rc = uart_tx_one_char(tty, data[i]);
         break;
     case UART1:
-        ESP_LOG_BUFFER_HEX("TTY", data, len);
+        // ESP_LOG_BUFFER_HEX("TTY", data, len);
         rc = uart_write_bytes(tty, data, len);
         break;
     case UART2:

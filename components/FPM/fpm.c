@@ -14,7 +14,7 @@
 
 #define FPM_TTY                     1
 #define FPM_BFSIZE                  1024
-#define FPM_TIMEOUT                 100  /* msec */
+#define FPM_TIMEOUT                 1000  /* msec */
 #define FPM_SECURITY_LEVEL          3
 #define FPM_TEMPSIZE                498
 
@@ -302,7 +302,7 @@ static void fpm_event(int tty, const char *event,
     int i;
    
 
-    ESP_LOGD("FPM", "FPM read [%d] bytes len [%d]",
+    ESP_LOGI("FPM", "FPM read [%d] bytes len [%d]",
              len, fpm_buflen);
     // ESP_LOG_BUFFER_HEX("FPM", event, len);
 
@@ -460,8 +460,7 @@ static void fpm_event(int tty, const char *event,
                             fpm_identify_finger = false;
                             fpm_identify_counter = 0;
                             /* Debounce */
-                            gettimeofday(&tv_now, NULL);
-                            now = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+                            now = esp_timer_get_time();
                             if (fpm_timestamp) {
                                 if (fpm_identify_id == param) {
                                     d = (now - fpm_timestamp) / 1000;
@@ -546,8 +545,9 @@ static void fpm_event(int tty, const char *event,
                             /* Check identify retries */
                             if (++fpm_identify_counter >= fpm_identify_retries) {
                                 /* Debounce */
-                                gettimeofday(&tv_now, NULL);
-                                now = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
+                                now = esp_timer_get_time();
+                                // gettimeofday(&tv_now, NULL);
+                                // now = (int64_t)tv_now.tv_sec * 1000000L + (int64_t)tv_now.tv_usec;
                                 if (fpm_timestamp) {
                                     d = (now - fpm_timestamp) / 1000;
                                     if (d <= ((fpm_timeout << 1) + 1000)) {
@@ -685,7 +685,7 @@ static void fpm_polling_timeout(void *data)
         if (fpm_enroll_stage == FPM_ENROLL_NONE) {
             /* Check LED status */
             touch = ctl_fpm_get();
-            printf("touch %d\n", touch);
+            // printf("touch %d\n", touch);
             if (touch) {
                 /* Enable LED */
                 if (fpm_led_status == 0) {
@@ -761,7 +761,7 @@ int fpm_init(int timeout, int security, int identify_retries,
     };
     
     ESP_ERROR_CHECK(esp_timer_create(&fpm_timer_args, &fpm_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(fpm_timer, fpm_timeout*1000));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(fpm_timer, fpm_timeout * 1000));
 
 
     return 0;

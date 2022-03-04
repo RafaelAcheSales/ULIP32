@@ -5,8 +5,8 @@ menu "Select Ulip Model"
         help
             Select ulip model to compile.
 
-        config MLI_1WRF
-            bool "WRF"
+        config _MLI_1WQB_TYPE__
+            bool "WQB"
             help
                 Model with RF433 RS485.
         config MLI_1WRS

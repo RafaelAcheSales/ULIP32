@@ -43,7 +43,10 @@
         "initializer_list": "c",
         "regex": "c",
         "utility": "c",
-        "valarray": "c"
+        "valarray": "c",
+        "future": "c",
+        "system_error": "c",
+        "fpm.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",

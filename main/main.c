@@ -42,6 +42,7 @@
 #include <libesphttpd/esp.h>
 // #include "libesphttpd/httpd.h"
 #include "libesphttpd/httpd-freertos.h"
+
 #include "auth.h"
 #include "main.h"
 // #include "libesphttpd/auth.h"
@@ -63,6 +64,7 @@
 #define MAGIC_CODE "uTech"
 #define MAX_CONNECTIONS 2
 #define MAX_ACC_LOG             8
+#define MAX_DP_LOG              64
 static int clicks = 0;
 static int64_t cnt = 0;
 static int priority = 10;
@@ -76,6 +78,12 @@ static account_log_t *acc_log[MAX_ACC_LOG] = {
     NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL
 };
+typedef struct dp_log {
+    uint16_t index;
+    uint32_t timestamp;
+} dp_log_t;
+static dp_log_t *dp_log = NULL;
+static uint8_t dp_index = 0;
 static int ulip_core_httpd_request(HttpdConnData *connData);
 static HttpdFreertosInstance httpdInstance;
 HttpdBuiltInUrl builtInUrls[] = {
@@ -120,13 +128,13 @@ void ulip_core_restore_config(bool restart)
     CFG_Default();
     /* Account settings */
     account_db_remove_all();
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
     account_db_log_remove_all();
     // telemetry_db_remove_all();
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
     fpm_delete_all();
 #endif
     if (!CFG_get_wifi_disable())
@@ -158,6 +166,48 @@ void ulip_core_system_reboot() {
     esp_restart();
 }
 
+static bool ulip_core_doublepass_check(uint16_t index)
+{
+    uint32_t timeout = CFG_get_control_doublepass_timeout();
+    uint32_t now;
+    dp_log_t *l;
+    uint32_t d;
+    int i;
+
+    if (!timeout) return true;
+
+    now = time(NULL);
+    if (now <= 946695600L)
+        return true;
+
+    if (!dp_log) {
+        dp_log = (dp_log_t *)calloc(1, MAX_DP_LOG * sizeof(dp_log_t));
+        if (!dp_log) return true;
+    }
+
+    i = dp_index;
+    do {
+        i = (i + MAX_DP_LOG - 1) % MAX_DP_LOG;
+        l = &dp_log[i];
+        if (!l->timestamp) break;
+        if (l->index == index) {
+            d = now - l->timestamp;
+            if (d < timeout) {
+                ESP_LOGD("ULIP", "Double pass blocked account [%d] time [%d]",
+                         index, d);
+                return false;
+            }
+            l->timestamp = now;
+            return true;
+        }
+    } while (i != dp_index);
+    l = &dp_log[dp_index];
+    l->index = index;
+    l->timestamp = now;
+    dp_index = (dp_index + 1) % MAX_DP_LOG;
+
+    return true;
+}
 
 static void rs485_event(unsigned char from_addr,
                         unsigned char ok,
@@ -802,8 +852,8 @@ static void rs485_event(unsigned char from_addr,
             CFG_Save();
             // ulip_core_system_update(url);
             break;
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WRG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WRG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__)
         case RS485_CMD_TELEMETRY:
             /* Response */
             p.b = buf;
@@ -827,10 +877,10 @@ static void rs485_event(unsigned char from_addr,
             memcpy(p.b, dht_get_str_humidity(), size);
             p.b += size;
             *p.b++ = dht_get_humidity_alarm();
-#if defined(__MLI_1WRS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__)
             *p.w++ = temt_get_lux();
             *p.b++ = temt_get_alarm();
-#elif defined(__MLI_1WRG_TYPE__)
+#elif defined(CONFIG__MLI_1WRG_TYPE__)
             *p.w++ = mq2_get_gas();
             *p.b++ = mq2_get_alarm();
 #else
@@ -930,23 +980,285 @@ static void got_ip_event2(char * ip_address)
 
 }
 static void ctl_event(int event, int status);
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
 void ulip_core_capture_finger(bool status, int index)
 {
+    capture_finger = status;
     if (status)
         fpm_set_enroll(index);
     else
         fpm_cancel_enroll();
 }
 
+
+bool ulip_core_capture_finger_status(void)
+{
+    return capture_finger;
+}
+#endif
+
 static void fingerprint_event(int event, int index,
                               uint8_t *data, int len,
                               int error, void *user_data)
 {
-    printf("event rolou fingerprint of len: %d erro %X\n", len, event);
-    for (int i = 0; i < len; i++)
-    {
-        printf("%02X", data[i]);
+    const char *server;
+    uint16_t port;
+    const char *user;
+    const char *pass;
+    const char *url;
+    int retries;
+    char auth[128] = "";
+    char path[128];
+    char body[1024];
+    char date[32];
+    account_t *acc = NULL;
+    bool granted = false;
+    account_log_t *log;
+    const char *serror;
+    struct tm *tm;
+    int lifecount;
+    int size;
+
+    ESP_LOGI("ULIP", "FPM event [%d] index [%d]",
+            event, index);
+
+    /* Find account */
+    acc = account_db_get_index(index);
+
+    server = CFG_get_server_ip();
+    port = CFG_get_server_port();
+    if (!port) port = 80;
+    user = CFG_get_server_user();
+    pass = CFG_get_server_passwd();
+    url = CFG_get_server_url();
+    retries = CFG_get_server_retries();
+    if (user && pass)
+        sprintf(auth, "%s:%s", user, pass);
+
+    if (event == FPM_EVT_ENROLL) {
+        ESP_LOGD("ULIP", "FPM probe index [%d]", index);
+        /* Enroll failed */
+        if (index == -1) {
+            ctl_buzzer_on(CTL_BUZZER_ERROR);
+            /* Notify event */
+            switch (error) {
+                case FPM_ERR_DUPLICATED:
+                    serror = "duplicated";
+                    break;
+                case FPM_ERR_TIMEOUT:
+                    serror = "timeout";
+                    break;
+                default:
+                case FPM_ERR_ENROLL:
+                    serror = "enroll";
+                    break;
+            }
+            if (server) {
+                if (url)
+                    size = sprintf(path, "/%s?request=fingerstatus", url);
+                else
+                    size = sprintf(path, "/?request=fingerstatus");
+                if (account_get_user(acc))
+                    size += sprintf(path + size, "&user=%s", account_get_user(acc));
+                size += sprintf(path + size, "&state=%s", "failed");
+                if (account_get_key(acc))
+                    size += sprintf(path + size, "&key=%s", account_get_key(acc));
+                size += sprintf(path + size, "&error=%s", serror);
+                strcpy(body, "{\"fingerprint\":\"Fingerprint\"}");
+                http_raw_request(server, port, false, user, pass, path, body,
+                                 "Content-Type" ,"application/json\r\n",
+                                 retries, ulip_core_http_callback);
+            }
+            capture_finger = false;
+            return;
+        }
+        if (capture_finger) {
+            if (acc) {
+                account_set_fingerprint(acc, data);
+                account_db_insert(acc);
+                ctl_beep(0);
+                if (server) {
+                    /* Notify event */
+                    if (url)
+                        size = sprintf(path, "/%s?request=fingerstatus", url);
+                    else
+                        size = sprintf(path, "/?request=fingerstatus");
+                    if (account_get_user(acc))
+                        size += sprintf(path + size, "&user=%s", account_get_user(acc));
+                    size += sprintf(path + size, "&state=%s", "success");
+                    if (account_get_key(acc))
+                        size += sprintf(path + size, "&key=%s", account_get_key(acc));
+                    size = sprintf(body, "{\"finger\":\"%s\",\"fingerprint\":\"",
+                                      account_get_finger(acc) ? account_get_finger(acc) : "");
+                    // size += base64Encode(ACCOUNT_FINGERPRINT_SIZE, account_get_fingerprint(acc),
+                    //                      sizeof(body) - size, body + size);
+                    size_t olen;
+                    mbedtls_base64_encode((unsigned char *)body + size, sizeof(body) - size, &olen,
+                                          account_get_fingerprint(acc), ACCOUNT_FINGERPRINT_SIZE);
+                    size += olen;
+
+                    
+                    size += sprintf(body + size, "%s", "\"}");
+                    http_raw_request(server, port, false, user, pass, path, body,
+                                     "Content-Type" ,"application/json\r\n",
+                                     retries, ulip_core_http_callback);
+                    if (url)
+                        sprintf(path, "/%s?request=adduser", url);
+                    else
+                        strcpy(path, "/?request=adduser");
+                    size = sprintf(body, "{\"name\":\"%s\",\"user\":\"%s\"," \
+                                      "\"panic\":\"%s\",\"finger\":\"%s\",\"fingerprint\":\"",
+                                      account_get_name(acc) ? account_get_name(acc) : "",
+                                      account_get_user(acc) ? account_get_user(acc) : "",
+                                      account_get_panic(acc) ? "true" : "false",
+                                      account_get_finger(acc) ? account_get_finger(acc) : "");
+                    // size += base64Encode(ACCOUNT_FINGERPRINT_SIZE, data,
+                    //                      sizeof(body) - size, body + size);
+                    mbedtls_base64_encode((unsigned char *)body + size, sizeof(body) - size, &olen,
+                                          data, ACCOUNT_FINGERPRINT_SIZE);
+                    size += olen;
+                    size += sprintf(body + size, "\"}");
+                    http_raw_request(server, port, false, user, pass, path, body,
+                                     "Content-Type", "application/json\r\n",
+                                     retries, ulip_core_http_callback);
+                }
+            } else {
+                ctl_buzzer_on(CTL_BUZZER_ERROR);
+            }
+            capture_finger = false;
+        }
+        account_destroy(acc);
+        return;
     }
+
+    /* LOG */
+    log = account_log_new();
+    if (log) {
+        if (acc)
+            account_log_set_name(log, account_get_name(acc));
+        time_t now = time(NULL);
+        tm = localtime(&now);
+        sprintf(date, "%02d/%02d/%02d %02d:%02d:%02d",
+                   tm->tm_mday, tm->tm_mon + 1, tm->tm_year % 100,
+                   tm->tm_hour, tm->tm_min, tm->tm_sec);
+        account_log_set_date(log, date);
+        account_log_set_code(log, "Fingerprint");
+        account_log_set_type(log, ACCOUNT_LOG_FINGERPRINT);
+        if (acc_log[acc_log_count])
+            account_log_destroy(acc_log[acc_log_count]);
+        acc_log[acc_log_count] = log;
+        ++acc_log_count;
+        acc_log_count =  acc_log_count & (MAX_ACC_LOG - 1);
+    }
+
+    /* Standalone */
+    if (CFG_get_standalone()) {
+        if (acc) {
+            ESP_LOGD("ULIP", "FPM account [%d]", index);
+            if (account_check_permission(acc)) {
+                if (ulip_core_doublepass_check(index)) {
+                    if (!CFG_get_control_external()) {
+                        /* Local control */
+                        ctl_relay_on(!account_get_accessibility(acc) ?
+                                     CFG_get_control_timeout() :
+                                     CFG_get_control_acc_timeout());
+                    } else {
+                        /* External control */
+                        //TODO: 
+                        // ulip_core_http_request(CFG_get_control_url());
+                    }
+                    account_log_set_granted(log, true);
+                    granted = true;
+                    ctl_beep(0);
+                } else {
+                    account_log_set_granted(log, false);
+                    ctl_buzzer_on(CTL_BUZZER_ERROR);
+                }
+            } else {
+                account_log_set_granted(log, false);
+                ctl_buzzer_on(CTL_BUZZER_ERROR);
+            }
+            lifecount = account_get_lifecount(acc);
+            if (lifecount > 0) {
+                lifecount--;
+                account_set_lifecount(acc, lifecount);
+                if (lifecount <= 0) {
+                    /* Delete account */
+                    account_db_delete(index);
+                } else {
+                    account_db_insert(acc);
+                }
+            }
+        } else {
+            account_log_set_granted(log, false);
+            ctl_buzzer_on(CTL_BUZZER_ERROR);
+        }
+    }
+
+    /* LOG */
+    account_db_log_insert(log);
+
+    // Send fingerprint event
+    if (!server) {
+        account_destroy(acc);
+        return;
+    }
+    if (acc) {
+        if (account_get_fingerprint(acc)) {
+            if (url) {
+                if (CFG_get_standalone()) {
+                    if (granted && account_get_panic(acc))
+                        len = sprintf(path, "/%s?request=fingerprint&state=panic",
+                                         url);
+                    else
+                        len = sprintf(path, "/%s?request=fingerprint&state=%s",
+                                         url, granted ? "granted" : "blocked");
+                } else {
+                    len = sprintf(path, "/%s?request=fingerprint&state=detected",
+                                     url);
+                }
+                if (account_get_key(acc))
+                    len += sprintf(path + len, "&key=%s", account_get_key(acc));
+            } else {
+                if (CFG_get_standalone()) {
+                    if (granted && account_get_panic(acc))
+                        len = sprintf(path, "/?request=fingerprint&state=panic");
+                    else
+                        len = sprintf(path, "/?request=fingerprint&state=%s",
+                                         granted ? "granted" : "blocked");
+                } else {
+                    len = sprintf(path, "/?request=fingerprint&state=detected");
+                }
+                if (account_get_key(acc))
+                    len += sprintf(path + len, "&key=%s", account_get_key(acc));
+            }
+            time_t now = time(NULL);
+            tm = localtime(&now);
+            sprintf(date, "%02d%02d%04d%02d%02d%02d",
+                       tm->tm_mday, tm->tm_mon + 1, tm->tm_year,
+                       tm->tm_hour, tm->tm_min, tm->tm_sec);
+            len += sprintf(path + len, "&time=%s", date);
+            size = sprintf(body, "{\"finger\":\"%s\",\"fingerprint\":\"",
+                              account_get_finger(acc) ? account_get_finger(acc) : "");
+            size_t olen;
+            mbedtls_base64_encode((unsigned char *)body + size, sizeof(body) - size, &olen,
+                                  account_get_fingerprint(acc), ACCOUNT_FINGERPRINT_SIZE);
+            size += olen;
+            size += sprintf(body + size, "%s", "\"}");
+            http_raw_request(server, port, false, user, pass, path, body,
+                             "Content-Type", "application/json\r\n",
+                             retries, ulip_core_http_callback);
+        }
+    } else {
+        if (url)
+            sprintf(path, "/%s?request=fingerprint&state=blocked", url);
+        else
+            sprintf(path, "%s", "/?request=fingerprint&state=blocked");
+        http_raw_request(server, port, false, user, pass, path, NULL,
+                         "", "", retries, ulip_core_http_callback);
+    }
+
+    account_destroy(acc);
 }
 
 static int rf433_event(int event, const char *data, int len,
@@ -1164,10 +1476,10 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     char auth[128] = "";
     int size = 0;
     account_t *acc;
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
     account_log_t *log;
 #else
     telemetry_t *log;
@@ -1293,10 +1605,10 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     index = account_db_find(NULL, username, NULL, NULL,
                                             NULL, NULL, NULL);
                     if (index != -1) {
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYTE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYTE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
                         /* LOG */
                         log = account_log_new();
                         if (log) {
@@ -2102,47 +2414,47 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              "\"ntp\":\"%s\",\"hostname\":\"%s\",\"ddns\":\"%s\",\"ddns_domain\":\"%s\",\"ddns_user\":\"%s\",\"ddns_password\":\"%s\"," \
                              "\"timezone\":\"%d\",\"dst\":\"%s\",\"dst_date\":\"%s\",\"server\":\"%s\",\"server_port\":\"%d\",\"server_user\":\"%s\"," \
                              "\"server_password\":\"%s\",\"server_url\":\"%s\",\"server_retries\":\"%d\",\"ota_url\":\"%s\""
-#if !defined(__MLI_1WF_TYPE__) && !defined(__MLI_1WQF_TYPE__) && !defined(__MLI_1WRF_TYPE__) && \
-    !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && !defined(__MLI_1WRP_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WF_TYPE__) && !defined(CONFIG__MLI_1WQF_TYPE__) && !defined(CONFIG__MLI_1WRF_TYPE__) && \
+    !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && !defined(CONFIG__MLI_1WRP_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
                              ",\"rfid\":\"%s\",\"rfid_timeout\":\"%d\",\"rfid_nfc\":\"%s\",\"rfid_panic_timeout\":\"%d\",\"rfid_retries\":\"%d\""
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || \
-    defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || \
+    defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
                              ",\"qrcode\":\"%s\",\"qrcode_timeout\":\"%d\",\"qrcode_dynamic\":\"%s\",\"qrcode_validity\":\"%d\"," \
                              "\"qrcode_panic_timeout\":\"%d\",\"qrcode_config\":\"%s\""
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                              ",\"fingerprint\":\"%s\",\"fingerprint_timeout\":\"%d\",\"fingerprint_retries\":\"%d\"," \
                              "\"fingerprint_security\":\"%d\""
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || \
-    defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || \
+    defined(CONFIG__MLI_1WRF_TYPE__)
                              ",\"rf433\":\"%s\",\"rf433_rc\":\"%s\",\"rf433_hc\":\"%d\",\"rf433_alarm\":\"%s\"," \
                              "\"rf433_bc\":\"%s\",\"rf433_bp\":\"%d\",\"rf433_panic_timeout\":\"%d\",\"rf433_ba\":\"%d\""
 #endif
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
                              ",\"control_description\":\"%s\",\"control_mode\":\"%d\",\"control_timeout\":\"%d\""
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
                              ",\"control_external\":\"%s\",\"control_url\":\"%s\",\"control_acc_timeout\":\"%d\"," \
                              "\"control_doublepass_timeout\":\"%d\""
 #endif
 #endif
-#if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || \
-    defined(__MLI_1WRF_TYPE__) || defined(__MLI_1WRS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WRP_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__)
+#if defined(CONFIG__MLI_1WRQ_TYPE__) || defined(CONFIG__MLI_1WR_TYPE__) || \
+    defined(CONFIG__MLI_1WRF_TYPE__) || defined(CONFIG__MLI_1WRS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WRP_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__)
                              ",\"rs485\":\"%s\",\"rs485_address\":\"%d\",\"rs485_server_address\":\"%d\""
 #endif
                              ",\"latitude\":\"%s\",\"longitude\":\"%s\",\"user_auth\":\"%s\",\"watchdog_shutdown\":\"%d\",\"debug\":\"%d:%d:%s:%d\""
-#if defined(__MLI_1WLS_TYPE__) || defined(__MLI_1WLG_TYTE__)
+#if defined(CONFIG__MLI_1WLS_TYPE__) || defined(CONFIG__MLI_1WLG_TYTE__)
                              ",\"lora\":\"%s\",\"lora_channel\":\"%d\",\"lora_baudrate\":\"%d\",\"lora_address\":\"%d\",\"lora_server_address\":\"%d\""
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
                              ",\"dht\":\"%s\",\"dht_timeout\":\"%d\",\"dht_temp_upper\":\"%d\",\"dht_temp_lower\":\"%d\"," \
                              "\"dht_rh_upper\":\"%d\",\"dht_rh_lower\":\"%d\",\"dht_relay\":\"%s\",\"dht_alarm\":\"%s\"," \
                              "\"mq2\":\"%s\",\"mq2_timeout\":\"%d\",\"mq2_limit\":\"%d\",\"mq2_relay\":\"%s\",\"mq2_alarm\":\"%s\"," \
@@ -2151,7 +2463,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              "\"temt\":\"%s\",\"temt_timeout\":\"%d\",\"temt_upper\":\"%d\",\"temt_lower\":\"%d\",\"temt_relay\":\"%s\"," \
                              "\"temt_alarm\":\"%s\""
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
                              ",\"relay_status\":\"%s\",\"pow_voltage_cal\":\"%d\",\"pow_voltage_upper\":\"%d\"," \
                              "\"pow_voltage_lower\":\"%d\",\"pow_current_cal\":\"%d\",\"pow_current_upper\":\"%d\",\"pow_current_lower\":\"%d\"," \
                              "\"pow_power_upper\":\"%d\",\"pow_power_lower\":\"%d\",\"pow_relay\":\"%s\",\"pow_alarm_time\":\"%d\"," \
@@ -2192,17 +2504,17 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_server_url() ? CFG_get_server_url() : "",
                              CFG_get_server_retries(),
                              CFG_get_ota_url() ? CFG_get_ota_url() : "",
-#if !defined(__MLI_1WF_TYPE__) && !defined(__MLI_1WQF_TYPE__) && !defined(__MLI_1WRF_TYPE__) && \
-    !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && !defined(__MLI_1WRP_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WF_TYPE__) && !defined(CONFIG__MLI_1WQF_TYPE__) && !defined(CONFIG__MLI_1WRF_TYPE__) && \
+    !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && !defined(CONFIG__MLI_1WRP_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
                              CFG_get_rfid_enable() ? "on" : "off",
                              CFG_get_rfid_timeout(),
                              CFG_get_rfid_nfc() ? "on" : "off",
                              CFG_get_rfid_panic_timeout(),
                              CFG_get_rfid_retries(),
 #endif
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || \
-    defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || \
+    defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
                              CFG_get_qrcode_enable() ? "on" : "off",
                              CFG_get_qrcode_timeout(),
                              CFG_get_qrcode_dynamic() ? "on" : "off",
@@ -2210,14 +2522,14 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_qrcode_panic_timeout(),
                              CFG_get_qrcode_config() ? "on" : "off",
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                              CFG_get_fingerprint_enable() ? "on" : "off",
                              CFG_get_fingerprint_timeout(),
                              CFG_get_fingerprint_security(),
                              CFG_get_fingerprint_identify_retries(),
 #endif
-#if defined(__MLI_1WF_TYPE__) || defined(__MLI_1WQF_TYPE__) || \
-    defined(__MLI_1WRF_TYPE__)
+#if defined(CONFIG__MLI_1WF_TYPE__) || defined(CONFIG__MLI_1WQF_TYPE__) || \
+    defined(CONFIG__MLI_1WRF_TYPE__)
                              CFG_get_rf433_enable() ? "on" : "off",
                              CFG_get_rf433_rc() ? "on" : "off",
                              CFG_get_rf433_hc(),
@@ -2227,23 +2539,23 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_rf433_panic_timeout(),
                              CFG_get_rf433_ba(),
 #endif
-#if !defined(__MLI_1WRP_TYPE__)
+#if !defined(CONFIG__MLI_1WRP_TYPE__)
                              CFG_get_control_description() ? CFG_get_control_description() : "",
                              CFG_get_control_mode(),
                              CFG_get_control_timeout(),
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRC_TYPE__) && !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRC_TYPE__) && !defined(CONFIG__MLI_1WLC_TYPE__)
                              CFG_get_control_external() ? "true" : "false",
                              CFG_get_control_url() ? CFG_get_control_url() : "",
                              CFG_get_control_acc_timeout(),
                              CFG_get_control_doublepass_timeout(),
 #endif
 #endif
-#if defined(__MLI_1WRQ_TYPE__) || defined(__MLI_1WR_TYPE__) || \
-    defined(__MLI_1WRF_TYPE__) || defined(__MLI_1WRS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WRP_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__)
+#if defined(CONFIG__MLI_1WRQ_TYPE__) || defined(CONFIG__MLI_1WR_TYPE__) || \
+    defined(CONFIG__MLI_1WRF_TYPE__) || defined(CONFIG__MLI_1WRS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WRP_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__)
                              CFG_get_rs485_enable() ? "on" : "off",
                              CFG_get_rs485_hwaddr(),
                              CFG_get_rs485_server_hwaddr(),
@@ -2253,7 +2565,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_user_auth() ? "on" : "off",
                              CFG_get_rtc_shutdown(),
                              mode, level, server ? server : "", port
-#if defined(__MLI_1WLS_TYPE__) || defined(__MLI_1WLG_TYTE__)
+#if defined(CONFIG__MLI_1WLS_TYPE__) || defined(CONFIG__MLI_1WLG_TYTE__)
                              ,
                              CFG_get_lora_enable() ? "on" : "off",
                              CFG_get_lora_channel(),
@@ -2261,9 +2573,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_lora_address(),
                              CFG_get_lora_server_address()
 #endif
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
-    defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__) || \
+    defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
                              ,
                              CFG_get_dht_enable() ? "on" : "off",
                              CFG_get_dht_timeout(),
@@ -2293,7 +2605,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              CFG_get_temt_relay() ? "on" : "off",
                              CFG_get_temt_alarm() ? "on" : "off"
 #endif
-#if defined(__MLI_1WRP_TYPE__)
+#if defined(CONFIG__MLI_1WRP_TYPE__)
                              ,
                              CFG_get_relay_status() ? "on" : "off",
                              CFG_get_pow_voltage_cal(),
@@ -2390,10 +2702,10 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             httpdSend(connData, body, len);
             free(body);
             return HTTPD_CGI_DONE;
-#if !defined(__MLI_1WRS_TYPE__) && !defined(__MLI_1WLS_TYPE__) && \
-    !defined(__MLI_1WRG_TYPE__) && !defined(__MLI_1WLG_TYPE__) && \
-    !defined(__MLI_1WRP_TYPE__) && !defined(__MLI_1WRC_TYPE__) && \
-    !defined(__MLI_1WLC_TYPE__)
+#if !defined(CONFIG__MLI_1WRS_TYPE__) && !defined(CONFIG__MLI_1WLS_TYPE__) && \
+    !defined(CONFIG__MLI_1WRG_TYPE__) && !defined(CONFIG__MLI_1WLG_TYPE__) && \
+    !defined(CONFIG__MLI_1WRP_TYPE__) && !defined(CONFIG__MLI_1WRC_TYPE__) && \
+    !defined(CONFIG__MLI_1WLC_TYPE__)
         } else if (!strcmp(request, "accesslog")) {
             httpdFindArg(connData->getArgs, "file", file, sizeof(file));
             /* Check filter */
@@ -2497,7 +2809,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             return HTTPD_CGI_DONE;
 #endif
         } else if (!strcmp(request, "adduser")) {
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
             if (connData->cgiData) {
                 index = (int)connData->cgiData & ~(1 << 31);
                 /* Check FPM status */
@@ -2779,7 +3091,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
 #if 0
             account_destroy(acc);
 #endif
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
             if (*template == 0)
                 fpm_delete_template(index);
             else
@@ -2958,7 +3270,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     httpdEndHeaders(connData);
                     return HTTPD_CGI_DONE;
                 }
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                 fpm_delete_template(index);
 #endif
             } else {
@@ -2966,7 +3278,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 while ((index = account_db_find(NULL, NULL, NULL, NULL,
                                                 NULL, NULL, key)) != -1) {
                     account_db_delete(index);
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
                     fpm_delete_template(index);
 #endif
                 }
@@ -3117,7 +3429,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "eraseall")) {
             account_db_remove_all();
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
             fpm_delete_all();
 #endif
             httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3125,7 +3437,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             httpdHeader(connData, "Content-Length", "0");
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
-#if defined(__MLI_1WB_TYPE__) || defined(__MLI_1WQB_TYPE__)
+#if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
         } else if (!strcmp(request, "finger")) {
             if (!&(connData->post) || !connData->post.buff) {
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -3350,8 +3662,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             httpdHeader(connData, "Content-Length", "0");
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
-#if defined(__MLI_1WQ_TYPE__) || defined(__MLI_1WQB_TYPE__) || \
-    defined(__MLI_1WQF_TYPE__) || defined(__MLI_1WRQ_TYPE__)
+#if defined(CONFIG__MLI_1WQ_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__) || \
+    defined(CONFIG__MLI_1WQF_TYPE__) || defined(CONFIG__MLI_1WRQ_TYPE__)
         } else if (!strcmp(request, "getqrcode")) {
             /* Check account */
             if (!qrcode_get_dynamic() ||
@@ -3391,7 +3703,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 account_destroy(acc);
                 return HTTPD_CGI_DONE;
             }
-            tm = rtc_localtime();
+            time_t t = time(NULL);
+
+            tm = localtime(&t);
             sprintf(date, "%04d-%02d-%02d %02d:%02d:%02d",
                        tm->tm_year, tm->tm_mon + 1,
                        tm->tm_mday, tm->tm_hour,
@@ -3423,10 +3737,10 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             httpdEndHeaders(connData);
             return HTTPD_CGI_DONE;
         }
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__) || \
-    defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__) || \
-    defined(__MLI_1WRP_TYPE__) || defined(__MLI_1WRC_TYPE__) || \
-    defined(__MLI_1WLC_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__) || \
+    defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__) || \
+    defined(CONFIG__MLI_1WRP_TYPE__) || defined(CONFIG__MLI_1WRC_TYPE__) || \
+    defined(CONFIG__MLI_1WLC_TYPE__)
         else if (!strcmp(request, "telemetry")) {
             /* JSON */
             body = (char *)malloc(512);
@@ -3463,7 +3777,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     volumestatus = NULL;
                     break;
             }
-#if defined(__MLI_1WRS_TYPE__) || defined(__MLI_1WLS_TYPE__)
+#if defined(CONFIG__MLI_1WRS_TYPE__) || defined(CONFIG__MLI_1WLS_TYPE__)
             len = sprintf(body, "{\"temperature\":\"%s\",\"temperaturestatus\":\"%s\"," \
                              "\"humidity\":\"%s\",\"humiditystatus\":\"%s\",\"luminosity\":\"%d\"," \
                              "\"luminositystatus\":\"%s\",\"pirstatus\":\"%s\",\"levelstatus\":\"%s\"," \
@@ -3477,7 +3791,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              levelstatus ? levelstatus : "",
                              volume ? volume : "",
                              volumestatus ? volumestatus : "");
-#elif defined(__MLI_1WRG_TYPE__) || defined(__MLI_1WLG_TYPE__)
+#elif defined(CONFIG__MLI_1WRG_TYPE__) || defined(CONFIG__MLI_1WLG_TYPE__)
             len = sprintf(body, "{\"gas\":\"%d\",\"gasstatus\":\"%s\"," \
                              "\"pirstatus\":\"%s\",\"levelstatus\":\"%s\"," \
                              "\"volume\":\"%s\",\"volumestatus\":\"%s\"}",
@@ -3486,7 +3800,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                              levelstatus ? levelstatus : "",
                              volume ? volume : "",
                              volumestatus ? volumestatus : "");
-#elif defined(__MLI_1WRC_TYPE__) || defined(__MLI_1WLC_TYPE__)
+#elif defined(CONFIG__MLI_1WRC_TYPE__) || defined(CONFIG__MLI_1WLC_TYPE__)
             len = sprintf(body, "{\"temperature\":\"%s\",\"temperaturestatus\":\"%s\"," \
                              "\"humidity\":\"%s\",\"humiditystatus\":\"%s\"," \
                              "\"loop\":\"%d\",\"loopstatus\":\"%s\"," \
@@ -3904,8 +4218,6 @@ void app_main(void)
 
     // initialized = true;
 
-    // fpm_init(CFG_get_fingerprint_timeout(),CFG_get_fingerprint_security(),
-    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     // char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     // printf(cur_task);
     ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
@@ -3917,4 +4229,6 @@ void app_main(void)
     tcpip_adapter_init();
     httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
     httpdFreertosStart(&httpdInstance);
+    fpm_init(0,CFG_get_fingerprint_security(),
+            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
 }
