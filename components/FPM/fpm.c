@@ -302,8 +302,8 @@ static void fpm_event(int tty, const char *event,
     int i;
    
 
-    ESP_LOGI("FPM", "FPM read [%d] bytes len [%d]",
-             len, fpm_buflen);
+    // ESP_LOGI("FPM", "FPM read [%d] bytes len [%d]",
+    //          len, fpm_buflen);
     // ESP_LOG_BUFFER_HEX("FPM", event, len);
 
     if (fpm_buflen + len > FPM_BFSIZE) {

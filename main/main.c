@@ -1019,8 +1019,7 @@ static void fingerprint_event(int event, int index,
     int lifecount;
     int size;
 
-    ESP_LOGI("ULIP", "FPM event [%d] index [%d]",
-            event, index);
+    ESP_LOGI("ULIP", "FPM event [%d] index [%d]  error [%d]", event, index, error);
 
     /* Find account */
     acc = account_db_get_index(index);
@@ -1036,7 +1035,7 @@ static void fingerprint_event(int event, int index,
         sprintf(auth, "%s:%s", user, pass);
 
     if (event == FPM_EVT_ENROLL) {
-        ESP_LOGD("ULIP", "FPM probe index [%d]", index);
+        ESP_LOGI("ULIP", "FPM probe index [%d]", index);
         /* Enroll failed */
         if (index == -1) {
             ctl_buzzer_on(CTL_BUZZER_ERROR);
@@ -1053,6 +1052,7 @@ static void fingerprint_event(int event, int index,
                     serror = "enroll";
                     break;
             }
+            ESP_LOGI("ULIP", "FPM enroll error [%s]", serror);
             if (server) {
                 if (url)
                     size = sprintf(path, "/%s?request=fingerstatus", url);

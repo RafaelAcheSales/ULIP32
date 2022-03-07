@@ -1606,7 +1606,7 @@ int account_db_log_insert(account_log_t *log)
     memset(&d, 0, sizeof(account_log_data_t));
     rawtime = time(NULL);
     struct tm *tm = localtime(&rawtime);
-    printf("%s %d %d %d %d %d %d\n", asctime(tm), tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+    // printf("%s %d %d %d %d %d %d\n", asctime(tm), tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
     // ESP_LOGI(TAG, "timestamp insert: %ld", rawtime);
     d.a.timestamp = rawtime;
     strncpy(d.a.name, log->name, sizeof(d.a.name) - 1);

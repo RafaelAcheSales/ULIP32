@@ -11,10 +11,10 @@ esp_err_t _http_event_handle(esp_http_client_event_t *evt)
     static int total_len ;
     switch(evt->event_id) {
         case HTTP_EVENT_ERROR:
-            ESP_LOGI(TAG, "HTTP_EVENT_ERROR");
+            // ESP_LOGI(TAG, "HTTP_EVENT_ERROR");
             break;
         case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+            // ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
             total_len = 0;
             break;
         case HTTP_EVENT_HEADER_SENT:
@@ -25,7 +25,7 @@ esp_err_t _http_event_handle(esp_http_client_event_t *evt)
             // ESP_LOGI(TAG,"%s", (char*)evt->data);
             break;
         case HTTP_EVENT_ON_DATA:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            // ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
             // ESP_LOGI(TAG,"%s", (char*)evt->data);
             if (!esp_http_client_is_chunked_response(evt->client) && total_len < 2048) {
                 if (evt->user_data) {
@@ -59,7 +59,7 @@ esp_err_t _http_event_handle(esp_http_client_event_t *evt)
 
             break;
         case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            // ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
             if (buffer != NULL) {
                 free(buffer);
                 buffer = NULL;
@@ -131,7 +131,7 @@ void http_raw_request(const char *hostname, int port, bool secure,
     esp_err_t err = esp_http_client_perform(client);
     
     if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP Basic Auth Status = %d, content_length = %d",
+        ESP_LOGD(TAG, "HTTP Basic Auth Status = %d, content_length = %d",
                 esp_http_client_get_status_code(client),
                 esp_http_client_get_content_length(client));
     } else {
