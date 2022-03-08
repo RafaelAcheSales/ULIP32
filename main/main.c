@@ -1540,11 +1540,11 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             ESP_LOGD("ULIP", "version [%s]", body);
             free(body);
             return HTTPD_CGI_DONE;
-        } else if (!strcmp(request, "address")) {
-            char addr[32];
-            httpdFindArg(connData->getArgs, "address", addr, sizeof(addr));
-            int adress = strtol(addr, NULL, 16);
-            changeTestAdress(adress);
+        } else if (!strcmp(request, "getfingerprint")) {
+            fpm_get_template();
+
+        } else if (!strcmp(request, "deleteall")) {
+            fpm_delete_all();
 
         } else if (!strcmp(request, "status")) {
             /* JSON */

@@ -26,6 +26,7 @@ int fpm_cancel_enroll(void);
 int fpm_set_template(uint16_t index, uint8_t *data);
 int fpm_delete_template(uint16_t index);
 int fpm_delete_all(void);
+int fpm_get_template(void); 
 bool fpm_is_busy(void);
 
 #endif  /* __FPM_H__ */

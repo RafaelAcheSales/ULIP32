@@ -46,7 +46,8 @@
         "valarray": "c",
         "future": "c",
         "system_error": "c",
-        "fpm.h": "c"
+        "fpm.h": "c",
+        "variant": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",

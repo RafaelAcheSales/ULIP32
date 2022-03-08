@@ -542,7 +542,6 @@ int tty_write(int tty, unsigned char *data, int len)
     switch (tty)
     {
     case UART0:
-        // ESP_LOGI("TTY", "writing uart0");
         // ESP_LOG_BUFFER_HEX("TTY", data, len);
         rc = uart_write_bytes(tty, data, len);
         // rc = uart_write_bytes(tty, cmd, 5);
@@ -550,6 +549,7 @@ int tty_write(int tty, unsigned char *data, int len)
         //     rc = uart_tx_one_char(tty, data[i]);
         break;
     case UART1:
+        ESP_LOGI("TTY", "writing uart1");
         ESP_LOG_BUFFER_HEX("TTY", data, len);
         rc = uart_write_bytes(tty, data, len);
         break;

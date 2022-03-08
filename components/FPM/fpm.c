@@ -14,7 +14,7 @@
 
 #define FPM_TTY                     1
 #define FPM_BFSIZE                  1024
-#define FPM_TIMEOUT                 1000  /* msec */
+#define FPM_TIMEOUT                 200  /* msec */
 #define FPM_SECURITY_LEVEL          3
 #define FPM_TEMPSIZE                498
 
@@ -481,27 +481,27 @@ static void fpm_event(int tty, const char *event,
                             ESP_LOGD("FPM", "FPM5210_SetTemplate");
                             break;
                         case FPM5210_EnrollStart:
-                            ESP_LOGI("FPM", "EnrollStart");
+                            ESP_LOGE("FPM", "EnrollStart");
                             fpm_send_command(FPM5210_IsPressFinger,
                                              0, NULL);
                             ctl_beep(1);
                             break;
                         case FPM5210_Enroll1:
-                            ESP_LOGI("FPM", "Enroll1");
+                            ESP_LOGE("FPM", "Enroll1");
                             fpm_enroll_stage = FPM_ENROLL_TAKEOFF1;
                             fpm_send_command(FPM5210_IsPressFinger,
                                              0, NULL);
                             ctl_beep(2);
                             break;
                         case FPM5210_Enroll2:
-                            ESP_LOGI("FPM", "Enroll2");
+                            ESP_LOGE("FPM", "Enroll2");
                             fpm_enroll_stage = FPM_ENROLL_TAKEOFF2;
                             fpm_send_command(FPM5210_IsPressFinger,
                                              0, NULL);
                             ctl_beep(2);
                             break;
                         case FPM5210_Enroll3:
-                            ESP_LOGI("FPM", "Enroll3");
+                            ESP_LOGE("FPM", "Enroll3");
                             fpm_enroll_stage = FPM_ENROLL_STAGE3;
                             /* Check template */
                             fpm_send_command(FPM5210_GetTemplate,
@@ -580,6 +580,7 @@ static void fpm_event(int tty, const char *event,
                             if (param < NACK_TIMEOUT)
                                 error = FPM_ERR_DUPLICATED;
                             else
+                                ESP_LOGI("FPM", "Enroll error [0x%04X]", param);
                                 error = FPM_ERR_ENROLL;
                             if (fpm_func)
                                 fpm_func(FPM_EVT_ENROLL, -1, NULL, 0,
@@ -864,6 +865,14 @@ int fpm_delete_all(void)
     if (!fpm_configured) return -1;
 
     fpm_send_command(FPM5210_DeleteAll, 0, NULL);
+
+    return 0;
+}
+int fpm_get_template(void) {
+    /* Not configured */
+    if (!fpm_configured) return -1;
+
+    fpm_send_command(FPM5210_GetTemplate, 1, NULL);
 
     return 0;
 }
