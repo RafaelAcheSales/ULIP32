@@ -970,14 +970,6 @@ static void got_ip_event2(char * ip_address)
     CFG_get_debug(&mode, &level, &host, &port);
     udp_logging_init(host, port, udp_logging_vprintf);
     CFG_set_server_ip(ip_address);
-
-    // rfid_init(CFG_get_rfid_timeout(),
-    //             CFG_get_rfid_retries(),
-    //             CFG_get_rfid_nfc(),
-    //             CFG_get_rfid_panic_timeout(),
-    //             CFG_get_rfid_format(),
-    //             rfid_event, NULL);
-
 }
 static void ctl_event(int event, int status);
 #if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
@@ -1169,7 +1161,7 @@ static void fingerprint_event(int event, int index,
                     }
                     account_log_set_granted(log, true);
                     granted = true;
-                    ctl_beep(0);
+                    ctl_beep(3);
                 } else {
                     account_log_set_granted(log, false);
                     ctl_buzzer_on(CTL_BUZZER_ERROR);
@@ -1275,7 +1267,6 @@ static int qrcode_event_main(int event, const char *data, int len, void *user_da
     {
         ctl_beep(3);
     }
-
     return 1;
 }
 static void http_event(char *url, char *response_body, int http_status, char *response_header_key, char *response_header_value, int body_size)
@@ -1309,18 +1300,6 @@ static tty_func_t test_event2(int tty, char *data,
 }
 void release_task()
 {
-    // for (int i = 0; i < 50; i++) {
-    //     char user[32];
-    //     sprintf(user, "user%d", i);
-    //     account_t *account = account_new();
-    //     account_set_name(account, user);
-    //     account_set_card(account,user);
-    //     account_set_code(account, user);
-    //     account_set_user(account, user);
-    //     account_set_key(account, "password");
-    //     account_db_insert(account);
-    // }
-    // ESP_LOGI("main", "timestamp %ld", time(NULL));
     for (int i = 0; i < 1; i++) {
         char user[32];
         char date[32];
@@ -1639,7 +1618,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                                        username);
                         http_raw_request(server, port, false, CFG_get_server_user(), CFG_get_server_passwd(), url, NULL,
                                          "", "", retries, ulip_core_http_callback);
-                        ctl_beep(0);
+                        ctl_beep(3);
                     }
                 }
             } else if (!strcmp(state, "off")) {

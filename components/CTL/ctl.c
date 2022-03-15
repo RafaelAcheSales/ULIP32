@@ -230,7 +230,7 @@ int ctl_init(int mode, ctl_event_func_t func, bool ap_mode, char * ip, char * ne
     };
     gpio_set_level(BUZZER_PIN, 0);
     ESP_ERROR_CHECK(esp_timer_create(&ctl_timer_args, &ctl_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(ctl_timer, CTL_TIMEOUT));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(ctl_timer, CTL_TIMEOUT*1000));
 
     wifi_init_softap((ctl_check_ap_mode() || ap_mode), ip, netmask, gateway, dhcp, ssid, password, channel, disable, got_ip_callback_set);
     return 1;

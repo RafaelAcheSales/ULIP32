@@ -15,7 +15,7 @@
 // #define RFID 1
 #define TTY_BSIZE 512
 #define TTY_BITBANG_BITS 10
-#define TTY_TIMEOUT 100000
+#define TTY_TIMEOUT 100
 
 #define UART0 0
 #define UART0_RX_PIN 3
@@ -281,37 +281,37 @@ static void tty_task(void)
     char buf[TTY_BSIZE];
     tty_dev_t *p;
     int size;
-    int len;
+    size_t len;
     // int i;
     //  ESP_LOGD("TTY", "tty_task");
     p = &tty_dev[UART0];
     if (p->func)
     {
-        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART0, (size_t *)&len));
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART0, &len));
         size = uart_read_bytes(UART0, buf, len, 50);
         if (size)
         {
             // ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
-            // ESP_LOG_BUFFER_HEX("TTY", buf, len);
+            // ESP_LOG_BUFFER_HEX("TTY", buf, size);
             p->func(UART0, buf, len, p->user_data);
         }
     }
     p = &tty_dev[UART1];
     if (p->func)
     {
-        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART1, (size_t *)&len));
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART1, &len));
         size = uart_read_bytes(UART1, buf, len, 50);
         if (size)
         {
-            ESP_LOGI("TTY", "read %d bytes from UART %d ", size, UART1);
-            ESP_LOG_BUFFER_HEX("TTY", buf, len);
-            p->func(UART1, buf, len, p->user_data);
+            ESP_LOGI("TTY", "read %d bytes from UART %d and size %d ", len, UART1, size);
+            ESP_LOG_BUFFER_HEX("TTY", buf, size);
+            p->func(UART1, buf, size, p->user_data);
         }
     }
     p = &tty_dev[UART2];
     if (p->func)
     {
-        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART2, (size_t *)&len));
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART2, &len));
         size = uart_read_bytes(UART2, buf, len, 50);
         if (size)
         {
@@ -423,7 +423,7 @@ int tty_init(void)
         .name = "tty task"};
 
     ESP_ERROR_CHECK(esp_timer_create(&tty_task_timer_args, &tty_task_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(tty_task_timer, TTY_TIMEOUT));
+    ESP_ERROR_CHECK(esp_timer_start_periodic(tty_task_timer, TTY_TIMEOUT*1000));
     // sw_timer_set_func(tty_task);
     // ESP_LOGI("tty", "sw timer setfunc");
     // hw_timer_arm(TTY_TIMEOUT,true, TIMER_GROUP_1);
