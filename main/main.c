@@ -949,7 +949,12 @@ static int rfid_event(int event, const char *data, int len,
 char tasks_info[1024];
 static void got_ip_event()
 {
-   
+    uint8_t mode;
+    uint8_t level;
+    char *host;
+    uint16_t port;
+    CFG_get_debug(&mode, &level, &host, &port);
+    udp_logging_init(host, port, udp_logging_vprintf);
 }
 static void ulip_core_http_callback(char *uri, char *response_body, int http_status,
                                     char *response_headers, int body_size)
@@ -4119,17 +4124,17 @@ void app_main(void)
     // CFG_Default();
     // CFG_set_control_mode(0);
     // CFG_set_control_timeout(2);
-    // CFG_set_ip_address("10.0.0.140");
-    // CFG_set_netmask("255.255.255.0");
-    // CFG_set_gateway("10.0.0.1");
-    // CFG_set_ap_mode(false);
-    // CFG_set_dhcp(true);
-    // CFG_set_wifi_ssid("uTech-Wifi");
-    // CFG_set_wifi_passwd("01566062");
-    // CFG_set_wifi_disable(true);
-    CFG_set_eth_dhcp(true);
+    CFG_set_ip_address("10.0.0.243");
+    CFG_set_netmask("255.255.255.0");
+    CFG_set_gateway("10.0.0.1");
+    CFG_set_ap_mode(false);
+    CFG_set_dhcp(false);
+    CFG_set_wifi_ssid("uTech-Wifi");
+    CFG_set_wifi_passwd("01566062");
+    CFG_set_wifi_disable(true);
+    CFG_set_eth_dhcp(false);
     CFG_set_eth_enable(true);
-    CFG_set_eth_ip_address("10.0.0.254");
+    CFG_set_eth_ip_address("10.0.0.253");
     CFG_set_eth_netmask("255.255.255.0");
     CFG_set_eth_gateway("10.0.0.1");
     // CFG_set_web_user("admin");
@@ -4163,7 +4168,6 @@ void app_main(void)
 
     account_init();
 
-    
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
     //                rf433_event, NULL);
@@ -4208,6 +4212,6 @@ void app_main(void)
     tcpip_adapter_init();
     httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
     httpdFreertosStart(&httpdInstance);
-    fpm_init(0,CFG_get_fingerprint_security(),
-            CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    // fpm_init(0,CFG_get_fingerprint_security(),
+    //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
 }
