@@ -944,6 +944,7 @@ static int rfid_event(int event, const char *data, int len,
                       void *user_data)
 {
     ESP_LOGE("main", "event rfid %s", data);
+    ctl_beep(3);
     return 1;
 }
 char tasks_info[1024];
@@ -4116,6 +4117,7 @@ const char *rtc_weekday(struct tm *tm)
 }
 void app_main(void)
 {
+
     // sntp_set_time_sync_notification_cb(got_time_sync_notification_cb);
     // sntp_setoperatingmode(SNTP_OPMODE_POLL);
     // sntp_setservername(0, "pool.ntp.org");
@@ -4124,15 +4126,15 @@ void app_main(void)
     // CFG_Default();
     // CFG_set_control_mode(0);
     // CFG_set_control_timeout(2);
-    CFG_set_ip_address("10.0.0.243");
-    CFG_set_netmask("255.255.255.0");
-    CFG_set_gateway("10.0.0.1");
-    CFG_set_ap_mode(false);
-    CFG_set_dhcp(false);
-    CFG_set_wifi_ssid("uTech-Wifi");
-    CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(true);
-    CFG_set_eth_dhcp(false);
+    // CFG_set_ip_address("10.0.0.243");
+    // CFG_set_netmask("255.255.255.0");
+    // CFG_set_gateway("10.0.0.1");
+    // CFG_set_ap_mode(false);
+    // CFG_set_dhcp(true);
+    // CFG_set_wifi_ssid("uTech-Wifi");
+    // CFG_set_wifi_passwd("01566062");
+    // CFG_set_wifi_disable(false);
+    CFG_set_eth_dhcp(true);
     CFG_set_eth_enable(true);
     CFG_set_eth_ip_address("10.0.0.253");
     CFG_set_eth_netmask("255.255.255.0");
@@ -4200,7 +4202,8 @@ void app_main(void)
     // esp_timer_start_once(handle2, 10000000);
 
     // initialized = true;
-
+    // rfid_init(CFG_get_rfid_timeout(), CFG_get_rfid_retries(), CFG_get_rfid_nfc(), 
+    //     CFG_get_rfid_timeout(), CFG_get_rfid_format(), rfid_event, NULL);
     // char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     // printf(cur_task);
     ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
