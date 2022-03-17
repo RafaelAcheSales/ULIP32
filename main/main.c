@@ -35,14 +35,13 @@
 #include "string.h"
 #include "time.h"
 #include "tty.h"
-#include "udp_logging.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include "sntp2.h"
 #include <libesphttpd/esp.h>
 // #include "libesphttpd/httpd.h"
 #include "libesphttpd/httpd-freertos.h"
-
+#include "debug.h"
 #include "auth.h"
 #include "main.h"
 // #include "libesphttpd/auth.h"
@@ -105,9 +104,7 @@ static bool probe_user = false;
 static int probe_index = -1;
 static bool erase_user = false;
 static bool capture_finger = false;
-static bool wifi_ap_mode = false;
-static uint32_t sensor_cycles = 0;
-static bool sensor_alarm = false;
+
 esp_netif_ip_info_t eth_ip_info;
 
 
@@ -940,13 +937,13 @@ static void rs485_event(unsigned char from_addr,
     }
 }
 
-static int rfid_event(int event, const char *data, int len,
-                      void *user_data)
-{
-    ESP_LOGE("main", "event rfid %s", data);
-    ctl_beep(3);
-    return 1;
-}
+// static int rfid_event(int event, const char *data, int len,
+//                       void *user_data)
+// {
+//     ESP_LOGE("main", "event rfid %s", data);
+//     ctl_beep(3);
+//     return 1;
+// }
 char tasks_info[1024];
 static void got_ip_event()
 {
@@ -955,7 +952,7 @@ static void got_ip_event()
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    udp_logging_init(host, port, udp_logging_vprintf);
+    
 }
 static void ulip_core_http_callback(char *uri, char *response_body, int http_status,
                                     char *response_headers, int body_size)
@@ -966,7 +963,7 @@ static void ulip_core_http_callback(char *uri, char *response_body, int http_sta
 
 static void got_ip_event2(char * ip_address)
 {
-    start_sntp(CFG_get_ntp());
+    // start_sntp(CFG_get_ntp());
 
     ESP_LOGI("main", "sntp_init");
     uint8_t mode;
@@ -974,9 +971,27 @@ static void got_ip_event2(char * ip_address)
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    udp_logging_init(host, port, udp_logging_vprintf);
     CFG_set_server_ip(ip_address);
 }
+static void debug_init(void)
+{
+    uint8_t mode;
+    uint8_t level;
+    const char *host;
+    uint16_t port;
+
+    CFG_get_debug(&mode, &level, &host, &port);
+    if (mode && level) {
+        os_debug_enable();
+        os_debug_set_level(level);
+        if (mode == DEBUG_MODE_SERIAL) {
+            os_debug_set_dump_serial();
+        } else {
+            os_debug_set_dump_network(host, port);
+        }
+    }
+}
+
 static void ctl_event(int event, int status);
 #if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
 void ulip_core_capture_finger(bool status, int index)
@@ -1995,20 +2010,21 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                         server = strtok_r(NULL, ":", &p);
                     if (p)
                         port = strtol(strtok_r(NULL, ":", &p), NULL, 10);
-                    switch (mode)
-                    {
-                    case DEBUG_MODE_NONE:
-                        esp_log_level_set("*", ESP_LOG_NONE);
-                        esp_log_set_vprintf(vprintf);
-                        break;
-                    case DEBUG_MODE_SERIAL:
-                        esp_log_level_set("*", level);
-                        esp_log_set_vprintf(vprintf);
-                        break;
-                    case DEBUG_MODE_NETWORK:
-                        esp_log_level_set("*", level);
-                        udp_logging_init(server, port, udp_logging_vprintf);
-                        break;
+                    switch (mode) {
+                        case DEBUG_MODE_NONE:
+                            os_debug_disable();
+                            os_debug_set_level(level);
+                            break;
+                        case DEBUG_MODE_SERIAL:
+                            os_debug_enable();
+                            os_debug_set_level(level);
+                            os_debug_set_dump_serial();
+                            break;
+                        case DEBUG_MODE_NETWORK:
+                            os_debug_enable();
+                            os_debug_set_level(level);
+                            os_debug_set_dump_network(server, port);
+                            break;
                     }
                     CFG_set_debug(mode, level, server, port);
                 } else if (!strncmp("\"rf433\":", p, 8)) {
@@ -4143,6 +4159,8 @@ void app_main(void)
     // CFG_set_web_passwd("01566062");
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     CFG_Save();
+
+    debug_init();
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
              CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
