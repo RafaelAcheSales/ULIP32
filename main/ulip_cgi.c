@@ -13,15 +13,8 @@
 #include "main.h"
 #include "esp_sntp.h"
 #include "mbedtls/base64.h"
-<<<<<<< HEAD
-// #include "udp_logging.h"    
-=======
-#include "debug.h" 
->>>>>>> origin/main
-#include "fpm.h"
-
 // #include "ulip_model.h"
-// #include "ulip_core.h"
+#include "fpm.h"
 #include "ulip_cgi.h"
 
 

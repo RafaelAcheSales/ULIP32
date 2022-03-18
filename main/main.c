@@ -130,7 +130,7 @@ static void debug_init(void)
     if (1) {
         os_debug_enable();
         os_debug_set_level(6);
-        if (1) {
+        if (0) {
             os_debug_set_dump_serial();
         } else {
             os_debug_set_dump_network(host, port);
@@ -992,29 +992,8 @@ static void got_ip_event2(char * ip_address)
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-<<<<<<< HEAD
     // udp_logging_init(host, port, udp_logging_vprintf);
-=======
->>>>>>> origin/main
     CFG_set_server_ip(ip_address);
-}
-static void debug_init(void)
-{
-    uint8_t mode;
-    uint8_t level;
-    const char *host;
-    uint16_t port;
-
-    CFG_get_debug(&mode, &level, &host, &port);
-    if (mode && level) {
-        os_debug_enable();
-        os_debug_set_level(level);
-        if (mode == DEBUG_MODE_SERIAL) {
-            os_debug_set_dump_serial();
-        } else {
-            os_debug_set_dump_network(host, port);
-        }
-    }
 }
 
 static void ctl_event(int event, int status);
@@ -4184,7 +4163,6 @@ void app_main(void)
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     CFG_Save();
 
-    debug_init();
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
              CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
@@ -4211,7 +4189,7 @@ void app_main(void)
     //                 qrcode_event_main, NULL, 3);
 
     account_init();
-    debug_init();
+    
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
     //                rf433_event, NULL);
@@ -4259,10 +4237,13 @@ void app_main(void)
     httpdFreertosStart(&httpdInstance);
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    debug_init();
     while (1)
     {
         vTaskDelay(100);
-        os_info("main", "toppppp");
+        os_info("main", "info");
+        os_error("main", "error");
+        os_warning("main", "warn");
         ESP_LOGI("main", "topppppzera");
     }
     

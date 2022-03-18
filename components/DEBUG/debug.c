@@ -29,7 +29,7 @@ static void debug_serial_handler(const char *domain,
     len = sprintf(buf, "%s: ", domain);
     len += vsnprintf(buf + len, sizeof(buf) - len,
                      format, args);
-    printf("%s\r\n", buf);
+    printf("%s\n", buf);
 }
 
 IRAM_ATTR
