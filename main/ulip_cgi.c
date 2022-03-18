@@ -13,7 +13,11 @@
 #include "main.h"
 #include "esp_sntp.h"
 #include "mbedtls/base64.h"
+<<<<<<< HEAD
 // #include "udp_logging.h"    
+=======
+#include "debug.h" 
+>>>>>>> origin/main
 #include "fpm.h"
 
 // #include "ulip_model.h"
@@ -3347,7 +3351,7 @@ static void ulip_cgi_scan_callback(uint16_t *list_size,  wifi_ap_record_t * list
     int max_size = *list_size;
     for (int i = 0; i < max_size; i++)
     {
-        ESP_LOGI("CGI", "wifi ssid %s", list[i].ssid);
+        // ESP_LOGI("CGI", "wifi ssid %s", list[i].ssid);
         switch (list[i].authmode)
         {
             case WIFI_AUTH_OPEN:

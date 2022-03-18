@@ -43,7 +43,7 @@
 #include <libesphttpd/esp.h>
 // #include "libesphttpd/httpd.h"
 #include "libesphttpd/httpd-freertos.h"
-
+#include "debug.h"
 #include "auth.h"
 #include "main.h"
 // #include "libesphttpd/auth.h"
@@ -106,9 +106,7 @@ static bool probe_user = false;
 static int probe_index = -1;
 static bool erase_user = false;
 static bool capture_finger = false;
-static bool wifi_ap_mode = false;
-static uint32_t sensor_cycles = 0;
-static bool sensor_alarm = false;
+
 esp_netif_ip_info_t eth_ip_info;
 
 
@@ -960,12 +958,13 @@ static void rs485_event(unsigned char from_addr,
     }
 }
 
-static int rfid_event(int event, const char *data, int len,
-                      void *user_data)
-{
-    ESP_LOGE("main", "event rfid %s", data);
-    return 1;
-}
+// static int rfid_event(int event, const char *data, int len,
+//                       void *user_data)
+// {
+//     ESP_LOGE("main", "event rfid %s", data);
+//     ctl_beep(3);
+//     return 1;
+// }
 char tasks_info[1024];
 static void got_ip_event()
 {
@@ -985,7 +984,7 @@ static void ulip_core_http_callback(char *uri, char *response_body, int http_sta
 
 static void got_ip_event2(char * ip_address)
 {
-    start_sntp(CFG_get_ntp());
+    // start_sntp(CFG_get_ntp());
 
     ESP_LOGI("main", "sntp_init");
     uint8_t mode;
@@ -993,9 +992,31 @@ static void got_ip_event2(char * ip_address)
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
+<<<<<<< HEAD
     // udp_logging_init(host, port, udp_logging_vprintf);
+=======
+>>>>>>> origin/main
     CFG_set_server_ip(ip_address);
 }
+static void debug_init(void)
+{
+    uint8_t mode;
+    uint8_t level;
+    const char *host;
+    uint16_t port;
+
+    CFG_get_debug(&mode, &level, &host, &port);
+    if (mode && level) {
+        os_debug_enable();
+        os_debug_set_level(level);
+        if (mode == DEBUG_MODE_SERIAL) {
+            os_debug_set_dump_serial();
+        } else {
+            os_debug_set_dump_network(host, port);
+        }
+    }
+}
+
 static void ctl_event(int event, int status);
 #if defined(CONFIG__MLI_1WB_TYPE__) || defined(CONFIG__MLI_1WQB_TYPE__)
 void ulip_core_capture_finger(bool status, int index)
@@ -4136,6 +4157,7 @@ const char *rtc_weekday(struct tm *tm)
 }
 void app_main(void)
 {
+
     // sntp_set_time_sync_notification_cb(got_time_sync_notification_cb);
     // sntp_setoperatingmode(SNTP_OPMODE_POLL);
     // sntp_setservername(0, "pool.ntp.org");
@@ -4144,15 +4166,15 @@ void app_main(void)
     // CFG_Default();
     // CFG_set_control_mode(0);
     // CFG_set_control_timeout(2);
-    CFG_set_ip_address("10.0.0.243");
-    CFG_set_netmask("255.255.255.0");
-    CFG_set_gateway("10.0.0.1");
-    CFG_set_ap_mode(false);
-    CFG_set_dhcp(false);
-    CFG_set_wifi_ssid("uTech-Wifi");
-    CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(true);
-    CFG_set_eth_dhcp(false);
+    // CFG_set_ip_address("10.0.0.243");
+    // CFG_set_netmask("255.255.255.0");
+    // CFG_set_gateway("10.0.0.1");
+    // CFG_set_ap_mode(false);
+    // CFG_set_dhcp(true);
+    // CFG_set_wifi_ssid("uTech-Wifi");
+    // CFG_set_wifi_passwd("01566062");
+    // CFG_set_wifi_disable(false);
+    CFG_set_eth_dhcp(true);
     CFG_set_eth_enable(true);
     CFG_set_eth_ip_address("10.0.0.253");
     CFG_set_eth_netmask("255.255.255.0");
@@ -4161,6 +4183,8 @@ void app_main(void)
     // CFG_set_web_passwd("01566062");
     CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
     CFG_Save();
+
+    debug_init();
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
              CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
              CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
@@ -4220,7 +4244,8 @@ void app_main(void)
     // esp_timer_start_once(handle2, 10000000);
 
     // initialized = true;
-
+    // rfid_init(CFG_get_rfid_timeout(), CFG_get_rfid_retries(), CFG_get_rfid_nfc(), 
+    //     CFG_get_rfid_timeout(), CFG_get_rfid_format(), rfid_event, NULL);
     // char *cur_task = pcTaskGetTaskName(xTaskGetCurrentTaskHandle());
     // printf(cur_task);
     ESP_LOGI("main", "eth_enable: %d, eth_dhcp: %d, eth_ip:%s, eth_gateway:%s, eth_netmask:%s",
