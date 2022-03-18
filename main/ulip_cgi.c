@@ -13,7 +13,7 @@
 #include "main.h"
 #include "esp_sntp.h"
 #include "mbedtls/base64.h"
-#include "udp_logging.h"    
+// #include "udp_logging.h"    
 #include "fpm.h"
 
 // #include "ulip_model.h"
@@ -5605,7 +5605,7 @@ static int ulip_cgi_post_handler(HttpdConnData *connData)
                         CFG_set_debug(mode, level, host, port);
                         if (mode) {
                             esp_log_level_set("*", level);
-                            udp_logging_init(host, port, udp_logging_vprintf);
+                            // udp_logging_init(host, port, udp_logging_vprintf);
                             
                         } else {
                             esp_log_level_set("*", ESP_LOG_NONE);

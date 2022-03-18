@@ -35,7 +35,8 @@
 #include "string.h"
 #include "time.h"
 #include "tty.h"
-#include "udp_logging.h"
+
+#include "debug.h"
 #include <stdio.h>
 #include <sys/time.h>
 #include "sntp2.h"
@@ -119,6 +120,25 @@ typedef union
     unsigned long *dw;
 } pgen_t;
 
+static void debug_init(void)
+{
+    uint8_t mode;
+    uint8_t level;
+    const char *host;
+    uint16_t port;
+
+    // os_install_putc1(NULL);
+    CFG_get_debug(&mode, &level, &host, &port);
+    if (1) {
+        os_debug_enable();
+        os_debug_set_level(6);
+        if (1) {
+            os_debug_set_dump_serial();
+        } else {
+            os_debug_set_dump_network(host, port);
+        }
+    }
+}
 
 void ulip_core_restore_config(bool restart)
 {
@@ -954,7 +974,7 @@ static void got_ip_event()
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    udp_logging_init(host, port, udp_logging_vprintf);
+    // udp_logging_init(host, port, udp_logging_vprintf);
 }
 static void ulip_core_http_callback(char *uri, char *response_body, int http_status,
                                     char *response_headers, int body_size)
@@ -973,7 +993,7 @@ static void got_ip_event2(char * ip_address)
     char *host;
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
-    udp_logging_init(host, port, udp_logging_vprintf);
+    // udp_logging_init(host, port, udp_logging_vprintf);
     CFG_set_server_ip(ip_address);
 }
 static void ctl_event(int event, int status);
@@ -2006,7 +2026,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                         break;
                     case DEBUG_MODE_NETWORK:
                         esp_log_level_set("*", level);
-                        udp_logging_init(server, port, udp_logging_vprintf);
+                        // udp_logging_init(server, port, udp_logging_vprintf);
                         break;
                     }
                     CFG_set_debug(mode, level, server, port);
@@ -4167,7 +4187,7 @@ void app_main(void)
     //                 qrcode_event_main, NULL, 3);
 
     account_init();
-
+    debug_init();
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
     //                rf433_event, NULL);
@@ -4214,4 +4234,11 @@ void app_main(void)
     httpdFreertosStart(&httpdInstance);
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
+    while (1)
+    {
+        vTaskDelay(100);
+        os_info("main", "toppppp");
+        ESP_LOGI("main", "topppppzera");
+    }
+    
 }
