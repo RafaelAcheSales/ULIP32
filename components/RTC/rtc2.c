@@ -21,6 +21,7 @@ static uint32_t shutdown = 0;
 
 static void rtc_update(void *arg)
 {
+    os_info("RTC","rtc_update");
     static bool sync = FALSE;
     uint32_t time;
     uint32_t d;
@@ -62,14 +63,13 @@ void rtc_init2(const char *server, int8_t tz,
         strcpy(dst_interval, dst_date);
     }
     if (server) {
-        // if (timezone) {
-        //     snprintf(stmp, sizeof(stmp), "GMT%c%d",
-        //              tz > 0 ? '+' : '-', abs(tz));
-        //     setenv("TZ", stmp, 1);
-        // } else {
-        //     setenv("TZ", "UTC", 1);
-        // }
-        setenv("TZ", "AST4ADT", 1);
+        if (timezone) {
+            snprintf(stmp, sizeof(stmp), "GMT%c%d",
+                     tz > 0 ? '-' : '+', abs(tz));
+            setenv("TZ", stmp, 1);
+        } else {
+            setenv("TZ", "UTC", 1);
+        }
         tzset();
         sntp_setservername(0, (char *)server);
         sntp_set_time_sync_notification_cb(rtc_sntp_update);

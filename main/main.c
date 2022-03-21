@@ -128,10 +128,10 @@ static void debug_init(void)
 
     // os_install_putc1(NULL);
     CFG_get_debug(&mode, &level, &host, &port);
-    if (1) {
+    if (mode && level) {
         os_debug_enable();
-        os_debug_set_level(6);
-        if (0) {
+        os_debug_set_level(level);
+        if (mode == DEBUG_MODE_SERIAL) {
             os_debug_set_dump_serial();
         } else {
             os_debug_set_dump_network(host, port);
@@ -4141,7 +4141,7 @@ void app_main(void)
     CFG_set_eth_gateway("10.0.0.1");
     // CFG_set_web_user("admin");
     // CFG_set_web_passwd("01566062");
-    CFG_set_debug(1, ESP_LOG_INFO, "10.0.0.140", 64195);
+    CFG_set_debug(1, 7, "10.0.0.140", 64195);
     CFG_Save();
 
     ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
@@ -4168,6 +4168,7 @@ void app_main(void)
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
     //                 qrcode_event_main, NULL, 3);
+    debug_init();
     /* RTC */
     CFG_set_timezone(-3);
     rtc_init2(CFG_get_ntp(), CFG_get_timezone(),
@@ -4225,13 +4226,13 @@ void app_main(void)
     httpdFreertosStart(&httpdInstance);
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-    debug_init();
+    
     while (1)
     {
+        
         vTaskDelay(100);
-        struct tm *tm = rtc_localtime();
-        printf("%02d/%02d/%04d %02d:%02d:%02d\n", tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
-        printf("day of week: %s\n month of year: %s\n", rtc_weekday(tm), rtc_month(tm));
+
     }
+
     
 }
