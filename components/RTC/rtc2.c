@@ -21,7 +21,7 @@ static uint32_t shutdown = 0;
 
 static void rtc_update(void *arg)
 {
-    os_info("RTC","rtc_update");
+    os_debug("RTC","rtc_update");
     static bool sync = FALSE;
     uint32_t time;
     uint32_t d;

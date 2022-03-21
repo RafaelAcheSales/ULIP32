@@ -52,7 +52,7 @@ static void ctl_interrupt_handler(int intr, void *user_data)
     if (ctl_event_func)
         ctl_event_func(CTL_EVT_SENSOR, 0);
 
-    gpio_interrupt_enable(SENSOR_INTR, GPIO_INTR_POSEDGE);
+    gpio_interrupt_enable(SENSOR_INTR);
 }
 
 static void ctl_timeout(void *arg)
