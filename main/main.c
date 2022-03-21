@@ -46,6 +46,7 @@
 #include "debug.h"
 #include "auth.h"
 #include "main.h"
+#include "rtc2.h"
 // #include "libesphttpd/auth.h"
 // #include "esp_netif_ip_addr.h"
 
@@ -4113,27 +4114,7 @@ static void timer_callback()
 {
     xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
 }
-const char *rtc_month(struct tm *tm)
-{
-    static char *month[] = { "Jan", "Feb", "Mar", "Apr",
-                             "May", "Jun", "Jul", "Ago",
-                             "Sep", "Oct", "Nov", "Dec" };
 
-    if (!tm) return NULL;
-
-    return month[tm->tm_mon];
-}
-
-
-const char *rtc_weekday(struct tm *tm)
-{
-    static char *day[] = { "Sun", "Mon", "Tue", "Wed",
-                           "Thu", "Fri", "Sat" };
-
-    if (!tm) return NULL;
-
-    return day[tm->tm_wday];
-}
 void app_main(void)
 {
 
@@ -4187,7 +4168,14 @@ void app_main(void)
     //                 CFG_get_qrcode_dynamic(),
     //                 CFG_get_qrcode_validity(),
     //                 qrcode_event_main, NULL, 3);
-
+    /* RTC */
+    CFG_set_timezone(-3);
+    rtc_init2(CFG_get_ntp(), CFG_get_timezone(),
+             CFG_get_dst(), CFG_get_dst_date());
+    if (CFG_get_rtc_time() != -1)
+        rtc_set_time(CFG_get_rtc_time());
+    if (CFG_get_rtc_shutdown() != -1)
+        rtc_set_shutdown(CFG_get_rtc_shutdown() * 3600);
     account_init();
     
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
@@ -4241,10 +4229,9 @@ void app_main(void)
     while (1)
     {
         vTaskDelay(100);
-        os_info("main", "info");
-        os_error("main", "error");
-        os_warning("main", "warn");
-        ESP_LOGI("main", "topppppzera");
+        struct tm *tm = rtc_localtime();
+        printf("%02d/%02d/%04d %02d:%02d:%02d\n", tm->tm_mday, tm->tm_mon + 1, tm->tm_year + 1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+        printf("day of week: %s\n month of year: %s\n", rtc_weekday(tm), rtc_month(tm));
     }
     
 }

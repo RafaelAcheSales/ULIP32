@@ -79,9 +79,9 @@ Agora é apenas apenas entrar na pasta do projeto ULIP32 e fazer o build via
 
 == Flash ==
 
-Entre na pasta da imagem via
+Entre na pasta do projeto
 
-'''cd ~/esp/ULIP32/build'''
+'''cd ~/esp/ULIP32'''
 
 Inicie o flash utilizando:
 

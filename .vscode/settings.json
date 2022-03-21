@@ -47,7 +47,9 @@
         "future": "c",
         "system_error": "c",
         "fpm.h": "c",
-        "variant": "c"
+        "variant": "c",
+        "rtc.h": "c",
+        "rtc_cntl_reg.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",
