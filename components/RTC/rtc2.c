@@ -21,7 +21,7 @@ static uint32_t shutdown = 0;
 
 static void rtc_update(void *arg)
 {
-    os_debug("RTC","rtc_update");
+    // os_debug("RTC","rtc_update");
     static bool sync = FALSE;
     uint32_t time;
     uint32_t d;
@@ -45,7 +45,7 @@ static void rtc_update(void *arg)
 
 static void rtc_sntp_update(struct timeval *tv)
 {
-    os_info("RTC", "SNTP update");
+    // os_info("RTC", "SNTP update");
 }
 
 void rtc_init2(const char *server, int8_t tz,

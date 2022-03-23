@@ -2,9 +2,9 @@
 
 #include <sys/time.h>
 #include <string.h>
+#include <stdbool.h>
 #include "tty.h"
 #include "ctl.h"
-#include "stdbool.h"
 #include "fpm.h"
 #include "esp_timer.h"
 #include "esp_log.h"
@@ -685,7 +685,7 @@ static void fpm_polling_timeout(void *data)
     } else {
         if (fpm_enroll_stage == FPM_ENROLL_NONE) {
             /* Check LED status */
-            touch = ctl_fpm_get();
+            touch = 1;
             // printf("touch %d\n", touch);
             if (touch) {
                 /* Enable LED */

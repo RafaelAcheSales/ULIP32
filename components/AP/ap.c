@@ -92,6 +92,7 @@ void wifi_init_softap(bool ap_mode, char * ip, char * netmask, char * gateway, b
     if (disable)
         return;
     got_ip_callback = got_ip_callback_set;
+    esp_wifi_set_ps(WIFI_PS_NONE);
     if (ap_mode) {
         ap_netif = esp_netif_create_default_wifi_ap();
         

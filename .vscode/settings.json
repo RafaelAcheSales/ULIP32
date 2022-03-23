@@ -49,7 +49,8 @@
         "fpm.h": "c",
         "variant": "c",
         "rtc.h": "c",
-        "rtc_cntl_reg.h": "c"
+        "rtc_cntl_reg.h": "c",
+        "osapi.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",

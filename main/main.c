@@ -17,6 +17,7 @@
 #include "esp_timer.h"
 #include "esp_netif.h"
 #include "esp_sntp.h"
+#include "esp_wifi.h"
 #include "mbedtls/base64.h"
 #include "utils.h"
 #include "eth.h"
@@ -47,6 +48,7 @@
 #include "auth.h"
 #include "main.h"
 #include "rtc2.h"
+#include "upnp.h"
 // #include "libesphttpd/auth.h"
 // #include "esp_netif_ip_addr.h"
 
@@ -62,6 +64,7 @@
 #define UART_TTY 2
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
+#define BOARD "MLI-1E"
 #define ULIP_MODEL "MLI-1WB"
 #define MAGIC_CODE "uTech"
 #define MAX_CONNECTIONS 2
@@ -994,7 +997,7 @@ static void got_ip_event2(char * ip_address)
     uint16_t port;
     CFG_get_debug(&mode, &level, &host, &port);
     // udp_logging_init(host, port, udp_logging_vprintf);
-    CFG_set_server_ip(ip_address);
+    // CFG_set_server_ip(ip_address);
 }
 
 static void ctl_event(int event, int status);
@@ -1545,8 +1548,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             ESP_LOGD("ULIP", "version [%s]", body);
             free(body);
             return HTTPD_CGI_DONE;
-        } else if (!strcmp(request, "getfingerprint")) {
-            fpm_get_template();
+        } else if (!strcmp(request, "httptest")) {
+            
+            
 
         } else if (!strcmp(request, "deleteall")) {
             fpm_delete_all();
@@ -4126,28 +4130,29 @@ void app_main(void)
     // CFG_Default();
     // CFG_set_control_mode(0);
     // CFG_set_control_timeout(2);
-    // CFG_set_ip_address("10.0.0.243");
-    // CFG_set_netmask("255.255.255.0");
-    // CFG_set_gateway("10.0.0.1");
-    // CFG_set_ap_mode(false);
-    // CFG_set_dhcp(true);
-    // CFG_set_wifi_ssid("uTech-Wifi");
-    // CFG_set_wifi_passwd("01566062");
-    // CFG_set_wifi_disable(false);
-    CFG_set_eth_dhcp(true);
-    CFG_set_eth_enable(true);
-    CFG_set_eth_ip_address("10.0.0.253");
-    CFG_set_eth_netmask("255.255.255.0");
-    CFG_set_eth_gateway("10.0.0.1");
+    CFG_set_ip_address("10.0.0.43");
+    CFG_set_netmask("255.255.255.0");
+    CFG_set_gateway("10.0.0.1");
+    CFG_set_ap_mode(false);
+    CFG_set_dhcp(false);
+    CFG_set_wifi_ssid("uTech-Wifi");
+    CFG_set_wifi_passwd("01566062");
+    CFG_set_wifi_disable(false);
+    // CFG_set_eth_dhcp(true);
+    // CFG_set_eth_enable(true);
+    // CFG_set_eth_ip_address("10.0.0.253");
+    // CFG_set_eth_netmask("255.255.255.0");
+    // CFG_set_eth_gateway("10.0.0.1");
     // CFG_set_web_user("admin");
     // CFG_set_web_passwd("01566062");
     CFG_set_debug(1, 7, "10.0.0.140", 64195);
     CFG_Save();
-
-    ctl_init(CTL_MODE_NORMAL, ctl_event, CFG_get_ap_mode(), CFG_get_ip_address(),
-             CFG_get_netmask(), CFG_get_gateway(), CFG_get_dhcp(),
-             CFG_get_wifi_ssid(), CFG_get_wifi_passwd(), CFG_get_wifi_channel(), CFG_get_wifi_disable(), &got_ip_event);
     
+    ctl_init(ctl_event);
+    wifi_init_softap(CFG_get_ap_mode(), CFG_get_ip_address(),
+                     CFG_get_netmask(),CFG_get_gateway(), CFG_get_dhcp(),
+                     CFG_get_wifi_ssid(), CFG_get_wifi_passwd(),CFG_get_wifi_channel(),
+                     CFG_get_wifi_disable(), &got_ip_event2);
     // CFG_Save();
 
     CFG_set_fingerprint_timeout(100000);
@@ -4171,13 +4176,13 @@ void app_main(void)
     debug_init();
     /* RTC */
     CFG_set_timezone(-3);
-    rtc_init2(CFG_get_ntp(), CFG_get_timezone(),
-             CFG_get_dst(), CFG_get_dst_date());
-    if (CFG_get_rtc_time() != -1)
-        rtc_set_time(CFG_get_rtc_time());
-    if (CFG_get_rtc_shutdown() != -1)
-        rtc_set_shutdown(CFG_get_rtc_shutdown() * 3600);
-    account_init();
+    // rtc_init2(CFG_get_ntp(), CFG_get_timezone(),
+    //          CFG_get_dst(), CFG_get_dst_date());
+    // if (CFG_get_rtc_time() != -1)
+    //     rtc_set_time(CFG_get_rtc_time());
+    // if (CFG_get_rtc_shutdown() != -1)
+    //     rtc_set_shutdown(CFG_get_rtc_shutdown() * 3600);
+    // account_init();
     
     // rf433_init(CFG_get_rf433_rc(), CFG_get_rf433_bc(),
     //                CFG_get_rf433_panic_timeout(),
@@ -4221,18 +4226,18 @@ void app_main(void)
     authSetCallback(ulip_core_httpd_auth);
     if (CFG_get_eth_enable())
         start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
-    tcpip_adapter_init();
-    httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
-    httpdFreertosStart(&httpdInstance);
+    // tcpip_adapter_init();
+    // httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
+    // httpdFreertosStart(&httpdInstance);
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-    
-    while (1)
-    {
-        
-        vTaskDelay(100);
-
-    }
-
+    upnp_init(BOARD);
+    // while (1)
+    // {
+    //     vTaskDelay(500);
+    //     // wifi_ap_record_t ap_info;
+    //     // esp_wifi_sta_get_ap_info(&ap_info);
+    //     // os_info("main", "wifi signal %d", ap_info.rssi);
+    // }
     
 }
