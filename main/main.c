@@ -6,6 +6,7 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
+#include <stdbool.h>   
 #include "account.h"
 #include "ap.h"
 #include "bluetooth.h"
@@ -1053,7 +1054,7 @@ static void fingerprint_event(int event, int index,
     url = CFG_get_server_url();
     retries = CFG_get_server_retries();
     if (user && pass)
-        sprintf(auth, "%s:%s", user, pass);
+        sprintf(auth, "%s:%s",user, pass);
 
     if (event == FPM_EVT_ENROLL) {
         ESP_LOGI("ULIP", "FPM probe index [%d]", index);
@@ -1086,8 +1087,8 @@ static void fingerprint_event(int event, int index,
                     size += sprintf(path + size, "&key=%s", account_get_key(acc));
                 size += sprintf(path + size, "&error=%s", serror);
                 strcpy(body, "{\"fingerprint\":\"Fingerprint\"}");
-                http_raw_request(server, port, false, user, pass, path, body,
-                                 "Content-Type" ,"application/json\r\n",
+                http_raw_request(server, port, false, auth, path, body,
+                                 "Content-Type: application/json\r\n",
                                  retries, ulip_core_http_callback);
             }
             capture_finger = false;
@@ -1120,8 +1121,8 @@ static void fingerprint_event(int event, int index,
 
                     
                     size += sprintf(body + size, "%s", "\"}");
-                    http_raw_request(server, port, false, user, pass, path, body,
-                                     "Content-Type" ,"application/json\r\n",
+                    http_raw_request(server, port, false,auth, path, body,
+                                     "Content-Type: application/json\r\n",
                                      retries, ulip_core_http_callback);
                     if (url)
                         sprintf(path, "/%s?request=adduser", url);
@@ -1139,8 +1140,8 @@ static void fingerprint_event(int event, int index,
                                           data, ACCOUNT_FINGERPRINT_SIZE);
                     size += olen;
                     size += sprintf(body + size, "\"}");
-                    http_raw_request(server, port, false, user, pass, path, body,
-                                     "Content-Type", "application/json\r\n",
+                    http_raw_request(server, port, false,auth, path, body,
+                                     "Content-Type: application/json\r\n",
                                      retries, ulip_core_http_callback);
                 }
             } else {
@@ -1266,8 +1267,8 @@ static void fingerprint_event(int event, int index,
                                   account_get_fingerprint(acc), ACCOUNT_FINGERPRINT_SIZE);
             size += olen;
             size += sprintf(body + size, "%s", "\"}");
-            http_raw_request(server, port, false, user, pass, path, body,
-                             "Content-Type", "application/json\r\n",
+            http_raw_request(server, port, false,auth, path, body,
+                             "Content-Type: application/json\r\n",
                              retries, ulip_core_http_callback);
         }
     } else {
@@ -1275,8 +1276,8 @@ static void fingerprint_event(int event, int index,
             sprintf(path, "/%s?request=fingerprint&state=blocked", url);
         else
             sprintf(path, "%s", "/?request=fingerprint&state=blocked");
-        http_raw_request(server, port, false, user, pass, path, NULL,
-                         "", "", retries, ulip_core_http_callback);
+        http_raw_request(server, port, false,auth, path, NULL,
+                         "", retries, ulip_core_http_callback);
     }
 
     account_destroy(acc);
@@ -1432,10 +1433,10 @@ static int ulip_core_http_request(const char *url)
     }
     param = l;
     if (user && pass)
-        sprintf(auth, "%s:%s", user, pass);
+        sprintf(auth, "%s:%s",user, pass);
 
-    http_raw_request(server, port, false, user,pass, param, NULL,
-                     "", "", 0, ulip_core_http_callback);
+    http_raw_request(server, port, false, auth, param, NULL,
+                     "", 0, ulip_core_http_callback);
 
     return 0;
 }
@@ -1549,7 +1550,9 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             free(body);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "httptest")) {
-            
+            httpdFindArg(connData->getArgs, "url", url, sizeof(url));
+            http_raw_request(url, 80, false, NULL, NULL, NULL,
+                            "", 4, ulip_core_http_callback);
             
 
         } else if (!strcmp(request, "deleteall")) {
@@ -1646,8 +1649,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                         else
                             sprintf(url, "/?request=user&user=%s&state=granted",
                                        username);
-                        http_raw_request(server, port, false, CFG_get_server_user(), CFG_get_server_passwd(), url, NULL,
-                                         "", "", retries, ulip_core_http_callback);
+                        http_raw_request(server, port, false, auth, url, NULL,
+                                         "", retries, ulip_core_http_callback);
                         ctl_beep(3);
                     }
                 }
@@ -4049,7 +4052,7 @@ static int ulip_core_httpd_auth(HttpdConnData *connData,
     char buf[128];
     int index;
     // ESP_LOGI("main", "user: %s pass: %s webuser: %s webpass: %s",
-    //          user, pass, CFG_get_web_user(), CFG_get_web_passwd());
+    //         auth, CFG_get_web_user(), CFG_get_web_passwd());
     if (!user || !pass) return false;
 
     if (!strcmp(user, CFG_get_web_user())) {
@@ -4196,7 +4199,7 @@ void app_main(void)
     //                rs485_event, NULL);
     printf("Hello world!\n");
     
-    ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
+    // ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
 
     // vTaskList(tasks_info);
     // ESP_LOGI("main", "\n%s", tasks_info);
@@ -4226,9 +4229,9 @@ void app_main(void)
     authSetCallback(ulip_core_httpd_auth);
     if (CFG_get_eth_enable())
         start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
-    // tcpip_adapter_init();
-    // httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
-    // httpdFreertosStart(&httpdInstance);
+    tcpip_adapter_init();
+    httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
+    httpdFreertosStart(&httpdInstance);
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     upnp_init(BOARD);

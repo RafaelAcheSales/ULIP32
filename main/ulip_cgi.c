@@ -1,6 +1,7 @@
 /* vim: set ts=4 et sta noai cin: */
 #include <sys/queue.h>
 #include <time.h>   
+#include <stdbool.h>   
 #include "http.h"
 #include "config2.h"
 #include "qrcode2.h"
