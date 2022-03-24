@@ -984,8 +984,7 @@ static void got_ip_event()
 static void ulip_core_http_callback(char *path, int status, char *data,
                                     int len)
 {
-    if (data && path)
-        ESP_LOGE("main", "http callback %s %d %s %d", path, status, data, len);
+    os_info("main", RED"http callback %s %d", path, status);
 }
 
 static void got_ip_event2(char * ip_address)
@@ -1553,7 +1552,7 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             free(body);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "httptest")) {
-            ESP_LOGI("ULIP", "httptest %s", connData->post.buff);
+            ESP_LOGI("ULIP", "httptest %s", connData->url);
             if (!&(connData->post) || !connData->post.buff) {
                 ESP_LOGI("ULIP", "no post data");
                 httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
@@ -1569,24 +1568,30 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                 config = NULL; 
                 strdelimit(p, "{}\r\n", ' ');
                 strstrip(p);
-                ESP_LOGI("main", "Config: %s", p);
-                if (!strncmp("\"host\":", p, 9)) {
-                    p += 9;
+                
+                if (!strncmp("\"host\":", p, 7)) {
+                    p += 7;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
+                    memset(host, 0, sizeof(host));
                     sprintf(host, "%s", p);
-                } else if (!strncmp("\"uri\":", p, 8)) {
-                    p += 8;
+                    ESP_LOGI("main", "host [%s]", host);
+                } else if (!strncmp("\"uri\":", p, 6)) {
+                    p += 6;
                     strdelimit(p, "\"", ' ');
                     strstrip(p);
+                    memset(uri, 0, sizeof(uri));
                     sprintf(uri, "%s", p);
                 }
             }
-            ESP_LOGI("ULIP", "httptest 1[%s%s]", host,uri);
             http_raw_request(host, 80, false, "", uri, "",
                             "", 4, ulip_core_http_callback);
-            
-
+            ESP_LOGI("ULIP", "httptest 1[%s%s]", host,uri);
+            httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
+            httpdStartResponse(connData, 200);
+            httpdHeader(connData, "Content-Length", "0");
+            httpdEndHeaders(connData);
+            return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "deleteall")) {
             fpm_delete_all();
 
@@ -4249,7 +4254,7 @@ void app_main(void)
     // esp_timer_start_once(handle, 5000000);
 
     // esp_timer_start_once(handle2, 10000000);
-    http_init(NULL);
+    http_init("uTech");
     // initialized = true;
     // rfid_init(CFG_get_rfid_timeout(), CFG_get_rfid_retries(), CFG_get_rfid_nfc(), 
     //     CFG_get_rfid_timeout(), CFG_get_rfid_format(), rfid_event, NULL);

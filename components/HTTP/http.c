@@ -74,12 +74,16 @@ static esp_err_t http_event(esp_http_client_event_t *e)
 
     switch(e->event_id) {
         case HTTP_EVENT_ERROR:
+            os_info("HTTP", "HTTP_EVENT_ERROR: %x", e->data);
             break;
         case HTTP_EVENT_ON_CONNECTED:
+            os_info("HTTP", "HTTP_EVENT_ON_CONNECTED");
             break;
         case HTTP_EVENT_HEADER_SENT:
+            os_info("HTTP", "HTTP_EVENT_HEADER_SENT");
             break;
         case HTTP_EVENT_ON_HEADER:
+            os_info("HTTP", "HTTP_EVENT_ON_HEADER");
             break;
         case HTTP_EVENT_ON_DATA:
             req->data = realloc(req->data, req->size + e->data_len + 1);
@@ -90,8 +94,10 @@ static esp_err_t http_event(esp_http_client_event_t *e)
             }
             break;
         case HTTP_EVENT_ON_FINISH:
+            os_info("HTTP", "HTTP_EVENT_ON_FINISH");
             break;
         case HTTP_EVENT_DISCONNECTED:
+            os_info("HTTP", "HTTP_EVENT_DISCONNECTED");
             break;
     }
 
@@ -121,8 +127,13 @@ static void http_task(void *arg)
     request_args *req = (request_args *)arg;
     esp_err_t err;
     int status;
+    char data[256];
+    esp_http_client_get_url(req->client, data, sizeof(data));
+    
+    os_info("HTTP", "HTTP request: %s", data);
+    // req->client = esp_http_client_init();
+    ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_perform(req->client));
 
-    err = esp_http_client_perform(req->client);
     status = esp_http_client_get_status_code(req->client);
     os_debug("HTTP", "HTTP request [%p] status code [%d]",
              req, status);
@@ -133,12 +144,13 @@ static void http_task(void *arg)
         http_destroy(req);
     } else {
         if (req->retries-- <= 0) {
+            os_info("HTTP", "HTTP request [%p] failed", req);
             if (req->user_callback != NULL)
                 req->user_callback(req->path, status, req->data,
                                    req->size);
             http_destroy(req);
         } else {
-            vTaskDelete(req->task);
+            os_info("HTTP", "HTTP request [%p] retry", req);
             req->task = NULL;
             esp_http_client_cleanup(req->client);
             req->client = NULL;
@@ -149,6 +161,7 @@ static void http_task(void *arg)
             req->size = 0;
             os_timer_setfn(&req->timer, (os_timer_func_t *)http_request_retry, req);
             os_timer_arm(&req->timer, HTTP_DEFAULT_TIMEOUT, 0);
+            vTaskDelete(req->task);
         }
     }
 }
@@ -164,8 +177,10 @@ static void dns_callback(const char *hostname, const ip_addr_t *addr,
     char *k;
     char *v;
     int rc;
-
+    
     if (addr) {
+        os_info("HTTP", "DNS lookup succeeded. IP=%s",
+                ip4addr_ntoa((const ip4_addr_t *)addr));
         if (req->task) {
             vTaskDelete(req->task);
             req->task = NULL;
@@ -175,8 +190,8 @@ static void dns_callback(const char *hostname, const ip_addr_t *addr,
             req->client = NULL;
         }
         memset(&config, 0, sizeof(config));
-        config.url = req->path;
-        config.host = inet_ntoa(addr);
+        config.host = ip4addr_ntoa((const ip4_addr_t *)addr);
+        config.path = req->path;
         config.port = req->port;
         config.user_agent = user_agent;
         config.timeout_ms = HTTP_DEFAULT_TIMEOUT;
@@ -226,8 +241,10 @@ static void dns_callback(const char *hostname, const ip_addr_t *addr,
                 k = p;
             }
         }
+        // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_perform(req->client));
+        // rc = pdPASS;
         rc = xTaskCreatePinnedToCore(http_task, "HTTP", 4096, req, 3,
-                                     &req->task, 1);
+                                     &req->task, 0);
         if (rc != pdPASS) {
             os_error("HTTP", "HTTP request [%p] task error",
                      req);
@@ -249,7 +266,7 @@ static void http_request_retry(request_args *req)
     ip_addr_t addr;
     err_t err;
 
-    os_debug("HTTP", "HTTP request [%p] retry", req);
+    os_info("HTTP", "HTTP request [%p] retry", req);
 
     err = dns_gethostbyname(req->hostname, &addr,
                             dns_callback, req);
