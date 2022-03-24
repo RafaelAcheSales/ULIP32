@@ -63,6 +63,7 @@
 #define GPIO_OUTPUT_PIN_SEL (1ULL << GPIO_OUTPUT)
 #define BITBANG 3
 #define UART_TTY 2
+#define HTTP_URL "httpbin.org"
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
 #define BOARD "MLI-1E"
@@ -980,11 +981,11 @@ static void got_ip_event()
     CFG_get_debug(&mode, &level, &host, &port);
     // udp_logging_init(host, port, udp_logging_vprintf);
 }
-static void ulip_core_http_callback(char *uri, char *response_body, int http_status,
-                                    char *response_headers, int body_size)
+static void ulip_core_http_callback(char *path, int status, char *data,
+                                    int len)
 {
-    ESP_LOGI("ULIP", "HTTP response [%s] status [%d]",
-            uri, http_status);
+    if (data && path)
+        ESP_LOGE("main", "http callback %s %d %s %d", path, status, data, len);
 }
 
 static void got_ip_event2(char * ip_address)
@@ -1480,6 +1481,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
     const char *server;
     int port;
     int retries;
+    char host[64] = "";
+    char uri[256] = "";
     char username[64] = "";
     char passwd[64] = "";
     char auth[128] = "";
@@ -1550,8 +1553,37 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
             free(body);
             return HTTPD_CGI_DONE;
         } else if (!strcmp(request, "httptest")) {
-            httpdFindArg(connData->getArgs, "url", url, sizeof(url));
-            http_raw_request(url, 80, false, NULL, NULL, NULL,
+            ESP_LOGI("ULIP", "httptest %s", connData->post.buff);
+            if (!&(connData->post) || !connData->post.buff) {
+                ESP_LOGI("ULIP", "no post data");
+                httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
+                httpdStartResponse(connData, 400);
+                httpdHeader(connData, "Content-Length", "0");
+                httpdEndHeaders(connData);
+                return HTTPD_CGI_DONE;
+            }
+            config = connData->post.buff;
+            ESP_LOGI("main", "JSON: %s", config);
+
+            while ((p = strtok(config, ","))) {
+                config = NULL; 
+                strdelimit(p, "{}\r\n", ' ');
+                strstrip(p);
+                ESP_LOGI("main", "Config: %s", p);
+                if (!strncmp("\"host\":", p, 9)) {
+                    p += 9;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    sprintf(host, "%s", p);
+                } else if (!strncmp("\"uri\":", p, 8)) {
+                    p += 8;
+                    strdelimit(p, "\"", ' ');
+                    strstrip(p);
+                    sprintf(uri, "%s", p);
+                }
+            }
+            ESP_LOGI("ULIP", "httptest 1[%s%s]", host,uri);
+            http_raw_request(host, 80, false, "", uri, "",
                             "", 4, ulip_core_http_callback);
             
 
@@ -4133,14 +4165,14 @@ void app_main(void)
     // CFG_Default();
     // CFG_set_control_mode(0);
     // CFG_set_control_timeout(2);
-    CFG_set_ip_address("10.0.0.43");
-    CFG_set_netmask("255.255.255.0");
-    CFG_set_gateway("10.0.0.1");
-    CFG_set_ap_mode(false);
-    CFG_set_dhcp(false);
-    CFG_set_wifi_ssid("uTech-Wifi");
-    CFG_set_wifi_passwd("01566062");
-    CFG_set_wifi_disable(false);
+    // CFG_set_ip_address("10.0.0.43");
+    // CFG_set_netmask("255.255.255.0");
+    // CFG_set_gateway("10.0.0.1");
+    // CFG_set_ap_mode(false);
+    // CFG_set_dhcp(false);
+    // CFG_set_wifi_ssid("uTech-Wifi");
+    // CFG_set_wifi_passwd("01566062");
+    // CFG_set_wifi_disable(true);
     // CFG_set_eth_dhcp(true);
     // CFG_set_eth_enable(true);
     // CFG_set_eth_ip_address("10.0.0.253");
@@ -4217,7 +4249,7 @@ void app_main(void)
     // esp_timer_start_once(handle, 5000000);
 
     // esp_timer_start_once(handle2, 10000000);
-
+    http_init(NULL);
     // initialized = true;
     // rfid_init(CFG_get_rfid_timeout(), CFG_get_rfid_retries(), CFG_get_rfid_nfc(), 
     //     CFG_get_rfid_timeout(), CFG_get_rfid_format(), rfid_event, NULL);

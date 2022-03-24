@@ -227,7 +227,7 @@ static void dns_callback(const char *hostname, const ip_addr_t *addr,
             }
         }
         rc = xTaskCreatePinnedToCore(http_task, "HTTP", 4096, req, 3,
-                                     &req->task, xPortGetCoreID());
+                                     &req->task, 1);
         if (rc != pdPASS) {
             os_error("HTTP", "HTTP request [%p] task error",
                      req);

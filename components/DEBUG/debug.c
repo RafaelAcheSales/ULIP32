@@ -3,7 +3,8 @@
 
 #include "osapi.h"
 #include "debug.h"
-
+#define RED "\e[0;31m"
+#define GRN "\e[0;32m"
 typedef void (*debug_handler_t)(const char *domain,
                                 const char *format,
                                 va_list args);
