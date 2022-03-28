@@ -6,7 +6,9 @@
    software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
    CONDITIONS OF ANY KIND, either express or implied.
 */
-#include <stdbool.h>   
+#include <stdbool.h>
+#include "tcpip_adapter.h"
+#include "lwip/dns.h"
 #include "account.h"
 #include "ap.h"
 #include "bluetooth.h"
@@ -64,8 +66,10 @@
 #define BITBANG 3
 #define UART_TTY 2
 #define HTTP_URL "httpbin.org"
+#define DNS_SERVER "8.8.8.8"
 #define RED "\e[0;31m"
 #define GRN "\e[0;32m"
+#define WHT "\e[0;37m"
 #define BOARD "MLI-1E"
 #define ULIP_MODEL "MLI-1WB"
 #define MAGIC_CODE "uTech"
@@ -85,6 +89,11 @@ static account_log_t *acc_log[MAX_ACC_LOG] = {
     NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL
 };
+typedef struct {
+    char host[64];
+    char path[256];
+} http_param_t;
+static http_param_t http_param;
 typedef struct dp_log {
     uint16_t index;
     uint32_t timestamp;
@@ -984,7 +993,7 @@ static void got_ip_event()
 static void ulip_core_http_callback(char *path, int status, char *data,
                                     int len)
 {
-    os_info("main", RED"http callback %s %d", path, status);
+    os_info("main", RED"http callback %s %d"WHT, path, status);
 }
 
 static void got_ip_event2(char * ip_address)
@@ -1584,8 +1593,8 @@ static int ulip_core_httpd_request(HttpdConnData *connData)
                     sprintf(uri, "%s", p);
                 }
             }
-            http_raw_request(host, 80, false, "", uri, "",
-                            "", 4, ulip_core_http_callback);
+            sprintf(http_param.host, "%s", host);
+            sprintf(http_param.path, "%s", uri);
             ESP_LOGI("ULIP", "httptest 1[%s%s]", host,uri);
             httpdSetTransferMode(connData, HTTPD_TRANSFER_CLOSE);
             httpdStartResponse(connData, 200);
@@ -4272,12 +4281,19 @@ void app_main(void)
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     upnp_init(BOARD);
-    // while (1)
-    // {
-    //     vTaskDelay(500);
-    //     // wifi_ap_record_t ap_info;
-    //     // esp_wifi_sta_get_ap_info(&ap_info);
-    //     // os_info("main", "wifi signal %d", ap_info.rssi);
-    // }
+
+    ip_addr_t dns_ip;
+    ip4addr_aton(DNS_SERVER, &dns_ip);
+    dns_setserver(0, &dns_ip);
+    dns_init();
+    
+    while (1)
+    {
+        dns_ip = *dns_getserver(0);
+        ESP_LOGI("main", "%s", ip4addr_ntoa(&dns_ip));
+        vTaskDelay(1000);
+        http_raw_request(http_param.host, 80, true, "", http_param.path, "",
+                            "", 4, ulip_core_http_callback);
+    }
     
 }

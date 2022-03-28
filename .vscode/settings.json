@@ -50,7 +50,8 @@
         "variant": "c",
         "rtc.h": "c",
         "rtc_cntl_reg.h": "c",
-        "osapi.h": "c"
+        "osapi.h": "c",
+        "dns.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled",
     "idf.adapterTargetName": "esp32",

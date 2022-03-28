@@ -103,7 +103,28 @@ static esp_err_t http_event(esp_http_client_event_t *e)
 
     return ESP_OK;
 }
-
+const char * errorToString(int8_t error){
+    switch(error){
+        case 0: return "OK";
+        case -1: return "Out of memory error";
+        case -2: return "Buffer error";
+        case -3: return "Timeout";
+        case -4: return "Routing problem";
+        case -5: return "Operation in progress";
+        case -6: return "Illegal value";
+        case -7: return "Operation would block";
+        case -8: return "Connection aborted";
+        case -9: return "Connection reset";
+        case -10: return "Connection closed";
+        case -11: return "Not connected";
+        case -12: return "Illegal argument";
+        case -13: return "Address in use";
+        case -14: return "Low-level netif error";
+        case -15: return "Already connected";
+        case -55: return "DNS failed";
+        default: return "UNKNOWN";
+    }
+}
 static void http_destroy(request_args *req)
 {
     if (!req) return;
@@ -244,7 +265,7 @@ static void dns_callback(const char *hostname, const ip_addr_t *addr,
         // ESP_ERROR_CHECK_WITHOUT_ABORT(esp_http_client_perform(req->client));
         // rc = pdPASS;
         rc = xTaskCreatePinnedToCore(http_task, "HTTP", 4096, req, 3,
-                                     &req->task, 0);
+                                     &req->task, 1);
         if (rc != pdPASS) {
             os_error("HTTP", "HTTP request [%p] task error",
                      req);
@@ -270,6 +291,7 @@ static void http_request_retry(request_args *req)
 
     err = dns_gethostbyname(req->hostname, &addr,
                             dns_callback, req);
+    os_info("HTTP", "error %s", errorToString(err));
     switch (err) {
         case ERR_OK:
             dns_callback(req->hostname, &addr, req);
@@ -319,6 +341,7 @@ void http_raw_request(const char *hostname, int port, bool secure,
              tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
 
     err = dns_gethostbyname(hostname, &addr, dns_callback, req);
+    os_info("HTTP", "error %s", errorToString(err));
     switch (err) {
         case ERR_OK:
             dns_callback(hostname, &addr, req);
