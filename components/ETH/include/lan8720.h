@@ -20,7 +20,7 @@
 #include "sdkconfig.h"
 #if CONFIG_ETH_USE_SPI_ETHERNET
 #include "driver/spi_master.h"
-#include "gpio17.h"
+// #include "gpio17.h"
 
 #endif // CONFIG_ETH_USE_SPI_ETHERNET
 static esp_eth_handle_t eth_handle = NULL;
@@ -92,7 +92,7 @@ void eth_release() {
 void eth_start(bool dhcp, char * ip_address, char * gateway, char * netmask, void (* got_ip_callback_set)(char * ip_address))
 {  
     got_ip_callback = got_ip_callback_set;
-    set_pin_17(1);
+    // set_pin_17(1);
     esp_netif_config_t cfg = ESP_NETIF_DEFAULT_ETH();
     eth_netif = esp_netif_new(&cfg);
     // Set default handlers to process TCP/IP stuffs

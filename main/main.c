@@ -11,10 +11,11 @@
 #include "tcpip_adapter.h"
 #include "lwip/dns.h"
 #include "account.h"
-
+#include <nvs_flash.h>
 #include "ap.h"
 #include "bluetooth.h"
 #include "config2.h"
+#include "gpio17.h"
 #include "ctl.h"
 #include "esp32_perfmon.h"
 #include "esp_log.h"
@@ -56,8 +57,21 @@
 #include "upnp.h"
 // #include "libesphttpd/auth.h"
 // #include "esp_netif_ip_addr.h"
+#define CFG_WIFI_IP_ADDRESS_AP "192.168.0.5"
+#define CFG_WIFI_NETMASK_AP "255.255.255.0"
+#define CFG_WIFI_GATEWAY_AP "192.168.0.5"
+#define CFG_WIFI_SSID_AP "ESP32-AP"
+#define CFG_WIFI_PASSWORD_AP "12345678"
+#define CFG_WIFI_IP_ADDRESS_STA "10.0.0.43"
+#define CFG_WIFI_NETMASK_STA "255.255.255.0"
+#define CFG_WIFI_GATEWAY_STA"10.0.0.1"
+#define CFG_WIFI_SSID_STA "uTech-Wifi"
+#define CFG_WIFI_PASSWORD_STA "01566062"
+#define ETH_WATCHDOG_TIMEOUT    300000
+#define ETH_CONNECTED_BEEP      2
 
-
+#define WIFI_WATCHDOG_TIMEOUT   300000
+#define WIFI_CONNECTED_BEEP     4
 // #include "freertos/FreeRTOS.h"
 // #include "freertos/task.h"
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -78,10 +92,17 @@
 #define MAX_CONNECTIONS 2
 #define MAX_ACC_LOG             8
 #define MAX_DP_LOG              64
+static os_timer_t eth_timer = {
+    .timer_expire = 0,
+};
+static os_timer_t wifi_timer = {
+    .timer_expire = 0,
+};
 static int clicks = 0;
 static int64_t cnt = 0;
 static int priority = 10;
 static double average = 0;
+static bool wifi_ap_mode = FALSE;
 // static unsigned char cmd[] = {0x7e, 0x00, 0x08, 0x01, 0x00, 0x00, 0x88, 0x64, 0x19};
 // static bool initialized = false;
 static esp_timer_handle_t reboot_timer;
@@ -4156,7 +4177,120 @@ bool ulip_core_probe_status(void)
 {
     return probe_user;
 }
+static void ulet_core_wifi_event(void* arg, esp_event_base_t event_base,
+                                 int32_t event_id, void* event_data)
+{
+    switch (event_id) {
+        case WIFI_EVENT_STA_CONNECTED:
+#if 0
+            if (CFG_get_ap_mode()) {
+                memset(&apConf, 0, sizeof(struct softap_config));
+                apConf.authmode = AUTH_WPA_WPA2_PSK;
+                apConf.channel = e->event_info.connected.channel;
+                apConf.beacon_interval = CFG_get_wifi_beacon_interval();
+                apConf.max_connection = 4;
+                sprintf(apConf.ssid, "%s-%s", CFG_get_wifi_ssid(),
+                        CFG_get_serialnum());
+                strcpy(apConf.password, CFG_get_wifi_passwd());
+                apConf.ssid_hidden = CFG_get_ssid_hidden();
+                apConf.ssid_len = strlen(apConf.ssid);
+                wifi_softap_set_config_current(&apConf);
+                /* Configure network */
+                ipInfo.ip.addr = ipaddr_addr(CFG_get_ip_address());
+                ipInfo.netmask.addr = ipaddr_addr(CFG_get_netmask());
+                ipInfo.gw.addr = ipaddr_addr(CFG_get_gateway());
+                wifi_softap_dhcps_stop();
+                wifi_set_ip_info(SOFTAP_IF, &ipInfo);
+                wifi_softap_dhcps_start();
+            }
+#endif
+            os_timer_disarm(&wifi_timer);
+            wifi_timer.timer_expire = 0;
+            ctl_beep(3);
+            ESP_LOGI("main", "sta connected");
+            break;
+        case WIFI_EVENT_STA_DISCONNECTED:
+            esp_wifi_connect();
+            if (!wifi_timer.timer_expire) {
+                os_timer_setfn(&wifi_timer,
+                               (os_timer_func_t *)ulip_core_system_reboot, NULL);
+                os_timer_arm(&wifi_timer, WIFI_WATCHDOG_TIMEOUT, FALSE);
+                ctl_buzzer_on(CTL_BUZZER_ERROR);
+            }
+            break;
+        case WIFI_EVENT_AP_STACONNECTED:
+            ESP_LOGI("main", "sta connected to us");
+            os_timer_disarm(&wifi_timer);
+            wifi_timer.timer_expire = 0;
+            ctl_beep(WIFI_CONNECTED_BEEP);
+            break;
+        case WIFI_EVENT_AP_STADISCONNECTED:
+            esp_wifi_connect();
+            if (!wifi_timer.timer_expire) {
+                os_timer_setfn(&wifi_timer,
+                               (os_timer_func_t *)ulip_core_system_reboot, NULL);
+                os_timer_arm(&wifi_timer, WIFI_WATCHDOG_TIMEOUT, FALSE);
+                ctl_buzzer_on(CTL_BUZZER_ERROR);
+            }
+            break;
+        default:
+            ESP_LOGI("main", "wifi event %d", event_id);
+            break;
+    }
+}
 
+static void ulet_core_ip_event(void *arg, esp_event_base_t event_base,
+                               int32_t event_id, void *event_data)
+{
+    ip_event_got_ip_t *event;
+    switch (event_id) {
+    case IP_EVENT_STA_GOT_IP:
+        ESP_LOGI("main", "got ip");
+        event = (ip_event_got_ip_t *)event_data;
+        ESP_LOGI("main", IPSTR, IP2STR(&event->ip_info.ip));
+        break;
+    case IP_EVENT_STA_LOST_IP:
+        break;
+    case IP_EVENT_AP_STAIPASSIGNED:
+        break;
+    case IP_EVENT_GOT_IP6:
+        break;
+    case IP_EVENT_ETH_GOT_IP:
+        ESP_LOGI("main", "got ip");
+        event = (ip_event_got_ip_t *)event_data;
+        ESP_LOGI("main", IPSTR, IP2STR(&event->ip_info.ip));
+        break;
+    case IP_EVENT_ETH_LOST_IP:
+        break;
+    default:
+        break;
+    }
+}
+static void ulet_core_eth_event(void *arg, esp_event_base_t event_base,
+                                int32_t event_id, void *event_data)
+{
+    switch (event_id) {
+    case ETHERNET_EVENT_CONNECTED:
+        os_timer_disarm(&eth_timer);
+        eth_timer.timer_expire = 0;
+        ctl_beep(ETH_CONNECTED_BEEP);
+        break;
+    case ETHERNET_EVENT_DISCONNECTED:
+        if (!eth_timer.timer_expire) {
+            os_timer_setfn(&eth_timer,
+                           (os_timer_func_t *)ulip_core_system_reboot, NULL);
+            os_timer_arm(&eth_timer, ETH_WATCHDOG_TIMEOUT, FALSE);
+            ctl_buzzer_on(CTL_BUZZER_ERROR);
+        }
+        break;
+    case ETHERNET_EVENT_START:
+        break;
+    case ETHERNET_EVENT_STOP:
+        break;
+    default:
+        break;
+    }
+}
  
 void ulip_core_erase_user(bool status)
 {
@@ -4169,7 +4303,154 @@ static void timer_callback()
 {
     ESP_LOGI("main", "free heap %x", esp_get_free_heap_size());
 }
+static void ulet_core_init_network(void)
+{
+    esp_netif_ip_info_t ipInfo;
+    uint8_t ethaddr[6];
+    uint8_t wifi_ethaddr[6];
+    bool flow_ctrl = true;
+    const char *mac;
+    ip_addr_t dns;
+    int i;
 
+// FIXME
+CFG_set_dhcp(false);
+CFG_set_ip_address("10.0.0.43");
+CFG_set_netmask("255.255.255.0");
+CFG_set_gateway("10.0.0.1");
+CFG_set_dns("1.1.1.1");
+CFG_set_ap_mode(true);
+CFG_set_wifi_disable(false);
+CFG_set_hotspot(true);
+    esp_netif_init();
+    esp_event_loop_create_default();
+    nvs_flash_init();
+
+    /* Configure MAC */
+    mac = CFG_get_ethaddr();
+    for (i = 0; i < 6; i++)
+        ethaddr[i] = strtol(mac + (i * 3), NULL, 16);
+    mac = CFG_get_ethaddr();
+    for (i = 0; i < 6; i++)
+        wifi_ethaddr[i] = strtol(mac + (i * 3), NULL, 16);
+
+    /* Ethernet */
+    set_pin_17(true);
+    esp_netif_config_t eth_netif_config = ESP_NETIF_DEFAULT_ETH();
+    esp_netif_t *eth_netif = esp_netif_new(&eth_netif_config);
+    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+    mac_config.smi_mdc_gpio_num = 23;
+    mac_config.smi_mdio_gpio_num = 18;
+    esp_eth_mac_t *eth_mac = esp_eth_mac_new_esp32(&mac_config);
+    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+    phy_config.phy_addr = 1;
+    phy_config.reset_gpio_num = -1;
+    esp_eth_phy_t *eth_phy = esp_eth_phy_new_lan8720(&phy_config);
+    esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(eth_mac, eth_phy);
+    esp_eth_handle_t eth_handle = NULL;
+    esp_eth_driver_install(&eth_config, &eth_handle);
+    esp_eth_ioctl(eth_handle, ETH_CMD_S_MAC_ADDR, (void *)ethaddr);
+    esp_eth_ioctl(eth_handle, ETH_CMD_S_FLOW_CTRL, &flow_ctrl);
+    esp_netif_set_hostname(eth_netif, CFG_get_hostname());
+    esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handle));
+    esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID,
+                               ulet_core_eth_event, eth_netif);
+    esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
+                               ulet_core_ip_event, eth_netif);
+    if (!CFG_get_dhcp()) {
+        esp_netif_dhcpc_stop(eth_netif);
+        memset(&ipInfo, 0, sizeof(esp_netif_ip_info_t));
+        esp_netif_str_to_ip4(CFG_get_ip_address(), &ipInfo.ip);
+        esp_netif_str_to_ip4(CFG_get_netmask(), &ipInfo.netmask);
+        esp_netif_str_to_ip4(CFG_get_gateway(), &ipInfo.gw);
+        esp_netif_set_ip_info(eth_netif, &ipInfo);
+    } else {
+        esp_netif_dhcpc_start(eth_netif);
+    }
+    // esp_eth_start(eth_handle);
+
+    /* DNS */
+    if (CFG_get_dns()) {
+        esp_netif_str_to_ip4(CFG_get_dns(), (esp_ip4_addr_t *)&dns);
+        dns_setserver(0, &dns);
+    }
+
+    /* WIFI */
+    if (CFG_get_wifi_disable())
+        return;
+    wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&wifi_init_config);
+    wifi_config_t wifi_config;
+    memset(&wifi_config, 0, sizeof(wifi_config));
+    if (wifi_ap_mode || CFG_get_hotspot()) {
+        ESP_LOGE("main", "Starting AP");
+        /* AP mode is enabled */
+        esp_netif_t *wifi_netif_ap = esp_netif_create_default_wifi_ap();
+        esp_netif_set_mac(wifi_netif_ap, wifi_ethaddr);
+        esp_netif_set_hostname(wifi_netif_ap, CFG_get_hostname());
+        // esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+        //                            ulet_core_wifi_event, wifi_netif_ap);
+        
+        wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+        wifi_config.ap.channel = CFG_get_wifi_channel();
+        wifi_config.ap.beacon_interval = CFG_get_wifi_beacon_interval();
+        wifi_config.ap.max_connection = 4;
+        if (wifi_ap_mode) {
+            sprintf((char *)wifi_config.ap.ssid, "%s-%s", CFG_WIFI_SSID,
+                    CFG_get_serialnum());
+            strcpy((char *)wifi_config.ap.password, CFG_WIFI_PASSWD);
+        } else {
+            strcpy((char *)wifi_config.ap.ssid, CFG_WIFI_SSID_AP);
+
+            strcpy((char *)wifi_config.ap.password, CFG_WIFI_PASSWORD_AP);
+            wifi_config.ap.ssid_hidden = false;
+        }
+        wifi_config.ap.ssid_len = strlen((char *)wifi_config.ap.ssid);
+        esp_wifi_set_mode(WIFI_MODE_AP);
+        esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
+        esp_netif_dhcps_stop(wifi_netif_ap);
+        ipInfo.ip.addr = esp_ip4addr_aton(CFG_WIFI_IP_ADDRESS_AP);
+        ipInfo.netmask.addr = esp_ip4addr_aton(CFG_WIFI_NETMASK_AP);
+        ipInfo.gw.addr = esp_ip4addr_aton(CFG_WIFI_GATEWAY_AP);
+        esp_netif_set_ip_info(wifi_netif_ap, &ipInfo);
+        esp_netif_dhcps_start(wifi_netif_ap);
+        // esp_wifi_start();
+    }
+    if (1) {
+        ESP_LOGE("main", "Starting STA");
+        esp_netif_t *wifi_netif_sta = esp_netif_create_default_wifi_sta();
+        esp_netif_set_mac(wifi_netif_sta, wifi_ethaddr);
+        esp_netif_set_hostname(wifi_netif_sta, CFG_get_hostname());
+        esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                   ulet_core_wifi_event, wifi_netif_sta);
+        esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
+                                   ulet_core_ip_event, wifi_netif_sta);
+
+        wifi_config.sta.channel = CFG_get_wifi_channel();
+        strcpy((char *)wifi_config.sta.ssid, CFG_WIFI_SSID_STA);
+        strcpy((char *)wifi_config.sta.password, CFG_WIFI_PASSWORD_STA);
+        if (!CFG_get_ap_mode()) {
+            esp_wifi_set_mode(WIFI_MODE_STA);
+
+        }
+        else {
+            ESP_LOGE("main", "APSTA mode");
+            esp_wifi_set_mode(WIFI_MODE_APSTA);
+        }
+        esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+        if (!CFG_get_dhcp()) {
+            esp_netif_dhcpc_stop(wifi_netif_sta);
+            ipInfo.ip.addr = esp_ip4addr_aton(CFG_WIFI_IP_ADDRESS_STA);
+            ipInfo.netmask.addr = esp_ip4addr_aton(CFG_WIFI_NETMASK_STA);
+            ipInfo.gw.addr = esp_ip4addr_aton(CFG_WIFI_GATEWAY_STA);
+            esp_netif_set_ip_info(wifi_netif_sta, &ipInfo);
+        } else {
+            esp_netif_dhcps_start(wifi_netif_sta);
+        }
+    }
+    esp_wifi_start();
+    esp_wifi_connect();
+}
 void app_main(void)
 {
 
@@ -4200,10 +4481,10 @@ void app_main(void)
     // CFG_Save();
     
     ctl_init(ctl_event);
-    wifi_init_softap(CFG_get_ap_mode(), CFG_get_ip_address(),
-                     CFG_get_netmask(),CFG_get_gateway(), CFG_get_dhcp(),
-                     CFG_get_wifi_ssid(), CFG_get_wifi_passwd(),CFG_get_wifi_channel(),
-                     CFG_get_wifi_disable(), &got_ip_event2);
+    // wifi_init_softap(CFG_get_ap_mode(), CFG_get_ip_address(),
+    //                  CFG_get_netmask(),CFG_get_gateway(), CFG_get_dhcp(),
+    //                  CFG_get_wifi_ssid(), CFG_get_wifi_passwd(),CFG_get_wifi_channel(),
+    //                  CFG_get_wifi_disable(), &got_ip_event2);
     // CFG_Save();
 
     CFG_set_fingerprint_timeout(100000);
@@ -4275,38 +4556,26 @@ void app_main(void)
              CFG_get_eth_enable(), CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask());
 
     authSetCallback(ulip_core_httpd_auth);
-    if (CFG_get_eth_enable())
-        start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
-    tcpip_adapter_init();
-    httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
-    httpdFreertosStart(&httpdInstance);
+    // if (CFG_get_eth_enable())
+    //     start_eth(CFG_get_eth_dhcp(), CFG_get_eth_ip_address(), CFG_get_eth_gateway(), CFG_get_eth_netmask(), &got_ip_event2);
+    // tcpip_adapter_init();
+    // httpdFreertosInit(&httpdInstance, builtInUrls, 80, connectionMemory, MAX_CONNECTIONS, HTTPD_FLAG_NONE);
+    // httpdFreertosStart(&httpdInstance);
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
-    upnp_init(BOARD);
-    
-    ip_addr_t dns_ip;
-    assert(ip4addr_aton(DNS_SERVER, &dns_ip));
-    dns_setserver(0, &dns_ip);
-    tcpip_adapter_dns_info_t dns_info = {
-        .ip.type = IPADDR_TYPE_V4,
-        .ip.u_addr.ip4 = {
-            .addr = 134744072,
-        }
-    };
-    
-    tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, 0, &dns_info);
-    sprintf(http_param.host, "google.com");
-    sprintf(http_param.path, "/");
-    dns_init();
-    os_timer_t timer;
-    os_timer_setfn(&timer, (os_timer_func_t *)timer_callback, NULL);
-    os_timer_arm(&timer, 400, 1);
-    while (1)
-    {
-        dns_ip = *dns_getserver(0);
-        ESP_LOGI("main", "%s", ipaddr_ntoa(&dns_ip));
-        vTaskDelay(1000);
-        http_raw_request(http_param.host, 80, true, "", http_param.path, "",
-                            "", 4, ulip_core_http_callback);
-    }
+    // upnp_init(BOARD);
+
+
+    // os_timer_t timer;
+    // os_timer_setfn(&timer, (os_timer_func_t *)timer_callback, NULL);
+    // os_timer_arm(&timer, 400, 1);
+    // while (1)
+    // {
+    //     dns_ip = *dns_getserver(0);
+    //     ESP_LOGI("main", "%s", ipaddr_ntoa(&dns_ip));
+    //     vTaskDelay(1000);
+    //     http_raw_request(http_param.host, 80, true, "", http_param.path, "",
+    //                         "", 4, ulip_core_http_callback);
+    // }
+    ulet_core_init_network();
 }
