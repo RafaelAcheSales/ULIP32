@@ -4,6 +4,7 @@
 #include <lwip/dns.h>
 #include <esp_http_client.h>
 #include <freertos/FreeRTOS.h>
+#include <esp_log.h>
 
 #include "osapi.h"
 #include "debug.h"
@@ -113,16 +114,18 @@ const char * errorToString(int8_t error){
         case -5: return "Operation in progress";
         case -6: return "Illegal value";
         case -7: return "Operation would block";
-        case -8: return "Connection aborted";
-        case -9: return "Connection reset";
-        case -10: return "Connection closed";
+        case -8: return "Adress in use";
+        case -9: return "Already connecting";
+        case -10: return "Already connected";
         case -11: return "Not connected";
-        case -12: return "Illegal argument";
-        case -13: return "Address in use";
-        case -14: return "Low-level netif error";
-        case -15: return "Already connected";
-        case -55: return "DNS failed";
+        case -12: return "Low-level netif error";
+        case -13: return "Connection aborted";
+        case -14: return "Connection reset";
+        case -15: return "Connection closed";
+        case -16: return "Illegal argument";
         default: return "UNKNOWN";
+
+        
     }
 }
 static void http_destroy(request_args *req)
@@ -291,7 +294,7 @@ static void http_request_retry(request_args *req)
 
     err = dns_gethostbyname(req->hostname, &addr,
                             dns_callback, req);
-    os_info("HTTP", "error %s", errorToString(err));
+    ESP_LOGE("HTTP", "error %s", errorToString(err));
     switch (err) {
         case ERR_OK:
             dns_callback(req->hostname, &addr, req);
@@ -341,7 +344,7 @@ void http_raw_request(const char *hostname, int port, bool secure,
              tm->tm_year, tm->tm_hour, tm->tm_min, tm->tm_sec);
 
     err = dns_gethostbyname(hostname, &addr, dns_callback, req);
-    os_info("HTTP", "error %s", errorToString(err));
+    ESP_LOGE("HTTP", "error %s", errorToString(err));
     switch (err) {
         case ERR_OK:
             dns_callback(hostname, &addr, req);

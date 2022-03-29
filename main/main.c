@@ -7,9 +7,11 @@
    CONDITIONS OF ANY KIND, either express or implied.
 */
 #include <stdbool.h>
+#include "osapi.h"
 #include "tcpip_adapter.h"
 #include "lwip/dns.h"
 #include "account.h"
+
 #include "ap.h"
 #include "bluetooth.h"
 #include "config2.h"
@@ -4165,7 +4167,7 @@ void ulip_core_erase_user(bool status)
 
 static void timer_callback()
 {
-    xTaskCreate(release_task, "release task", 4096, NULL, 10, NULL);
+    ESP_LOGI("main", "free heap %x", esp_get_free_heap_size());
 }
 
 void app_main(void)
@@ -4195,7 +4197,7 @@ void app_main(void)
     // CFG_set_web_user("admin");
     // CFG_set_web_passwd("01566062");
     CFG_set_debug(1, 7, "10.0.0.140", 64195);
-    CFG_Save();
+    // CFG_Save();
     
     ctl_init(ctl_event);
     wifi_init_softap(CFG_get_ap_mode(), CFG_get_ip_address(),
@@ -4281,19 +4283,30 @@ void app_main(void)
     // fpm_init(0,CFG_get_fingerprint_security(),
     //         CFG_get_fingerprint_identify_retries(),fingerprint_event, NULL);
     upnp_init(BOARD);
-
-    ip_addr_t dns_ip;
-    ip4addr_aton(DNS_SERVER, &dns_ip);
-    dns_setserver(0, &dns_ip);
-    dns_init();
     
+    ip_addr_t dns_ip;
+    assert(ip4addr_aton(DNS_SERVER, &dns_ip));
+    dns_setserver(0, &dns_ip);
+    tcpip_adapter_dns_info_t dns_info = {
+        .ip.type = IPADDR_TYPE_V4,
+        .ip.u_addr.ip4 = {
+            .addr = 134744072,
+        }
+    };
+    
+    tcpip_adapter_set_dns_info(TCPIP_ADAPTER_IF_ETH, 0, &dns_info);
+    sprintf(http_param.host, "google.com");
+    sprintf(http_param.path, "/");
+    dns_init();
+    os_timer_t timer;
+    os_timer_setfn(&timer, (os_timer_func_t *)timer_callback, NULL);
+    os_timer_arm(&timer, 400, 1);
     while (1)
     {
         dns_ip = *dns_getserver(0);
-        ESP_LOGI("main", "%s", ip4addr_ntoa(&dns_ip));
+        ESP_LOGI("main", "%s", ipaddr_ntoa(&dns_ip));
         vTaskDelay(1000);
         http_raw_request(http_param.host, 80, true, "", http_param.path, "",
                             "", 4, ulip_core_http_callback);
     }
-    
 }
