@@ -1,0 +1,191 @@
+#define CFG_WIFI_IP_ADDRESS_AP "192.168.0.5"
+#define CFG_WIFI_NETMASK_AP "255.255.255.0"
+#define CFG_WIFI_GATEWAY_AP "192.168.0.5"
+#define CFG_WIFI_SSID_AP "ESP32-AP"
+#define CFG_WIFI_PASSWORD_AP "12345678"
+#define CFG_WIFI_IP_ADDRESS_STA "10.0.0.43"
+#define CFG_WIFI_NETMASK_STA "255.255.255.0"
+#define CFG_WIFI_GATEWAY_STA "10.0.0.1"
+#define CFG_WIFI_SSID_STA "uTech-Wifi"
+#define CFG_WIFI_PASSWORD_STA "01566062"
+
+static void ulet_core_init_network(void)
+{
+    esp_netif_ip_info_t ipInfo;
+    uint8_t ethaddr[6];
+    uint8_t wifi_ethaddr[6];
+    bool flow_ctrl = true;
+    const char *mac;
+    ip_addr_t dns;
+    int i;
+
+    // FIXME
+    CFG_set_dhcp(true);
+    CFG_set_ip_address("10.0.0.43");
+    CFG_set_netmask("255.255.255.0");
+    CFG_set_gateway("10.0.0.1");
+    CFG_set_dns("1.1.1.1");
+    CFG_set_hotspot(false);
+    CFG_set_wifi_disable(false);
+    CFG_set_ap_mode(true);
+
+    esp_netif_init();
+    esp_event_loop_create_default();
+    nvs_flash_init();
+
+    /* Configure MAC */
+    mac = CFG_get_ethaddr();
+    for (i = 0; i < 6; i++)
+        ethaddr[i] = strtol(mac + (i * 3), NULL, 16);
+    // mac = CFG_get_wifi_ethaddr();
+    // for (i = 0; i < 6; i++)
+    //     wifi_ethaddr[i] = strtol(mac + (i * 3), NULL, 16);
+
+    /* Ethernet */
+    set_pin_17(true);
+    esp_netif_config_t eth_netif_config = ESP_NETIF_DEFAULT_ETH();
+    esp_netif_t *eth_netif = esp_netif_new(&eth_netif_config);
+    eth_mac_config_t mac_config = ETH_MAC_DEFAULT_CONFIG();
+    mac_config.smi_mdc_gpio_num = GPIO_NUM_23;
+    mac_config.smi_mdio_gpio_num = GPIO_NUM_18;
+    esp_eth_mac_t *eth_mac = esp_eth_mac_new_esp32(&mac_config);
+    eth_phy_config_t phy_config = ETH_PHY_DEFAULT_CONFIG();
+    phy_config.phy_addr = 1;
+    phy_config.reset_gpio_num = -1;
+    esp_eth_phy_t *eth_phy = esp_eth_phy_new_lan8720(&phy_config);
+    esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(eth_mac, eth_phy);
+    esp_eth_handle_t eth_handle = NULL;
+    esp_eth_driver_install(&eth_config, &eth_handle);
+    esp_eth_ioctl(eth_handle, ETH_CMD_S_MAC_ADDR, (void *)ethaddr);
+    esp_eth_ioctl(eth_handle, ETH_CMD_S_FLOW_CTRL, &flow_ctrl);
+    esp_netif_set_hostname(eth_netif, CFG_get_hostname());
+    esp_netif_attach(eth_netif, esp_eth_new_netif_glue(eth_handle));
+    esp_event_handler_register(ETH_EVENT, ESP_EVENT_ANY_ID,
+                               ulet_core_eth_event, eth_netif);
+    esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
+                               ulet_core_ip_event, eth_netif);
+    if (!CFG_get_dhcp())
+    {
+        esp_netif_dhcpc_stop(eth_netif);
+        memset(&ipInfo, 0, sizeof(esp_netif_ip_info_t));
+        esp_netif_str_to_ip4(CFG_get_ip_address(), &ipInfo.ip);
+        esp_netif_str_to_ip4(CFG_get_netmask(), &ipInfo.netmask);
+        esp_netif_str_to_ip4(CFG_get_gateway(), &ipInfo.gw);
+        esp_netif_set_ip_info(eth_netif, &ipInfo);
+    }
+    else
+    {
+        esp_netif_dhcpc_start(eth_netif);
+    }
+    esp_eth_start(eth_handle);
+
+    /* DNS */
+    if (CFG_get_dns())
+    {
+        esp_netif_str_to_ip4(CFG_get_dns(), (esp_ip4_addr_t *)&dns);
+        dns_setserver(0, &dns);
+    }
+
+    /* WIFI */
+    if (CFG_get_wifi_disable())
+        return;
+    if (wifi_ap_mode || CFG_get_hotspot())
+    {
+        /* AP mode is enabled */
+        wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
+        esp_wifi_init(&wifi_init_config);
+        esp_netif_t *wifi_netif = esp_netif_create_default_wifi_ap();
+        // esp_netif_set_mac(wifi_netif, wifi_ethaddr);
+        // esp_netif_set_hostname(wifi_netif, CFG_get_hostname());
+        esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                   ulet_core_wifi_event, wifi_netif);
+        wifi_config_t wifi_config;
+        memset(&wifi_config, 0, sizeof(wifi_config));
+        wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+        wifi_config.ap.channel = CFG_get_wifi_channel();
+        wifi_config.ap.beacon_interval = CFG_get_wifi_beacon_interval();
+        wifi_config.ap.max_connection = 4;
+        if (wifi_ap_mode)
+        {
+            sprintf((char *)wifi_config.ap.ssid, "%s-%s", CFG_WIFI_SSID,
+                    CFG_get_serialnum());
+            strcpy((char *)wifi_config.ap.password, CFG_WIFI_PASSWD);
+        }
+        else
+        {
+            strcpy((char *)wifi_config.ap.ssid, CFG_WIFI_SSID_AP);
+            strcpy((char *)wifi_config.ap.password, CFG_WIFI_PASSWORD_AP);
+            wifi_config.ap.ssid_hidden = false;
+        }
+        wifi_config.ap.ssid_len = strlen((char *)wifi_config.ap.ssid);
+        esp_wifi_set_mode(WIFI_MODE_AP);
+        esp_wifi_set_config(WIFI_IF_AP, &wifi_config);
+        esp_netif_dhcps_stop(wifi_netif);
+        ipInfo.ip.addr = esp_ip4addr_aton(CFG_WIFI_IP_ADDRESS_AP);
+        ipInfo.netmask.addr = esp_ip4addr_aton(CFG_WIFI_NETMASK_AP);
+        ipInfo.gw.addr = esp_ip4addr_aton(CFG_WIFI_GATEWAY_AP);
+        esp_netif_set_ip_info(wifi_netif, &ipInfo);
+        esp_netif_dhcps_start(wifi_netif);
+        esp_wifi_start();
+    }
+    else
+    {
+        wifi_init_config_t wifi_init_config = WIFI_INIT_CONFIG_DEFAULT();
+        esp_wifi_init(&wifi_init_config);
+        esp_netif_t *wifi_netif = esp_netif_create_default_wifi_sta();
+        // esp_netif_set_mac(wifi_netif, wifi_ethaddr);
+        // esp_netif_set_hostname(wifi_netif, CFG_get_hostname());
+        esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                                   ulet_core_wifi_event, wifi_netif);
+        esp_event_handler_register(IP_EVENT, ESP_EVENT_ANY_ID,
+                                   ulet_core_ip_event, wifi_netif);
+        ESP_LOGE("main", "event handler registered");
+        wifi_config_t wifi_config;
+        memset(&wifi_config, 0, sizeof(wifi_config));
+        wifi_config.sta.channel = CFG_get_wifi_channel();
+        strcpy((char *)wifi_config.sta.ssid, CFG_WIFI_SSID_STA);
+        strcpy((char *)wifi_config.sta.password, CFG_WIFI_PASSWORD_STA);
+        if (!CFG_get_ap_mode())
+            esp_wifi_set_mode(WIFI_MODE_STA);
+        else
+        {
+            esp_wifi_set_mode(WIFI_MODE_APSTA);
+            esp_netif_t *softAP_netif = esp_netif_create_default_wifi_ap();
+            wifi_config_t softAP_config;
+            memset(&softAP_config, 0, sizeof(softAP_config));
+            softAP_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+            softAP_config.ap.channel = CFG_get_wifi_channel();
+            softAP_config.ap.beacon_interval = CFG_get_wifi_beacon_interval();
+            softAP_config.ap.max_connection = 4;
+            ESP_LOGE("main", "Starting softAP");
+            sprintf((char *)softAP_config.ap.ssid, "%s-%s", CFG_get_wifi_ssid(),
+                    CFG_get_serialnum());
+            strcpy((char *)softAP_config.ap.password, CFG_get_wifi_passwd());
+            softAP_config.ap.ssid_hidden = CFG_get_ssid_hidden();
+            softAP_config.ap.ssid_len = strlen((char *)softAP_config.ap.ssid);
+            esp_wifi_set_config(ESP_IF_WIFI_AP, &softAP_config);
+            /* Configure network */
+            esp_netif_ip_info_t ipInfo;
+            ipInfo.ip.addr = ipaddr_addr(CFG_WIFI_IP_ADDRESS_STA);
+            ipInfo.netmask.addr = ipaddr_addr(CFG_WIFI_NETMASK_STA);
+            ipInfo.gw.addr = ipaddr_addr(CFG_WIFI_GATEWAY_STA);
+            esp_netif_dhcps_stop(softAP_netif);
+            esp_netif_set_ip_info(softAP_netif, &ipInfo);
+            esp_netif_dhcps_start(softAP_netif);
+        }
+        esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+        if (!CFG_get_dhcp())
+        {
+            esp_netif_dhcpc_stop(wifi_netif);
+            ipInfo.ip.addr = esp_ip4addr_aton(CFG_WIFI_IP_ADDRESS_STA);
+            ipInfo.netmask.addr = esp_ip4addr_aton(CFG_WIFI_NETMASK_STA);
+            ipInfo.gw.addr = esp_ip4addr_aton(CFG_WIFI_GATEWAY_STA);
+            esp_netif_set_ip_info(wifi_netif, &ipInfo);
+        }
+        else
+        {
+            esp_netif_dhcpc_start(wifi_netif);
+        }
+        esp_wifi_start();
+    }
+}
