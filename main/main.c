@@ -64,10 +64,10 @@
 #define CFG_WIFI_GATEWAY_AP "192.168.0.5"
 #define CFG_WIFI_SSID_AP "ESP32-AP"
 #define CFG_WIFI_PASSWORD_AP "12345678"
-#define CFG_WIFI_IP_ADDRESS_STA "10.0.0.43"
+#define CFG_WIFI_IP_ADDRESS_STA "10.0.1.98"
 #define CFG_WIFI_NETMASK_STA "255.255.255.0"
-#define CFG_WIFI_GATEWAY_STA "10.0.0.1"
-#define CFG_WIFI_SSID_STA "uTech-Wifi"
+#define CFG_WIFI_GATEWAY_STA "10.0.1.1"
+#define CFG_WIFI_SSID_STA "uTech-Wifi-Testes"
 #define CFG_WIFI_PASSWORD_STA "01566062"
 #define ETH_WATCHDOG_TIMEOUT 300000
 #define ETH_CONNECTED_BEEP 2
@@ -4998,14 +4998,14 @@ static void ulet_core_init_network(void)
     int i;
 
     // FIXME
-    CFG_set_dhcp(true);
-    CFG_set_ip_address("10.0.0.43");
+    CFG_set_dhcp(false);
+    CFG_set_ip_address("10.0.1.98");
     CFG_set_netmask("255.255.255.0");
-    CFG_set_gateway("10.0.0.1");
+    CFG_set_gateway("10.0.1.1");
     CFG_set_dns("1.1.1.1");
     CFG_set_hotspot(false);
     CFG_set_wifi_disable(false);
-    CFG_set_ap_mode(true);
+    CFG_set_ap_mode(false);
 
     esp_netif_init();
     esp_event_loop_create_default();
@@ -5183,8 +5183,8 @@ void app_main(void)
     // CFG_set_gateway("10.0.0.1");
     // CFG_set_ap_mode(false);
     // CFG_set_dhcp(false);
-    // CFG_set_wifi_ssid("uTech-Wifi");
-    // CFG_set_wifi_passwd("01566062");
+    CFG_set_wifi_ssid("uTech-Wifi-Testes");
+    CFG_set_wifi_passwd("01566062");
     // CFG_set_wifi_disable(true);
     // CFG_set_eth_dhcp(true);
     // CFG_set_eth_enable(true);
@@ -5240,8 +5240,8 @@ void app_main(void)
 
     // CFG_set_rs485_hwaddr(2);
     // CFG_set_rs485_server_hwaddr(1);
-    // rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
-    //                rs485_event, NULL);
+    rs485_init(0, CFG_get_rs485_hwaddr(), 3, 1000000,
+                   rs485_event, NULL);
     printf("Hello world!\n");
 
     // ESP_LOGI("main", "tasks: %u", uxTaskGetNumberOfTasks());
